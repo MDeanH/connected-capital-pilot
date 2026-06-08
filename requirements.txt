@@ -1,0 +1,18 @@
+streamlit>=1.35
+pandas>=2.2
+numpy>=1.26
+plotly>=5.22
+pydantic>=2.7
+python-dotenv>=1.0
+# Optional but recommended for full features
+fredapi>=0.5.0
+pdfplumber>=0.11
+# LLM / agent (local-first; install ollama separately or use xai sdk)
+# langchain>=0.2
+# langchain-ollama>=0.1
+# For xAI fallback (with redaction for sensitive text):
+# xai-sdk  (or openai-compatible if using grok)
+
+# Dev / future
+# scikit-learn>=1.5  # for logistic / calibration when labeled data available
+# joblib>=1.4
