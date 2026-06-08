@@ -169,16 +169,61 @@ export default function App() {
     setDdqNotes('')
   }
 
-  const sendChat = () => {
-    if (!chatInput.trim()) return
-    const userMsg = chatInput.trim()
+  const [isCopilotThinking, setIsCopilotThinking] = useState(false)
+
+  const sendChat = async () => {
+    const trimmed = chatInput.trim()
+    if (!trimmed) return
+
+    const userMsg = trimmed
     setChatHistory(prev => [...prev, { role: 'user', content: userMsg }])
     setChatInput('')
+    setIsCopilotThinking(true)
 
-    setTimeout(() => {
-      const reply = `Based on current weights and the selected opportunity: high execution risk + elevated LTV are the largest negative drivers. A +150bps rate shock would reduce P(hit) by ~11-14pp. (This is a client-side mock. In production the Netlify function calls the xAI API for real analysis.)`
-      setChatHistory(prev => [...prev, { role: 'assistant', content: reply }])
-    }, 600)
+    const context = `
+Current model:
+- Target return: ${(config.target_return_default * 100).toFixed(0)}%
+- Weights: ${JSON.stringify(config.feature_weights)}
+
+Current filtered opportunities (with live scores):
+${filtered.slice(0, 5).map(o => 
+  `- ${o.name} (${o.sub_type}): P(hit)=${(o.score.p_hit_target*100).toFixed(0)}%, expected=${(o.score.expected_return*100).toFixed(1)}%, P(loss)=${(o.score.p_loss*100).toFixed(0)}%, top driver=${o.score.top_drivers[0]}`
+).join('\n')}
+
+Selected opportunity: ${selected ? `${selected.name} - ${selected.score.risk_note}` : 'None'}
+
+Recent past deals used for calibration:
+${pastDeals.slice(0, 3).map(d => `- ${d.id}: realized ${(d.realized_irr*100).toFixed(1)}% (${d.outcome_label})`).join('\n')}
+`.trim()
+
+    try {
+      const res = await fetch('/api/grok/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [{ role: 'user', content: userMsg }],
+          context
+        })
+      })
+
+      const data = await res.json()
+
+      if (data.error) {
+        throw new Error(data.error)
+      }
+
+      setChatHistory(prev => [...prev, { 
+        role: 'assistant', 
+        content: data.reply || "No response from the model." 
+      }])
+    } catch (err: any) {
+      setChatHistory(prev => [...prev, { 
+        role: 'assistant', 
+        content: `Copilot error: ${err.message}. (Make sure XAI_API_KEY is set in Netlify, or run with "netlify dev" locally.)` 
+      }])
+    } finally {
+      setIsCopilotThinking(false)
+    }
   }
 
   const corrData = [
@@ -242,7 +287,7 @@ export default function App() {
             </div>
 
             <div className="filters">
-              <label>Min Probability: {(minProb * 100).toFixed(0)}%</label>
+              <label>Min Probability: ${(minProb * 100).toFixed(0)}%</label>
               <input type="range" min="0" max="1" step="0.05" value={minProb} onChange={e => setMinProb(parseFloat(e.target.value))} />
               <div>
                 {['Development', 'Value-Add'].map(st => (
@@ -279,13 +324,13 @@ export default function App() {
                     <td>{o.name}</td>
                     <td>{o.sub_type}</td>
                     <td className={o.score.p_hit_target > 0.7 ? 'prob-high' : o.score.p_hit_target > 0.4 ? 'prob-med' : 'prob-low'}>
-                      {(o.score.p_hit_target * 100).toFixed(0)}%
+                      ${(o.score.p_hit_target * 100).toFixed(0)}%
                     </td>
-                    <td>{(o.score.expected_return * 100).toFixed(1)}%</td>
-                    <td>{(o.score.p_loss * 100).toFixed(0)}%</td>
-                    <td>{(o.score.confidence * 100).toFixed(0)}%</td>
+                    <td>${(o.score.expected_return * 100).toFixed(1)}%</td>
+                    <td>${(o.score.p_loss * 100).toFixed(0)}%</td>
+                    <td>${(o.score.confidence * 100).toFixed(0)}%</td>
                     <td>{o.score.top_drivers[0]}</td>
-                    <td>{o.score.recommended_size_pct.toFixed(1)}%</td>
+                    <td>${o.score.recommended_size_pct.toFixed(1)}%</td>
                   </tr>
                 ))}
               </tbody>
@@ -293,19 +338,19 @@ export default function App() {
 
             {selected && (
               <div style={{ marginTop: '2rem' }} className="card">
-                <h3>{selected.name} — {selected.sub_type}</h3>
+                <h3>${selected.name} — ${selected.sub_type}</h3>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '1rem' }}>
                   <div>
                     <div style={{ marginBottom: '0.5rem' }}>Probability of Hitting Target</div>
                     <div style={{ fontSize: '2.2rem', fontWeight: 700, color: selected.score.p_hit_target > 0.65 ? 'var(--success)' : 'var(--warning)' }}>
-                      {(selected.score.p_hit_target * 100).toFixed(0)}%
+                      ${(selected.score.p_hit_target * 100).toFixed(0)}%
                     </div>
                     <div style={{ marginTop: '1rem' }}>
                       <strong>Risk to earn the target:</strong><br />
-                      {selected.score.risk_note}
+                      ${selected.score.risk_note}
                     </div>
                     <div style={{ marginTop: '0.75rem' }}>
-                      <strong>Recommended allocation:</strong> ~{selected.score.recommended_size_pct}% of book (risk-budgeted)
+                      <strong>Recommended allocation:</strong> ~${selected.score.recommended_size_pct}% of book (risk-budgeted)
                     </div>
                   </div>
 
@@ -348,7 +393,7 @@ export default function App() {
             <table>
               <thead><tr><th>Name</th><th>Type</th><th>Sponsor Exits</th><th>LTV</th><th>Risk</th></tr></thead>
               <tbody>
-                {opportunities.map(o => <tr key={o.id}><td>{o.name}</td><td>{o.sub_type}</td><td>{o.sponsor_exits}</td><td>{(o.ltv*100).toFixed(0)}%</td><td>{o.execution_risk}</td></tr>)}
+                {opportunities.map(o => <tr key={o.id}><td>{o.name}</td><td>{o.sub_type}</td><td>{o.sponsor_exits}</td><td>${(o.ltv*100).toFixed(0)}%</td><td>{o.execution_risk}</td></tr>)}
               </tbody>
             </table>
 
@@ -356,7 +401,7 @@ export default function App() {
             <table>
               <thead><tr><th>ID</th><th>Type</th><th>Sponsor Exits</th><th>Realized IRR</th><th>Outcome</th></tr></thead>
               <tbody>
-                {pastDeals.map(d => <tr key={d.id}><td>{d.id}</td><td>{d.sub_type}</td><td>{d.sponsor_exits}</td><td>{(d.realized_irr*100).toFixed(1)}%</td><td>{d.outcome_label}</td></tr>)}
+                {pastDeals.map(d => <tr key={d.id}><td>{d.id}</td><td>{d.sub_type}</td><td>{d.sponsor_exits}</td><td>${(d.realized_irr*100).toFixed(1)}%</td><td>{d.outcome_label}</td></tr>)}
               </tbody>
             </table>
           </div>
@@ -366,10 +411,10 @@ export default function App() {
           <div className="card">
             <h2>DDQ Intake (RE Dev / Value-Add)</h2>
             <div style={{ display: 'grid', gap: '1rem', maxWidth: 520 }}>
-              <label>Sponsor exits (last 10 yrs): {ddqSponsorExits}<br />
+              <label>Sponsor exits (last 10 yrs): ${ddqSponsorExits}<br />
                 <input type="range" min="0" max="12" value={ddqSponsorExits} onChange={e => setDdqSponsorExits(+e.target.value)} />
               </label>
-              <label>Peak LTV: {(ddqLtv*100).toFixed(0)}%<br />
+              <label>Peak LTV: ${(ddqLtv*100).toFixed(0)}%<br />
                 <input type="range" min="0.4" max="0.85" step="0.01" value={ddqLtv} onChange={e => setDdqLtv(+e.target.value)} />
               </label>
               <label>Execution risk:
@@ -390,7 +435,7 @@ export default function App() {
             <p>Live editable weights (changes immediately affect scores on the Dashboard).</p>
             {Object.keys(weights).map((k) => (
               <div key={k} style={{ margin: '12px 0' }}>
-                <label>{k.charAt(0).toUpperCase() + k.slice(1)}: {(weights as any)[k].toFixed(2)}</label>
+                <label>${k.charAt(0).toUpperCase() + k.slice(1)}: ${(weights as any)[k].toFixed(2)}</label>
                 <input type="range" min="0" max="1" step="0.01" value={(weights as any)[k]} onChange={e => updateWeight(k as any, parseFloat(e.target.value))} />
               </div>
             ))}
@@ -434,6 +479,7 @@ export default function App() {
                 {chatHistory.map((m, i) => (
                   <div key={i} className={`message ${m.role}`}>{m.content}</div>
                 ))}
+                {isCopilotThinking && <div className="message assistant">Thinking...</div>}
               </div>
               <div style={{ display: 'flex', padding: '0.5rem', borderTop: '1px solid #2a3142' }}>
                 <input
@@ -442,8 +488,9 @@ export default function App() {
                   onKeyDown={e => e.key === 'Enter' && sendChat()}
                   placeholder="What is driving the low probability on the downtown value-add deal?"
                   style={{ flex: 1, background: '#111', border: '1px solid #2a3142', color: 'white', padding: '0.5rem' }}
+                  disabled={isCopilotThinking}
                 />
-                <button onClick={sendChat} style={{ marginLeft: 8 }}>Send</button>
+                <button onClick={sendChat} style={{ marginLeft: 8 }} disabled={isCopilotThinking}>Send</button>
               </div>
             </div>
           </div>
