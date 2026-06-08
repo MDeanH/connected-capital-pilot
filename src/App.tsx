@@ -324,13 +324,13 @@ ${pastDeals.slice(0, 3).map(d => `- ${d.id}: realized ${(d.realized_irr*100).toF
                     <td>{o.name}</td>
                     <td>{o.sub_type}</td>
                     <td className={o.score.p_hit_target > 0.7 ? 'prob-high' : o.score.p_hit_target > 0.4 ? 'prob-med' : 'prob-low'}>
-                      ${(o.score.p_hit_target * 100).toFixed(0)}%
+                      {(o.score.p_hit_target * 100).toFixed(0)}%
                     </td>
-                    <td>${(o.score.expected_return * 100).toFixed(1)}%</td>
-                    <td>${(o.score.p_loss * 100).toFixed(0)}%</td>
-                    <td>${(o.score.confidence * 100).toFixed(0)}%</td>
+                    <td>{(o.score.expected_return * 100).toFixed(1)}%</td>
+                    <td>{(o.score.p_loss * 100).toFixed(0)}%</td>
+                    <td>{(o.score.confidence * 100).toFixed(0)}%</td>
                     <td>{o.score.top_drivers[0]}</td>
-                    <td>${o.score.recommended_size_pct.toFixed(1)}%</td>
+                    <td>{o.score.recommended_size_pct.toFixed(1)}%</td>
                   </tr>
                 ))}
               </tbody>
@@ -338,19 +338,19 @@ ${pastDeals.slice(0, 3).map(d => `- ${d.id}: realized ${(d.realized_irr*100).toF
 
             {selected && (
               <div style={{ marginTop: '2rem' }} className="card">
-                <h3>${selected.name} — ${selected.sub_type}</h3>
+                <h3>{selected.name} — {selected.sub_type}</h3>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '1rem' }}>
                   <div>
                     <div style={{ marginBottom: '0.5rem' }}>Probability of Hitting Target</div>
                     <div style={{ fontSize: '2.2rem', fontWeight: 700, color: selected.score.p_hit_target > 0.65 ? 'var(--success)' : 'var(--warning)' }}>
-                      ${(selected.score.p_hit_target * 100).toFixed(0)}%
+                      {(selected.score.p_hit_target * 100).toFixed(0)}%
                     </div>
                     <div style={{ marginTop: '1rem' }}>
                       <strong>Risk to earn the target:</strong><br />
-                      ${selected.score.risk_note}
+                      {selected.score.risk_note}
                     </div>
                     <div style={{ marginTop: '0.75rem' }}>
-                      <strong>Recommended allocation:</strong> ~${selected.score.recommended_size_pct}% of book (risk-budgeted)
+                      <strong>Recommended allocation:</strong> ~{selected.score.recommended_size_pct}% of book (risk-budgeted)
                     </div>
                   </div>
 
@@ -475,7 +475,7 @@ ${pastDeals.slice(0, 3).map(d => `- ${d.id}: realized ${(d.realized_irr*100).toF
             <h2>🧠 Diligence Copilot (AI Analyst)</h2>
             <div className="chat">
               <div className="chat-messages">
-                {chatHistory.length === 0 && <div style={{ color: '#64748b' }}>Ask about drivers, scenarios, or recommendations. (Mock responses for now — real Grok calls via Netlify Function in production.)</div>}
+                {chatHistory.length === 0 && <div style={{ color: '#64748b' }}>Ask about drivers, scenarios, or recommendations. The copilot calls the live Grok model via Netlify Function (make sure XAI_API_KEY is set in Netlify).</div>}
                 {chatHistory.map((m, i) => (
                   <div key={i} className={`message ${m.role}`}>{m.content}</div>
                 ))}
