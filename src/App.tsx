@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import Plot from 'react-plotly.js'
 import { Settings, BarChart3, MessageSquare, Upload, Target } from 'lucide-react'
 
@@ -150,7 +150,9 @@ export default function App() {
     }))
   }
 
-  const recompute = () => {}
+  const recompute = () => {
+    // Triggers re-render via state
+  }
 
   const addFromDDQ = () => {
     const newOpp: Opportunity = {
@@ -253,15 +255,19 @@ ${pastDeals.slice(0, 3).map(d => `- ${d.id}: realized ${(d.realized_irr*100).toF
           { id: 'model', label: 'Analyst Model Studio', icon: Settings },
           { id: 'corr', label: 'Correlations', icon: BarChart3 },
           { id: 'copilot', label: '🧠 Diligence Copilot', icon: MessageSquare },
-        ].map(t => (
-          <button
-            key={t.id}
-            className={`tab ${activeTab === t.id ? 'active' : ''}`}
-            onClick={() => setActiveTab(t.id as any)}
-          >
-            {t.label}
-          </button>
-        ))}
+        ].map(t => {
+          const Icon = t.icon;
+          return (
+            <button
+              key={t.id}
+              className={`tab ${activeTab === t.id ? 'active' : ''}`}
+              onClick={() => setActiveTab(t.id as any)}
+            >
+              <Icon size={16} style={{ marginRight: 4, verticalAlign: 'middle' }} />
+              {t.label}
+            </button>
+          );
+        })}
       </div>
 
       <div className="main">
@@ -324,7 +330,7 @@ ${pastDeals.slice(0, 3).map(d => `- ${d.id}: realized ${(d.realized_irr*100).toF
                     <td>{o.name}</td>
                     <td>{o.sub_type}</td>
                     <td className={o.score.p_hit_target > 0.7 ? 'prob-high' : o.score.p_hit_target > 0.4 ? 'prob-med' : 'prob-low'}>
-                      {(o.score.p_hit_target * 100).toFixed(0)}%
+                      ${(o.score.p_hit_target * 100).toFixed(0)}%
                     </td>
                     <td>{(o.score.expected_return * 100).toFixed(1)}%</td>
                     <td>{(o.score.p_loss * 100).toFixed(0)}%</td>
@@ -343,7 +349,7 @@ ${pastDeals.slice(0, 3).map(d => `- ${d.id}: realized ${(d.realized_irr*100).toF
                   <div>
                     <div style={{ marginBottom: '0.5rem' }}>Probability of Hitting Target</div>
                     <div style={{ fontSize: '2.2rem', fontWeight: 700, color: selected.score.p_hit_target > 0.65 ? 'var(--success)' : 'var(--warning)' }}>
-                      {(selected.score.p_hit_target * 100).toFixed(0)}%
+                      ${(selected.score.p_hit_target * 100).toFixed(0)}%
                     </div>
                     <div style={{ marginTop: '1rem' }}>
                       <strong>Risk to earn the target:</strong><br />
