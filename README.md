@@ -27,7 +27,31 @@ Later phases: VC, private lending, RE hedge funds, sports.
 - Wide confidence intervals on thin history
 - Not financial advice
 
-## Quick Start (Local)
+## Quick Start (Local - Streamlit)
+```bash
+cd /Users/friday/Projects/ai-diligence-tool
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+streamlit run app.py
+```
+
+Open http://localhost:8501
+
+## Hosting on Netlify (recommended for production)
+
+This repo now includes a full **React + TypeScript + Plotly** frontend that replicates the Streamlit experience, plus Netlify Functions for the Grok copilot.
+
+See [README-NETLIFY.md](./README-NETLIFY.md) for setup and deployment instructions.
+
+### Deploy steps (one-time)
+1. Connect the GitHub repo to a new Netlify site (or use the included `scripts/deploy-netlify.sh` after `netlify-cli login`).
+2. Set the `XAI_API_KEY` environment variable in Netlify (Site settings → Environment variables) so the Diligence Copilot works.
+3. The included `netlify.toml` handles build + functions + SPA redirects.
+
+The Netlify version is client-side for scoring/UI (very fast) and uses serverless functions only for the AI copilot. The original Python Streamlit version remains available for local use.
+
+## Quick Start (Local - Streamlit)
 ```bash
 cd /Users/friday/Projects/ai-diligence-tool
 python -m venv .venv
