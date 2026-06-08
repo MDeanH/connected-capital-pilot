@@ -1,0 +1,13 @@
+{
+  "source": "fhfa_hpi_master",
+  "n_prices": 423,
+  "n_returns": 422,
+  "ppy": 12,
+  "start": "1991-01-01",
+  "end": "2026-03-01",
+  "fit_mu_ann": 0.04327999159602358,
+  "fit_sigma_ann": 0.01672458723711099,
+  "lag1_ac": 0.7613297243241528,
+  "smoothing_flag": true,
+  "ts": "20260608_191811"
+}

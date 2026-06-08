@@ -25,6 +25,12 @@ wheels/
 .installed.cfg
 *.egg
 
+# Node
+node_modules/
+
+# Backups
+*.bak
+
 # IDE and editors
 .idea/
 .vscode/
@@ -41,7 +47,14 @@ Thumbs.db
 
 # Data and large files
 *.log
-*.csv
 *.xlsx
-data/
+# Ignore bulk raw downloads (Zillow full metro ~4MB+, FHFA master ~17MB) and staged
+# catalog inputs; keep small committed national tidy series + the distribution catalog.
+data/raw/
+data/catalog/raw/
+data/*_raw*
+data/*_full*
+data/*.csv
+!data/zillow_us_national_zhvi_prices.csv
 !data/.gitkeep
+!data/README.md

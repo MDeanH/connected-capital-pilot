@@ -1,0 +1,13 @@
+{
+  "source": "zillow_national_zhvi",
+  "n_prices": 316,
+  "n_returns": 315,
+  "ppy": 12,
+  "start": "2000-01-31",
+  "end": "2026-04-30",
+  "fit_mu_ann": 0.04269419734065094,
+  "fit_sigma_ann": 0.018594512876413564,
+  "lag1_ac": 0.9775796842988809,
+  "smoothing_flag": true,
+  "ts": "20260608_191358"
+}

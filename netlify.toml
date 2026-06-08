@@ -1,0 +1,30 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+  functions = "netlify/functions"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+# Grok / AI copilot proxy
+[[redirects]]
+  from = "/api/grok/chat"
+  to = "/.netlify/functions/grok-chat"
+  status = 200
+
+[[redirects]]
+  from = "/api/grok/voice-token"
+  to = "/.netlify/functions/grok-voice-token"
+  status = 200
+
+# Health / debug
+[[redirects]]
+  from = "/api/health"
+  to = "/.netlify/functions/health"
+  status = 200
+
+# SPA fallback — must be last
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

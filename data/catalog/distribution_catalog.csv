@@ -1,0 +1,1395 @@
+source,metro,what,start,end,n_obs,mu_ann,sigma_ann_raw,lag1_autocorr,smoothing_flag,sigma_ann_desmoothed
+Zillow ZHVI,United States,Home Values,2000-01,2026-04,315,0.0427,0.0186,0.978,True,0.1749
+Zillow ZHVI,"New York, NY",Home Values,2000-01,2026-04,315,0.0467,0.0185,0.975,True,0.1641
+Zillow ZHVI,"Los Angeles, CA",Home Values,2000-01,2026-04,315,0.0578,0.035,0.947,True,0.2119
+Zillow ZHVI,"Chicago, IL",Home Values,2000-01,2026-04,315,0.0317,0.0205,0.944,True,0.1212
+Zillow ZHVI,"Dallas, TX",Home Values,2000-01,2026-04,314,0.0404,0.0202,0.93,True,0.1061
+Zillow ZHVI,"Houston, TX",Home Values,2000-01,2026-04,315,0.0349,0.0163,0.959,True,0.1122
+Zillow ZHVI,"Washington, DC",Home Values,2000-01,2026-04,315,0.0452,0.0248,0.976,True,0.2254
+Zillow ZHVI,"Philadelphia, PA",Home Values,2000-01,2026-04,315,0.0446,0.018,0.963,True,0.1315
+Zillow ZHVI,"Miami, FL",Home Values,2000-01,2026-04,315,0.0561,0.0368,0.989,True,0.4911
+Zillow ZHVI,"Atlanta, GA",Home Values,2000-01,2026-04,315,0.0364,0.0251,0.979,True,0.243
+Zillow ZHVI,"Boston, MA",Home Values,2000-01,2026-04,315,0.0469,0.0197,0.958,True,0.1342
+Zillow ZHVI,"Phoenix, AZ",Home Values,2000-01,2026-04,313,0.0455,0.0439,0.957,True,0.2962
+Zillow ZHVI,"San Francisco, CA",Home Values,2000-01,2026-04,315,0.0535,0.0324,0.956,True,0.2167
+Zillow ZHVI,"Riverside, CA",Home Values,2000-01,2026-04,315,0.0575,0.0428,0.977,True,0.3968
+Zillow ZHVI,"Detroit, MI",Home Values,2000-01,2026-04,315,0.0299,0.0301,0.973,True,0.2566
+Zillow ZHVI,"Seattle, WA",Home Values,2000-01,2026-04,315,0.0473,0.0293,0.956,True,0.197
+Zillow ZHVI,"Minneapolis, MN",Home Values,2000-01,2026-04,315,0.038,0.0214,0.965,True,0.1596
+Zillow ZHVI,"San Diego, CA",Home Values,2000-01,2026-04,315,0.0577,0.034,0.956,True,0.2257
+Zillow ZHVI,"Tampa, FL",Home Values,2000-01,2026-04,315,0.0497,0.0348,0.984,True,0.3924
+Zillow ZHVI,"Denver, CO",Home Values,2000-01,2026-04,315,0.0428,0.0209,0.958,True,0.1421
+Zillow ZHVI,"Baltimore, MD",Home Values,2000-01,2026-04,315,0.0401,0.0211,0.97,True,0.1713
+Zillow ZHVI,"St. Louis, MO",Home Values,2000-01,2026-04,315,0.0336,0.0148,0.948,True,0.091
+Zillow ZHVI,"Orlando, FL",Home Values,2000-01,2026-04,315,0.0463,0.0369,0.987,True,0.4543
+Zillow ZHVI,"Charlotte, NC",Home Values,2000-01,2026-04,315,0.0383,0.0193,0.975,True,0.1702
+Zillow ZHVI,"San Antonio, TX",Home Values,2000-01,2026-04,315,0.0344,0.0168,0.953,True,0.1085
+Zillow ZHVI,"Portland, OR",Home Values,2000-01,2026-04,315,0.0447,0.0246,0.968,True,0.1922
+Zillow ZHVI,"Sacramento, CA",Home Values,2000-01,2026-04,315,0.0484,0.0373,0.977,True,0.3481
+Zillow ZHVI,"Pittsburgh, PA",Home Values,2000-01,2026-04,315,0.0369,0.0127,0.867,True,0.0477
+Zillow ZHVI,"Cincinnati, OH",Home Values,2000-01,2026-04,315,0.0337,0.0151,0.945,True,0.0896
+Zillow ZHVI,"Austin, TX",Home Values,2000-01,2026-04,315,0.0344,0.0284,0.952,True,0.1818
+Zillow ZHVI,"Las Vegas, NV",Home Values,2000-01,2026-04,315,0.0405,0.0471,0.977,True,0.4402
+Zillow ZHVI,"Kansas City, MO",Home Values,2000-01,2026-04,315,0.041,0.0152,0.941,True,0.087
+Zillow ZHVI,"Columbus, OH",Home Values,2000-01,2026-04,315,0.0369,0.016,0.95,True,0.1002
+Zillow ZHVI,"Indianapolis, IN",Home Values,2000-01,2026-04,274,0.0399,0.0164,0.947,True,0.1
+Zillow ZHVI,"Cleveland, OH",Home Values,2000-01,2026-04,315,0.0286,0.0159,0.945,True,0.0944
+Zillow ZHVI,"San Jose, CA",Home Values,2000-01,2026-04,314,0.0585,0.042,0.912,True,0.1963
+Zillow ZHVI,"Nashville, TN",Home Values,2000-01,2026-04,315,0.0448,0.019,0.971,True,0.158
+Zillow ZHVI,"Virginia Beach, VA",Home Values,2000-01,2026-04,315,0.0442,0.0196,0.974,True,0.1706
+Zillow ZHVI,"Providence, RI",Home Values,2000-01,2026-04,315,0.0508,0.024,0.969,True,0.1929
+Zillow ZHVI,"Jacksonville, FL",Home Values,2000-01,2026-04,315,0.0437,0.028,0.98,True,0.2772
+Zillow ZHVI,"Milwaukee, WI",Home Values,2000-01,2026-04,315,0.0375,0.0176,0.934,True,0.0954
+Zillow ZHVI,"Oklahoma City, OK",Home Values,2000-01,2026-04,315,0.0377,0.0116,0.93,True,0.0607
+Zillow ZHVI,"Raleigh, NC",Home Values,2000-01,2026-04,315,0.0358,0.0191,0.967,True,0.1476
+Zillow ZHVI,"Memphis, TN",Home Values,2000-01,2026-04,315,0.0291,0.0179,0.963,True,0.1308
+Zillow ZHVI,"Richmond, VA",Home Values,2000-01,2026-04,314,0.0438,0.0176,0.936,True,0.0975
+Zillow ZHVI,"Louisville, KY",Home Values,2000-01,2026-04,315,0.0354,0.0123,0.918,True,0.0595
+Zillow ZHVI,"New Orleans, LA",Home Values,2000-01,2026-04,315,0.0241,0.0161,0.911,True,0.075
+Zillow ZHVI,"Salt Lake City, UT",Home Values,2000-01,2026-04,315,0.0457,0.0261,0.96,True,0.1826
+Zillow ZHVI,"Hartford, CT",Home Values,2000-01,2026-04,315,0.0379,0.0183,0.948,True,0.112
+Zillow ZHVI,"Buffalo, NY",Home Values,2000-01,2026-04,315,0.0453,0.0147,0.891,True,0.0612
+Zillow ZHVI,"Birmingham, AL",Home Values,2000-01,2026-04,315,0.0322,0.0156,0.938,True,0.0872
+Zillow ZHVI,"Rochester, NY",Home Values,2000-01,2026-04,315,0.039,0.0158,0.898,True,0.0679
+Zillow ZHVI,"Grand Rapids, MI",Home Values,2000-01,2026-04,315,0.041,0.018,0.943,True,0.1051
+Zillow ZHVI,"Tucson, AZ",Home Values,2000-01,2026-04,314,0.0404,0.0324,0.915,True,0.1537
+Zillow ZHVI,"Urban Honolulu, HI",Home Values,2000-01,2026-04,315,0.0526,0.0251,0.938,True,0.1402
+Zillow ZHVI,"Tulsa, OK",Home Values,2000-01,2026-04,315,0.0349,0.0132,0.915,True,0.0622
+Zillow ZHVI,"Fresno, CA",Home Values,2000-01,2026-04,315,0.0508,0.0388,0.967,True,0.2981
+Zillow ZHVI,"Worcester, MA",Home Values,2000-01,2026-04,315,0.0427,0.0231,0.958,True,0.1572
+Zillow ZHVI,"Omaha, NE",Home Values,2000-01,2026-04,315,0.036,0.0147,0.922,True,0.0728
+Zillow ZHVI,"Bridgeport, CT",Home Values,2000-01,2026-04,315,0.0372,0.0218,0.947,True,0.1325
+Zillow ZHVI,"Greenville, SC",Home Values,2000-01,2026-04,315,0.0373,0.0141,0.956,True,0.094
+Zillow ZHVI,"Albuquerque, NM",Home Values,2000-01,2026-04,286,0.0394,0.0191,0.962,True,0.137
+Zillow ZHVI,"Bakersfield, CA",Home Values,2000-01,2026-04,315,0.0517,0.0422,0.968,True,0.3319
+Zillow ZHVI,"Albany, NY",Home Values,2000-01,2026-04,315,0.0441,0.0151,0.943,True,0.0885
+Zillow ZHVI,"Knoxville, TN",Home Values,2000-01,2026-04,315,0.048,0.0175,0.955,True,0.1161
+Zillow ZHVI,"Baton Rouge, LA",Home Values,2000-01,2026-04,288,0.0253,0.016,0.854,True,0.0554
+Zillow ZHVI,"McAllen, TX",Home Values,2000-01,2026-04,227,0.0473,0.0262,0.414,True,0.0408
+Zillow ZHVI,"New Haven, CT",Home Values,2000-01,2026-04,315,0.0397,0.0229,0.941,True,0.1311
+Zillow ZHVI,"El Paso, TX",Home Values,2000-01,2026-04,315,0.0328,0.0176,0.93,True,0.0927
+Zillow ZHVI,"Allentown, PA",Home Values,2000-01,2026-04,315,0.0432,0.0192,0.961,True,0.1372
+Zillow ZHVI,"Oxnard, CA",Home Values,2000-01,2026-04,315,0.0475,0.0326,0.96,True,0.2287
+Zillow ZHVI,"Columbia, SC",Home Values,2000-01,2026-04,314,0.0332,0.015,0.92,True,0.0735
+Zillow ZHVI,"North Port, FL",Home Values,2000-01,2026-04,315,0.0438,0.0389,0.981,True,0.4022
+Zillow ZHVI,"Charleston, SC",Home Values,2000-01,2026-04,315,0.0464,0.0216,0.971,True,0.1789
+Zillow ZHVI,"Greensboro, NC",Home Values,2000-01,2026-04,315,0.0337,0.0153,0.937,True,0.0852
+Zillow ZHVI,"Stockton, CA",Home Values,2000-01,2026-04,315,0.047,0.0511,0.974,True,0.4436
+Zillow ZHVI,"Cape Coral, FL",Home Values,2000-01,2026-04,315,0.0385,0.0443,0.981,True,0.4545
+Zillow ZHVI,"Boise City, ID",Home Values,2000-01,2026-04,300,0.0496,0.0376,0.87,True,0.1429
+Zillow ZHVI,"Colorado Springs, CO",Home Values,2000-01,2026-04,315,0.0395,0.0182,0.957,True,0.122
+Zillow ZHVI,"Little Rock, AR",Home Values,2000-01,2026-04,314,0.0307,0.011,0.924,True,0.0555
+Zillow ZHVI,"Lakeland, FL",Home Values,2000-01,2026-04,314,0.0468,0.0357,0.961,True,0.253
+Zillow ZHVI,"Akron, OH",Home Values,2000-01,2026-04,315,0.0302,0.0144,0.92,True,0.0708
+Zillow ZHVI,"Des Moines, IA",Home Values,2000-01,2026-04,315,0.0357,0.0113,0.93,True,0.0593
+Zillow ZHVI,"Springfield, MA",Home Values,2000-01,2026-04,315,0.0415,0.0179,0.934,True,0.0974
+Zillow ZHVI,"Ogden, UT",Home Values,2000-01,2026-04,315,0.0457,0.023,0.961,True,0.164
+Zillow ZHVI,"Madison, WI",Home Values,2000-01,2026-04,315,0.0423,0.0138,0.919,True,0.0671
+Zillow ZHVI,"Winston, NC",Home Values,2000-01,2026-04,315,0.0339,0.0157,0.936,True,0.0865
+Zillow ZHVI,"Deltona, FL",Home Values,2000-01,2026-04,315,0.0464,0.0355,0.98,True,0.3578
+Zillow ZHVI,"Syracuse, NY",Home Values,2000-01,2026-04,315,0.0466,0.0148,0.9,True,0.0644
+Zillow ZHVI,"Provo, UT",Home Values,2000-01,2026-04,311,0.0435,0.0275,0.965,True,0.2052
+Zillow ZHVI,"Toledo, OH",Home Values,2000-01,2026-04,315,0.0331,0.0168,0.907,True,0.076
+Zillow ZHVI,"Wichita, KS",Home Values,2000-01,2026-04,288,0.0346,0.0172,0.848,True,0.0591
+Zillow ZHVI,"Durham, NC",Home Values,2000-01,2026-04,314,0.0365,0.0187,0.934,True,0.1012
+Zillow ZHVI,"Augusta, GA",Home Values,2000-01,2026-04,315,0.0366,0.0145,0.946,True,0.0875
+Zillow ZHVI,"Palm Bay, FL",Home Values,2000-01,2026-04,315,0.0463,0.038,0.983,True,0.4048
+Zillow ZHVI,"Jackson, MS",Home Values,2000-01,2026-04,276,0.0299,0.0156,0.912,True,0.0729
+Zillow ZHVI,"Harrisburg, PA",Home Values,2000-01,2026-04,315,0.0372,0.0126,0.926,True,0.0644
+Zillow ZHVI,"Spokane, WA",Home Values,2000-01,2026-04,315,0.0481,0.0257,0.942,True,0.149
+Zillow ZHVI,"Scranton, PA",Home Values,2000-01,2026-04,315,0.0376,0.0172,0.863,True,0.0636
+Zillow ZHVI,"Chattanooga, TN",Home Values,2000-01,2026-04,315,0.0392,0.0155,0.956,True,0.1027
+Zillow ZHVI,"Modesto, CA",Home Values,2000-01,2026-04,315,0.047,0.0506,0.974,True,0.4401
+Zillow ZHVI,"Lancaster, PA",Home Values,2000-01,2026-04,284,0.0433,0.0162,0.928,True,0.0838
+Zillow ZHVI,"Portland, ME",Home Values,2000-01,2026-04,315,0.0532,0.0217,0.945,True,0.1287
+Zillow ZHVI,"Youngstown, OH",Home Values,2000-01,2026-04,315,0.0299,0.0167,0.915,True,0.0797
+Zillow ZHVI,"Lansing, MI",Home Values,2000-01,2026-04,315,0.0365,0.0181,0.931,True,0.0958
+Zillow ZHVI,"Fayetteville, AR",Home Values,2000-01,2026-04,311,0.0439,0.0243,0.665,True,0.0543
+Zillow ZHVI,"Fayetteville, NC",Home Values,2000-01,2026-04,315,0.032,0.0153,0.938,True,0.0859
+Zillow ZHVI,"Lexington, KY",Home Values,2000-01,2026-04,315,0.0369,0.0125,0.923,True,0.0626
+Zillow ZHVI,"Pensacola, FL",Home Values,2000-01,2026-04,315,0.0398,0.0258,0.966,True,0.1954
+Zillow ZHVI,"Santa Rosa, CA",Home Values,2000-01,2026-04,315,0.0433,0.0334,0.964,True,0.2485
+Zillow ZHVI,"Reno, NV",Home Values,2000-01,2026-04,315,0.0456,0.041,0.975,True,0.3683
+Zillow ZHVI,"Huntsville, AL",Home Values,2000-01,2026-04,303,0.052,0.048,0.403,True,0.0737
+Zillow ZHVI,"Port St. Lucie, FL",Home Values,2000-01,2026-04,315,0.0516,0.0408,0.984,True,0.4566
+Zillow ZHVI,"Lafayette, LA",Home Values,2000-01,2026-04,271,0.0197,0.0164,0.852,True,0.0582
+Zillow ZHVI,"Myrtle Beach, SC",Home Values,2000-01,2026-04,293,0.0361,0.0271,0.973,True,0.2303
+Zillow ZHVI,"Springfield, MO",Home Values,2000-01,2026-04,224,0.0401,0.0196,0.949,True,0.122
+Zillow ZHVI,"Visalia, CA",Home Values,2000-01,2026-04,315,0.0481,0.0368,0.967,True,0.2829
+Zillow ZHVI,"Killeen, TX",Home Values,2000-01,2026-04,210,0.0331,0.0208,0.973,True,0.1767
+Zillow ZHVI,"Asheville, NC",Home Values,2000-01,2026-04,315,0.05,0.0182,0.955,True,0.1207
+Zillow ZHVI,"York, PA",Home Values,2000-01,2026-04,314,0.037,0.0181,0.934,True,0.0985
+Zillow ZHVI,"Vallejo, CA",Home Values,2000-01,2026-04,315,0.0448,0.0458,0.967,True,0.355
+Zillow ZHVI,"Santa Maria, CA",Home Values,2000-01,2026-04,315,0.0513,0.0365,0.96,True,0.2562
+Zillow ZHVI,"Salinas, CA",Home Values,2000-01,2026-04,315,0.0467,0.0425,0.966,True,0.3241
+Zillow ZHVI,"Salem, OR",Home Values,2000-01,2026-04,315,0.0446,0.0227,0.963,True,0.1651
+Zillow ZHVI,"Mobile, AL",Home Values,2000-01,2026-04,315,0.0294,0.0195,0.927,True,0.1004
+Zillow ZHVI,"Reading, PA",Home Values,2000-01,2026-04,315,0.0422,0.018,0.915,True,0.0855
+Zillow ZHVI,"Corpus Christi, TX",Home Values,2000-01,2026-04,257,0.0297,0.0148,0.922,True,0.0733
+Zillow ZHVI,"Brownsville, TX",Home Values,2000-01,2026-04,303,0.028,0.0206,0.89,True,0.0857
+Zillow ZHVI,"Manchester, NH",Home Values,2000-01,2026-04,315,0.0496,0.0228,0.943,True,0.1336
+Zillow ZHVI,"Fort Wayne, IN",Home Values,2000-01,2026-04,272,0.0406,0.015,0.919,True,0.073
+Zillow ZHVI,"Gulfport, MS",Home Values,2000-01,2026-04,189,0.0375,0.018,0.896,True,0.0769
+Zillow ZHVI,"Salisbury, MD",Home Values,2000-01,2026-04,315,0.0449,0.0241,0.969,True,0.1924
+Zillow ZHVI,"Flint, MI",Home Values,2000-01,2026-04,314,0.0323,0.0361,0.887,True,0.1475
+Zillow ZHVI,"Peoria, IL",Home Values,2000-01,2026-04,288,0.0239,0.0131,0.9,True,0.0572
+Zillow ZHVI,"Canton, OH",Home Values,2000-01,2026-04,315,0.0329,0.0154,0.895,True,0.0657
+Zillow ZHVI,"Savannah, GA",Home Values,2000-01,2026-04,315,0.041,0.018,0.971,True,0.15
+Zillow ZHVI,"Anchorage, AK",Home Values,2000-01,2026-04,313,0.0431,0.0186,0.721,True,0.0464
+Zillow ZHVI,"Beaumont, TX",Home Values,2000-01,2026-04,255,0.0268,0.0136,0.862,True,0.0502
+Zillow ZHVI,"Shreveport, LA",Home Values,2000-01,2026-04,252,0.0159,0.0164,0.8,True,0.0493
+Zillow ZHVI,"Trenton, NJ",Home Values,2000-01,2026-04,315,0.0421,0.0226,0.959,True,0.1556
+Zillow ZHVI,"Montgomery, AL",Home Values,2000-01,2026-04,315,0.0227,0.0133,0.907,True,0.0604
+Zillow ZHVI,"Davenport, IA",Home Values,2000-01,2026-04,261,0.0244,0.0113,0.849,True,0.0397
+Zillow ZHVI,"Tallahassee, FL",Home Values,2000-01,2026-04,315,0.0361,0.0221,0.964,True,0.1635
+Zillow ZHVI,"Eugene, OR",Home Values,2000-01,2026-04,315,0.0437,0.0236,0.948,True,0.144
+Zillow ZHVI,"Naples, FL",Home Values,2000-01,2026-04,314,0.0451,0.0418,0.922,True,0.208
+Zillow ZHVI,"Ann Arbor, MI",Home Values,2000-01,2026-04,315,0.0322,0.0194,0.939,True,0.1093
+Zillow ZHVI,"Ocala, FL",Home Values,2000-01,2026-04,267,0.0405,0.037,0.979,True,0.3582
+Zillow ZHVI,"Hickory, NC",Home Values,2000-01,2026-04,315,0.041,0.0176,0.931,True,0.0935
+Zillow ZHVI,"Huntington, WV",Home Values,2000-01,2026-04,311,0.0283,0.0221,0.355,True,0.0321
+Zillow ZHVI,"Fort Collins, CO",Home Values,2000-01,2026-04,315,0.0408,0.0176,0.938,True,0.0987
+Zillow ZHVI,"Rockford, IL",Home Values,2000-01,2026-04,315,0.0403,0.0208,0.922,True,0.1038
+Zillow ZHVI,"Lincoln, NE",Home Values,2000-01,2026-04,315,0.0355,0.0128,0.93,True,0.0675
+Zillow ZHVI,"Gainesville, FL",Home Values,2000-01,2026-04,315,0.0412,0.0253,0.954,True,0.1656
+Zillow ZHVI,"Boulder, CO",Home Values,2000-01,2026-04,315,0.0449,0.0216,0.921,True,0.1067
+Zillow ZHVI,"Green Bay, WI",Home Values,2000-01,2026-04,293,0.0433,0.0175,0.858,True,0.0633
+Zillow ZHVI,"Columbus, GA",Home Values,2000-01,2026-04,310,0.0172,0.0408,0.131,False,0.0408
+Zillow ZHVI,"South Bend, IN",Home Values,2000-01,2026-04,224,0.0397,0.0198,0.893,True,0.0836
+Zillow ZHVI,"Spartanburg, SC",Home Values,2000-01,2026-04,277,0.0402,0.0178,0.935,True,0.0971
+Zillow ZHVI,"Greeley, CO",Home Values,2000-01,2026-04,315,0.0403,0.0215,0.963,True,0.1563
+Zillow ZHVI,"Lubbock, TX",Home Values,2000-01,2026-04,313,0.0363,0.0211,0.667,True,0.0471
+Zillow ZHVI,"Clarksville, TN",Home Values,2000-01,2026-04,315,0.0369,0.0151,0.957,True,0.1024
+Zillow ZHVI,"Roanoke, VA",Home Values,2000-01,2026-04,257,0.0282,0.0171,0.886,True,0.0695
+Zillow ZHVI,"Evansville, IN",Home Values,2000-01,2026-04,315,0.0326,0.0124,0.908,True,0.0563
+Zillow ZHVI,"Kingsport, TN",Home Values,2000-01,2026-04,315,0.0371,0.0159,0.917,True,0.0762
+Zillow ZHVI,"Kennewick, WA",Home Values,2000-01,2026-04,311,0.0468,0.0197,0.72,True,0.0489
+Zillow ZHVI,"Utica, NY",Home Values,2000-01,2026-04,315,0.0479,0.0159,0.901,True,0.0699
+Zillow ZHVI,"Hagerstown, MD",Home Values,2000-01,2026-04,315,0.036,0.023,0.911,True,0.1065
+Zillow ZHVI,"Duluth, MN",Home Values,2000-01,2026-04,260,0.0375,0.0161,0.881,True,0.0643
+Zillow ZHVI,"Olympia, WA",Home Values,2000-01,2026-04,314,0.0497,0.025,0.916,True,0.1197
+Zillow ZHVI,"Longview, TX",Home Values,2000-01,2026-04,314,0.0383,0.0164,0.818,True,0.0521
+Zillow ZHVI,"Wilmington, NC",Home Values,2000-01,2026-04,275,0.041,0.023,0.945,True,0.1372
+Zillow ZHVI,"San Luis Obispo, CA",Home Values,2000-01,2026-04,315,0.0583,0.0307,0.942,True,0.1772
+Zillow ZHVI,"Crestview, FL",Home Values,2000-01,2026-04,315,0.043,0.0321,0.969,True,0.2557
+Zillow ZHVI,"Merced, CA",Home Values,2000-01,2026-04,302,0.0445,0.0587,0.952,True,0.3734
+Zillow ZHVI,"Waco, TX",Home Values,2000-01,2026-04,207,0.0476,0.0212,0.947,True,0.1282
+Zillow ZHVI,"Cedar Rapids, IA",Home Values,2000-01,2026-04,315,0.0295,0.0098,0.885,True,0.0399
+Zillow ZHVI,"Atlantic City, NJ",Home Values,2000-01,2026-04,315,0.0486,0.0273,0.97,True,0.2228
+Zillow ZHVI,"Bremerton, WA",Home Values,2000-01,2026-04,315,0.0509,0.0249,0.957,True,0.1677
+Zillow ZHVI,"Sioux Falls, SD",Home Values,2000-01,2026-04,235,0.0426,0.0137,0.933,True,0.0734
+Zillow ZHVI,"Santa Cruz, CA",Home Values,2000-01,2026-04,315,0.0533,0.0342,0.929,True,0.1785
+Zillow ZHVI,"Erie, PA",Home Values,2000-01,2026-04,315,0.0351,0.0126,0.876,True,0.0489
+Zillow ZHVI,"Norwich, CT",Home Values,2000-01,2026-04,315,0.0398,0.0222,0.947,True,0.1348
+Zillow ZHVI,"Amarillo, TX",Home Values,2000-01,2026-04,207,0.033,0.0142,0.925,True,0.072
+Zillow ZHVI,"Laredo, TX",Home Values,2000-01,2026-04,207,0.0304,0.0134,0.855,True,0.0481
+Zillow ZHVI,"Tuscaloosa, AL",Home Values,2000-01,2026-04,315,0.029,0.012,0.917,True,0.0576
+Zillow ZHVI,"College Station, TX",Home Values,2000-01,2026-04,207,0.0412,0.0133,0.911,True,0.0615
+Zillow ZHVI,"Kalamazoo, MI",Home Values,2000-01,2026-04,315,0.0312,0.0168,0.885,True,0.0678
+Zillow ZHVI,"Lynchburg, VA",Home Values,2000-01,2026-04,315,0.0373,0.0165,0.892,True,0.0693
+Zillow ZHVI,"Charleston, WV",Home Values,2000-01,2026-04,315,0.0224,0.0141,0.845,True,0.0487
+Zillow ZHVI,"Yakima, WA",Home Values,2000-01,2026-04,311,0.0438,0.0192,0.899,True,0.0836
+Zillow ZHVI,"Fargo, ND",Home Values,2000-01,2026-04,207,0.0312,0.0145,0.909,True,0.0662
+Zillow ZHVI,"Binghamton, NY",Home Values,2000-01,2026-04,315,0.0413,0.0159,0.913,True,0.0748
+Zillow ZHVI,"Fort Smith, AR",Home Values,2000-01,2026-04,315,0.0328,0.0126,0.912,True,0.0587
+Zillow ZHVI,"Appleton, WI",Home Values,2000-01,2026-04,251,0.0357,0.0157,0.923,True,0.0786
+Zillow ZHVI,"Topeka, KS",Home Values,2000-01,2026-04,315,0.0376,0.0127,0.914,True,0.0601
+Zillow ZHVI,"Macon, GA",Home Values,2000-01,2026-04,315,0.0307,0.019,0.916,True,0.0912
+Zillow ZHVI,"Tyler, TX",Home Values,2000-01,2026-04,207,0.0414,0.0182,0.893,True,0.076
+Zillow ZHVI,"Barnstable Town, MA",Home Values,2000-01,2026-04,315,0.0531,0.0258,0.954,True,0.1687
+Zillow ZHVI,"Daphne, AL",Home Values,2000-01,2026-04,315,0.04,0.0219,0.959,True,0.1518
+Zillow ZHVI,"Bellingham, WA",Home Values,2000-01,2026-04,304,0.0585,0.0254,0.933,True,0.1364
+Zillow ZHVI,"Burlington, VT",Home Values,2000-01,2026-04,315,0.0481,0.0157,0.92,True,0.0772
+Zillow ZHVI,"Rochester, MN",Home Values,2000-01,2026-04,315,0.0388,0.0166,0.912,True,0.0776
+Zillow ZHVI,"Lafayette, IN",Home Values,2000-01,2026-04,315,0.038,0.0153,0.883,True,0.0614
+Zillow ZHVI,"Champaign, IL",Home Values,2000-01,2026-04,307,0.0307,0.0137,0.869,True,0.0519
+Zillow ZHVI,"Medford, OR",Home Values,2000-01,2026-04,315,0.0416,0.0294,0.941,True,0.1693
+Zillow ZHVI,"Charlottesville, VA",Home Values,2000-01,2026-04,313,0.0409,0.0201,0.891,True,0.0838
+Zillow ZHVI,"Lake Charles, LA",Home Values,2000-01,2026-04,122,-0.0011,0.0171,0.824,True,0.0554
+Zillow ZHVI,"Las Cruces, NM",Home Values,2000-01,2026-04,288,0.0268,0.025,0.881,True,0.0999
+Zillow ZHVI,"Chico, CA",Home Values,2000-01,2026-04,303,0.0436,0.0306,0.946,True,0.1848
+Zillow ZHVI,"Hilton Head Island, SC",Home Values,2000-01,2026-04,315,0.0404,0.0264,0.908,True,0.1204
+Zillow ZHVI,"Athens, GA",Home Values,2000-01,2026-04,315,0.0402,0.0192,0.954,True,0.1258
+Zillow ZHVI,"Lake Havasu City, AZ",Home Values,2000-01,2026-04,315,0.0502,0.036,0.976,True,0.3253
+Zillow ZHVI,"Columbia, MO",Home Values,2000-01,2026-04,248,0.0365,0.0146,0.921,True,0.0722
+Zillow ZHVI,"Springfield, IL",Home Values,2000-01,2026-04,237,0.0247,0.0121,0.778,True,0.0342
+Zillow ZHVI,"Houma, LA",Home Values,2000-01,2026-04,207,0.0033,0.021,0.843,True,0.072
+Zillow ZHVI,"Monroe, LA",Home Values,2000-01,2026-04,313,0.0292,0.0187,0.512,True,0.033
+Zillow ZHVI,"Elkhart, IN",Home Values,2000-01,2026-04,255,0.0419,0.0188,0.837,True,0.0632
+Zillow ZHVI,"Johnson City, TN",Home Values,2000-01,2026-04,315,0.0437,0.0151,0.923,True,0.0753
+Zillow ZHVI,"Yuma, AZ",Home Values,2000-01,2026-04,287,0.0376,0.0381,0.933,True,0.2044
+Zillow ZHVI,"Gainesville, GA",Home Values,2000-01,2026-04,315,0.0391,0.0254,0.96,True,0.1775
+Zillow ZHVI,"Jacksonville, NC",Home Values,2000-01,2026-04,248,0.0395,0.0184,0.961,True,0.1305
+Zillow ZHVI,"Florence, SC",Home Values,2000-01,2026-04,247,0.028,0.0161,0.9,True,0.07
+Zillow ZHVI,"Hilo, HI",Home Values,2000-01,2026-04,133,0.0548,0.0241,0.935,True,0.1323
+Zillow ZHVI,"St. Cloud, MN",Home Values,2000-01,2026-04,250,0.0213,0.0265,0.887,True,0.1085
+Zillow ZHVI,"Racine, WI",Home Values,2000-01,2026-04,212,0.0354,0.0216,0.913,True,0.1014
+Zillow ZHVI,"Bend, OR",Home Values,2000-01,2026-04,312,0.059,0.0416,0.834,True,0.1384
+Zillow ZHVI,"Saginaw, MI",Home Values,2000-01,2026-04,315,0.0305,0.0257,0.876,True,0.1001
+Zillow ZHVI,"Warner Robins, GA",Home Values,2000-01,2026-04,315,0.0323,0.0138,0.951,True,0.0873
+Zillow ZHVI,"Terre Haute, IN",Home Values,2000-01,2026-04,207,0.0363,0.0153,0.868,True,0.0575
+Zillow ZHVI,"Torrington, CT",Home Values,2000-01,2026-04,315,0.0401,0.023,0.937,True,0.1277
+Zillow ZHVI,"Punta Gorda, FL",Home Values,2000-01,2026-04,315,0.048,0.0399,0.961,True,0.2845
+Zillow ZHVI,"Billings, MT",Home Values,2000-01,2026-04,207,0.045,0.0156,0.929,True,0.0814
+Zillow ZHVI,"Redding, CA",Home Values,2000-01,2026-04,315,0.0473,0.0308,0.95,True,0.1921
+Zillow ZHVI,"Kingston, NY",Home Values,2000-01,2026-04,315,0.0517,0.0268,0.943,True,0.1567
+Zillow ZHVI,"Panama City, FL",Home Values,2000-01,2026-04,315,0.0447,0.032,0.962,True,0.2297
+Zillow ZHVI,"Joplin, MO",Home Values,2000-01,2026-04,217,0.0541,0.0213,0.888,True,0.0879
+Zillow ZHVI,"Dover, DE",Home Values,2000-01,2026-04,201,0.0354,0.0196,0.922,True,0.0964
+Zillow ZHVI,"El Centro, CA",Home Values,2000-01,2026-04,302,0.0572,0.0333,0.89,True,0.1381
+Zillow ZHVI,"Jackson, TN",Home Values,2000-01,2026-04,315,0.0292,0.0186,0.91,True,0.0856
+Zillow ZHVI,"Yuba City, CA",Home Values,2000-01,2026-04,267,0.0489,0.0361,0.977,True,0.3326
+Zillow ZHVI,"Bowling Green, KY",Home Values,2000-01,2026-04,315,0.0383,0.014,0.892,True,0.0587
+Zillow ZHVI,"St. George, UT",Home Values,2000-01,2026-04,208,0.0541,0.0315,0.957,True,0.2105
+Zillow ZHVI,"Muskegon, MI",Home Values,2000-01,2026-04,315,0.0411,0.0232,0.909,True,0.1067
+Zillow ZHVI,"Abilene, TX",Home Values,2000-01,2026-04,207,0.0382,0.0144,0.889,True,0.0594
+Zillow ZHVI,"Iowa City, IA",Home Values,2000-01,2026-04,207,0.0326,0.0091,0.875,True,0.0351
+Zillow ZHVI,"Auburn, AL",Home Values,2000-01,2026-04,314,0.0368,0.0145,0.823,True,0.0468
+Zillow ZHVI,"Midland, TX",Home Values,2000-01,2026-04,207,0.0416,0.0181,0.939,True,0.1022
+Zillow ZHVI,"Bloomington, IL",Home Values,2000-01,2026-04,315,0.024,0.013,0.901,True,0.0571
+Zillow ZHVI,"Hattiesburg, MS",Home Values,2000-01,2026-04,171,0.0338,0.0158,0.845,True,0.0546
+Zillow ZHVI,"Oshkosh, WI",Home Values,2000-01,2026-04,207,0.0372,0.0214,0.906,True,0.0966
+Zillow ZHVI,"Eau Claire, WI",Home Values,2000-01,2026-04,207,0.0429,0.0164,0.903,True,0.0725
+Zillow ZHVI,"Greenville, NC",Home Values,2000-01,2026-04,218,0.0308,0.0187,0.949,True,0.1155
+Zillow ZHVI,"Burlington, NC",Home Values,2000-01,2026-04,122,0.0723,0.0207,0.929,True,0.1076
+Zillow ZHVI,"Waterloo, IA",Home Values,2000-01,2026-04,227,0.0302,0.0122,0.845,True,0.042
+Zillow ZHVI,"Coeur d'Alene, ID",Home Values,2000-01,2026-04,225,0.0537,0.0327,0.944,True,0.193
+Zillow ZHVI,"East Stroudsburg, PA",Home Values,2000-01,2026-04,249,0.0279,0.0284,0.94,True,0.1621
+Zillow ZHVI,"Pueblo, CO",Home Values,2000-01,2026-04,315,0.0386,0.0192,0.963,True,0.1402
+Zillow ZHVI,"Blacksburg, VA",Home Values,2000-01,2026-04,315,0.0427,0.0171,0.944,True,0.1005
+Zillow ZHVI,"Wausau, WI",Home Values,2000-01,2026-04,207,0.0411,0.0178,0.821,True,0.0568
+Zillow ZHVI,"Kahului, HI",Home Values,2000-01,2026-04,315,0.0646,0.0304,0.95,True,0.1891
+Zillow ZHVI,"Janesville, WI",Home Values,2000-01,2026-04,171,0.0684,0.0136,0.859,True,0.0488
+Zillow ZHVI,"Tupelo, MS",Home Values,2000-01,2026-04,171,0.0423,0.0194,0.83,True,0.0636
+Zillow ZHVI,"Bloomington, IN",Home Values,2000-01,2026-04,272,0.0407,0.0139,0.912,True,0.0648
+Zillow ZHVI,"Odessa, TX",Home Values,2000-01,2026-04,207,0.0543,0.021,0.887,True,0.0861
+Zillow ZHVI,"Jackson, MI",Home Values,2000-01,2026-04,278,0.0352,0.0312,0.871,True,0.1191
+Zillow ZHVI,"State College, PA",Home Values,2000-01,2026-04,249,0.0366,0.0147,0.75,True,0.039
+Zillow ZHVI,"Sebastian, FL",Home Values,2000-01,2026-04,315,0.0454,0.0363,0.979,True,0.3549
+Zillow ZHVI,"Madera, CA",Home Values,2000-01,2026-04,279,0.0607,0.0363,0.974,True,0.3193
+Zillow ZHVI,"Decatur, AL",Home Values,2000-01,2026-04,236,0.0474,0.0256,0.893,True,0.1073
+Zillow ZHVI,"Chambersburg, PA",Home Values,2000-01,2026-04,299,0.0353,0.0208,0.892,True,0.0873
+Zillow ZHVI,"Vineland, NJ",Home Values,2000-01,2026-04,315,0.0396,0.0277,0.88,True,0.1096
+Zillow ZHVI,"Idaho Falls, ID",Home Values,2000-01,2026-04,315,0.0509,0.0274,0.952,True,0.1753
+Zillow ZHVI,"Grand Junction, CO",Home Values,2000-01,2026-04,315,0.0438,0.0221,0.966,True,0.1691
+Zillow ZHVI,"Elizabethtown, KY",Home Values,2000-01,2026-04,313,0.0344,0.0196,0.831,True,0.0645
+Zillow ZHVI,"Niles, MI",Home Values,2000-01,2026-04,315,0.0343,0.0188,0.876,True,0.0733
+Zillow ZHVI,"Monroe, MI",Home Values,2000-01,2026-04,315,0.0237,0.0287,0.884,True,0.1161
+Zillow ZHVI,"Santa Fe, NM",Home Values,2000-01,2026-04,287,0.0392,0.0227,0.915,True,0.1077
+Zillow ZHVI,"Concord, NH",Home Values,2000-01,2026-04,315,0.0536,0.023,0.937,True,0.1275
+Zillow ZHVI,"Alexandria, LA",Home Values,2000-01,2026-04,310,0.0289,0.0242,0.606,True,0.0489
+Zillow ZHVI,"Traverse City, MI",Home Values,2000-01,2026-04,315,0.0474,0.0228,0.902,True,0.1005
+Zillow ZHVI,"Bangor, ME",Home Values,2000-01,2026-04,315,0.0472,0.019,0.923,True,0.0949
+Zillow ZHVI,"Homosassa Springs, FL",Home Values,2000-01,2026-04,315,0.044,0.033,0.976,True,0.2981
+Zillow ZHVI,"Hanford, CA",Home Values,2000-01,2026-04,303,0.0498,0.0331,0.929,True,0.1736
+Zillow ZHVI,"Jefferson City, MO",Home Values,2000-01,2026-04,216,0.0377,0.0163,0.918,True,0.0789
+Zillow ZHVI,"Florence, AL",Home Values,2000-01,2026-04,193,0.044,0.0175,0.88,True,0.0694
+Zillow ZHVI,"Dothan, AL",Home Values,2000-01,2026-04,292,0.0322,0.0165,0.886,True,0.0669
+Zillow ZHVI,"London, KY",Home Values,2000-01,2026-04,315,0.0364,0.0206,0.843,True,0.0707
+Zillow ZHVI,"Albany, GA",Home Values,2000-01,2026-04,314,0.0241,0.0179,0.926,True,0.0915
+Zillow ZHVI,"Sioux City, IA",Home Values,2000-01,2026-04,314,0.0399,0.0117,0.827,True,0.0382
+Zillow ZHVI,"Wichita Falls, TX",Home Values,2000-01,2026-04,207,0.0292,0.0199,0.927,True,0.1024
+Zillow ZHVI,"Texarkana, TX",Home Values,2000-01,2026-04,314,0.029,0.0153,0.811,True,0.0474
+Zillow ZHVI,"Valdosta, GA",Home Values,2000-01,2026-04,312,0.0245,0.024,0.657,True,0.0528
+Zillow ZHVI,"Logan, UT",Home Values,2000-01,2026-04,254,0.0436,0.0261,0.91,True,0.1204
+Zillow ZHVI,"Flagstaff, AZ",Home Values,2000-01,2026-04,315,0.0565,0.0332,0.931,True,0.1755
+Zillow ZHVI,"Rocky Mount, NC",Home Values,2000-01,2026-04,315,0.0332,0.0204,0.907,True,0.0927
+Zillow ZHVI,"Pottsville, PA",Home Values,2000-01,2026-04,207,0.0338,0.0274,0.881,True,0.1088
+Zillow ZHVI,"Dalton, GA",Home Values,2000-01,2026-04,314,0.0438,0.0185,0.944,True,0.1087
+Zillow ZHVI,"Lebanon, PA",Home Values,2000-01,2026-04,251,0.0339,0.0158,0.803,True,0.0478
+Zillow ZHVI,"Morristown, TN",Home Values,2000-01,2026-04,312,0.045,0.0223,0.605,True,0.0451
+Zillow ZHVI,"Winchester, VA",Home Values,2000-01,2026-04,315,0.0464,0.0259,0.939,True,0.1461
+Zillow ZHVI,"Wheeling, WV",Home Values,2000-01,2026-04,315,0.0366,0.0153,0.839,True,0.0518
+Zillow ZHVI,"Morgantown, WV",Home Values,2000-01,2026-04,312,0.0314,0.0232,0.455,True,0.038
+Zillow ZHVI,"La Crosse, WI",Home Values,2000-01,2026-04,287,0.0352,0.0139,0.875,True,0.0539
+Zillow ZHVI,"Napa, CA",Home Values,2000-01,2026-04,315,0.0495,0.0341,0.929,True,0.1782
+Zillow ZHVI,"Rapid City, SD",Home Values,2000-01,2026-04,214,0.0461,0.0172,0.939,True,0.0967
+Zillow ZHVI,"Sumter, SC",Home Values,2000-01,2026-04,213,0.02,0.0175,0.846,True,0.0607
+Zillow ZHVI,"Eureka, CA",Home Values,2000-01,2026-04,303,0.0365,0.0292,0.935,True,0.1601
+Zillow ZHVI,"Springfield, OH",Home Values,2000-01,2026-04,315,0.0386,0.0197,0.87,True,0.0748
+Zillow ZHVI,"Harrisonburg, VA",Home Values,2000-01,2026-04,199,0.0363,0.0131,0.895,True,0.0553
+Zillow ZHVI,"Battle Creek, MI",Home Values,2000-01,2026-04,315,0.0323,0.0264,0.861,True,0.0965
+Zillow ZHVI,"Sherman, TX",Home Values,2000-01,2026-04,171,0.0697,0.023,0.912,True,0.1075
+Zillow ZHVI,"Manhattan, KS",Home Values,2000-01,2026-04,208,0.0366,0.0108,0.843,True,0.0369
+Zillow ZHVI,"Carbondale, IL",Home Values,2000-01,2026-04,215,0.0097,0.0261,0.795,True,0.0772
+Zillow ZHVI,"Johnstown, PA",Home Values,2000-01,2026-04,256,0.0083,0.0306,0.791,True,0.0899
+Zillow ZHVI,"Jonesboro, AR",Home Values,2000-01,2026-04,315,0.0323,0.0111,0.863,True,0.0411
+Zillow ZHVI,"Bismarck, ND",Home Values,2000-01,2026-04,207,0.0462,0.0156,0.942,True,0.09
+Zillow ZHVI,"Hammond, LA",Home Values,2000-01,2026-04,224,0.0086,0.0264,0.838,True,0.0892
+Zillow ZHVI,"Pittsfield, MA",Home Values,2000-01,2026-04,315,0.0424,0.0208,0.902,True,0.0915
+Zillow ZHVI,"Mount Vernon, WA",Home Values,2000-01,2026-04,315,0.0523,0.0241,0.961,True,0.1714
+Zillow ZHVI,"Jamestown, NY",Home Values,2000-01,2026-04,315,0.0437,0.0178,0.802,True,0.0538
+Zillow ZHVI,"The Villages, FL",Home Values,2000-01,2026-04,312,0.0447,0.0284,0.772,True,0.0792
+Zillow ZHVI,"Albany, OR",Home Values,2000-01,2026-04,219,0.0429,0.0244,0.963,True,0.1782
+Zillow ZHVI,"Glens Falls, NY",Home Values,2000-01,2026-04,314,0.05,0.0181,0.893,True,0.0763
+Zillow ZHVI,"Lawton, OK",Home Values,2000-01,2026-04,310,0.0197,0.02,0.685,True,0.0464
+Zillow ZHVI,"Cleveland, TN",Home Values,2000-01,2026-04,315,0.044,0.0172,0.924,True,0.0864
+Zillow ZHVI,"Sierra Vista, AZ",Home Values,2000-01,2026-04,218,0.014,0.0227,0.941,True,0.1305
+Zillow ZHVI,"Ames, IA",Home Values,2000-01,2026-04,205,0.0364,0.0117,0.877,True,0.0458
+Zillow ZHVI,"Mansfield, OH",Home Values,2000-01,2026-04,311,0.035,0.0309,0.57,True,0.0591
+Zillow ZHVI,"Staunton, VA",Home Values,2000-01,2026-04,202,0.0422,0.0146,0.9,True,0.064
+Zillow ZHVI,"Augusta, ME",Home Values,2000-01,2026-04,315,0.0522,0.0211,0.936,True,0.1156
+Zillow ZHVI,"Altoona, PA",Home Values,2000-01,2026-04,315,0.031,0.021,0.729,True,0.0531
+Zillow ZHVI,"New Bern, NC",Home Values,2000-01,2026-04,315,0.0378,0.0178,0.949,True,0.1106
+Zillow ZHVI,"Farmington, NM",Home Values,2000-01,2026-04,197,0.0321,0.0174,0.773,True,0.0486
+Zillow ZHVI,"St. Joseph, MO",Home Values,2000-01,2026-04,269,0.0314,0.0141,0.903,True,0.0624
+Zillow ZHVI,"San Angelo, TX",Home Values,2000-01,2026-04,139,0.0539,0.019,0.854,True,0.0683
+Zillow ZHVI,"Wenatchee, WA",Home Values,2000-01,2026-04,295,0.0513,0.0269,0.73,True,0.0682
+Zillow ZHVI,"Owensboro, KY",Home Values,2000-01,2026-04,313,0.0332,0.0165,0.688,True,0.0384
+Zillow ZHVI,"Holland, MI",Home Values,2000-01,2026-04,314,0.0392,0.0197,0.899,True,0.0858
+Zillow ZHVI,"Lumberton, NC",Home Values,2000-01,2026-04,122,0.0566,0.0285,0.824,True,0.0916
+Zillow ZHVI,"Lawrence, KS",Home Values,2000-01,2026-04,260,0.0408,0.0141,0.875,True,0.0545
+Zillow ZHVI,"Goldsboro, NC",Home Values,2000-01,2026-04,315,0.0283,0.0184,0.839,True,0.0623
+Zillow ZHVI,"Watertown, NY",Home Values,2000-01,2026-04,313,0.0563,0.0225,0.725,True,0.0565
+Zillow ZHVI,"Sheboygan, WI",Home Values,2000-01,2026-04,217,0.0316,0.0248,0.923,True,0.1237
+Zillow ZHVI,"Weirton, WV",Home Values,2000-01,2026-04,214,0.0418,0.0211,0.861,True,0.0773
+Zillow ZHVI,"Missoula, MT",Home Values,2000-01,2026-04,254,0.05,0.0257,0.909,True,0.1175
+Zillow ZHVI,"Bozeman, MT",Home Values,2000-01,2026-04,207,0.059,0.0266,0.941,True,0.1533
+Zillow ZHVI,"Anniston, AL",Home Values,2000-01,2026-04,185,0.0309,0.0505,0.916,True,0.2419
+Zillow ZHVI,"Beckley, WV",Home Values,2000-01,2026-04,312,0.0351,0.0261,0.743,True,0.0681
+Zillow ZHVI,"Williamsport, PA",Home Values,2000-01,2026-04,312,0.0338,0.0158,0.552,True,0.0294
+Zillow ZHVI,"Brunswick, GA",Home Values,2000-01,2026-04,315,0.0344,0.0215,0.911,True,0.0997
+Zillow ZHVI,"Twin Falls, ID",Home Values,2000-01,2026-04,251,0.0523,0.027,0.975,True,0.2404
+Zillow ZHVI,"California, MD",Home Values,2000-01,2026-04,315,0.0375,0.0252,0.928,True,0.1309
+Zillow ZHVI,"Cookeville, TN",Home Values,2000-01,2026-04,315,0.0434,0.0173,0.916,True,0.0827
+Zillow ZHVI,"Muncie, IN",Home Values,2000-01,2026-04,206,0.0451,0.0179,0.915,True,0.0848
+Zillow ZHVI,"Michigan City, IN",Home Values,2000-01,2026-04,206,0.0435,0.0164,0.92,True,0.0804
+Zillow ZHVI,"Roseburg, OR",Home Values,2000-01,2026-04,315,0.0483,0.0229,0.948,True,0.1395
+Zillow ZHVI,"Lewiston, ME",Home Values,2000-01,2026-04,315,0.0533,0.0215,0.918,True,0.104
+Zillow ZHVI,"Longview, WA",Home Values,2000-01,2026-04,207,0.0473,0.023,0.959,True,0.1589
+Zillow ZHVI,"Ogdensburg, NY",Home Values,2000-01,2026-04,315,0.0429,0.0213,0.824,True,0.0687
+Zillow ZHVI,"Kankakee, IL",Home Values,2000-01,2026-04,204,0.0306,0.0365,0.396,True,0.0557
+Zillow ZHVI,"Bluefield, WV",Home Values,2000-01,2026-04,315,0.0307,0.0182,0.893,True,0.0769
+Zillow ZHVI,"Show Low, AZ",Home Values,2000-01,2026-04,315,0.0562,0.0292,0.959,True,0.203
+Zillow ZHVI,"Richmond, KY",Home Values,2000-01,2026-04,314,0.0397,0.014,0.894,True,0.0594
+Zillow ZHVI,"Tullahoma, TN",Home Values,2000-01,2026-04,315,0.0478,0.0172,0.938,True,0.0959
+Zillow ZHVI,"Whitewater, WI",Home Values,2000-01,2026-04,309,0.0341,0.0196,0.902,True,0.086
+Zillow ZHVI,"Ithaca, NY",Home Values,2000-01,2026-04,315,0.0545,0.0205,0.806,True,0.0626
+Zillow ZHVI,"Grand Forks, ND",Home Values,2000-01,2026-04,156,0.0432,0.0124,0.806,True,0.0378
+Zillow ZHVI,"Decatur, IL",Home Values,2000-01,2026-04,312,0.0246,0.0181,0.784,True,0.0521
+Zillow ZHVI,"LaGrange, GA",Home Values,2000-01,2026-04,311,0.0402,0.0248,0.685,True,0.0575
+Zillow ZHVI,"Bay City, MI",Home Values,2000-01,2026-04,315,0.0291,0.0187,0.913,True,0.0876
+Zillow ZHVI,"Fond du Lac, WI",Home Values,2000-01,2026-04,209,0.0407,0.0162,0.888,True,0.0664
+Zillow ZHVI,"Gettysburg, PA",Home Values,2000-01,2026-04,313,0.0469,0.0243,0.514,True,0.0429
+Zillow ZHVI,"Gadsden, AL",Home Values,2000-01,2026-04,287,0.0419,0.0179,0.867,True,0.0671
+Zillow ZHVI,"Kalispell, MT",Home Values,2000-01,2026-04,203,0.0505,0.0372,0.953,True,0.2399
+Zillow ZHVI,"Danville, VA",Home Values,2000-01,2026-04,315,0.0325,0.0209,0.891,True,0.087
+Zillow ZHVI,"Mankato, MN",Home Values,2000-01,2026-04,273,0.0284,0.0151,0.913,True,0.0708
+Zillow ZHVI,"Lima, OH",Home Values,2000-01,2026-04,313,0.033,0.0221,0.779,True,0.0629
+Zillow ZHVI,"Salem, OH",Home Values,2000-01,2026-04,313,0.0325,0.015,0.811,True,0.0465
+Zillow ZHVI,"Truckee, CA",Home Values,2000-01,2026-04,303,0.044,0.0331,0.929,True,0.1729
+Zillow ZHVI,"Sebring, FL",Home Values,2000-01,2026-04,267,0.0481,0.04,0.956,True,0.266
+Zillow ZHVI,"Cheyenne, WY",Home Values,2000-01,2026-04,287,0.0419,0.0155,0.613,True,0.0313
+Zillow ZHVI,"Hot Springs, AR",Home Values,2000-01,2026-04,315,0.0402,0.0209,0.908,True,0.0951
+Zillow ZHVI,"Adrian, MI",Home Values,2000-01,2026-04,315,0.0368,0.0216,0.92,True,0.1061
+Zillow ZHVI,"Shelby, NC",Home Values,2000-01,2026-04,311,0.0335,0.0234,0.778,True,0.0664
+Zillow ZHVI,"Dubuque, IA",Home Values,2000-01,2026-04,206,0.0358,0.0118,0.883,True,0.0472
+Zillow ZHVI,"Meridian, MS",Home Values,2000-01,2026-04,171,0.0112,0.0248,0.822,True,0.0797
+Zillow ZHVI,"Pinehurst, NC",Home Values,2000-01,2026-04,217,0.0348,0.0232,0.892,True,0.0975
+Zillow ZHVI,"Paducah, KY",Home Values,2000-01,2026-04,311,0.033,0.0238,0.45,True,0.0386
+Zillow ZHVI,"Victoria, TX",Home Values,2000-01,2026-04,122,0.0309,0.0158,0.923,True,0.0786
+Zillow ZHVI,"Rome, GA",Home Values,2000-01,2026-04,313,0.04,0.0208,0.918,True,0.1006
+Zillow ZHVI,"Sevierville, TN",Home Values,2000-01,2026-04,315,0.0478,0.0267,0.954,True,0.1749
+Zillow ZHVI,"Moses Lake, WA",Home Values,2000-01,2026-04,207,0.0399,0.024,0.94,True,0.1368
+Zillow ZHVI,"Ashtabula, OH",Home Values,2000-01,2026-04,315,0.0385,0.017,0.888,True,0.0697
+Zillow ZHVI,"Cape Girardeau, MO",Home Values,2000-01,2026-04,204,0.0293,0.0217,0.63,True,0.0455
+Zillow ZHVI,"Albertville, AL",Home Values,2000-01,2026-04,207,0.0444,0.0221,0.878,True,0.0869
+Zillow ZHVI,"Fairbanks, AK",Home Values,2000-01,2026-04,254,0.025,0.0152,0.858,True,0.0551
+Zillow ZHVI,"Brainerd, MN",Home Values,2000-01,2026-04,215,0.0416,0.021,0.922,True,0.1043
+Zillow ZHVI,"Cumberland, MD",Home Values,2000-01,2026-04,306,0.0341,0.0321,0.281,True,0.0428
+Zillow ZHVI,"Ocean City, NJ",Home Values,2000-01,2026-04,315,0.0623,0.0272,0.95,True,0.171
+Zillow ZHVI,"Corvallis, OR",Home Values,2000-01,2026-04,314,0.0453,0.0202,0.822,True,0.0648
+Zillow ZHVI,"Pocatello, ID",Home Values,2000-01,2026-04,207,0.0474,0.0295,0.918,True,0.1425
+Zillow ZHVI,"Corning, NY",Home Values,2000-01,2026-04,315,0.0291,0.0228,0.815,True,0.0714
+Zillow ZHVI,"New Philadelphia, OH",Home Values,2000-01,2026-04,311,0.0274,0.0442,0.655,True,0.097
+Zillow ZHVI,"Sunbury, PA",Home Values,2000-01,2026-04,207,0.03,0.0212,0.764,True,0.0582
+Zillow ZHVI,"Ukiah, CA",Home Values,2000-01,2026-04,279,0.0305,0.0323,0.906,True,0.1459
+Zillow ZHVI,"Hermiston, OR",Home Values,2000-01,2026-04,207,0.0394,0.0207,0.963,True,0.1502
+Zillow ZHVI,"Clarksburg, WV",Home Values,2000-01,2026-04,315,0.0335,0.016,0.84,True,0.0544
+Zillow ZHVI,"Parkersburg, WV",Home Values,2000-01,2026-04,313,0.0303,0.0156,0.723,True,0.039
+Zillow ZHVI,"Beaver Dam, WI",Home Values,2000-01,2026-04,236,0.0382,0.0171,0.893,True,0.0718
+Zillow ZHVI,"Pine Bluff, AR",Home Values,2000-01,2026-04,315,0.028,0.0178,0.842,True,0.0608
+Zillow ZHVI,"Grants Pass, OR",Home Values,2000-01,2026-04,314,0.0486,0.0276,0.913,True,0.1293
+Zillow ZHVI,"Cullman, AL",Home Values,2000-01,2026-04,312,0.0379,0.0159,0.895,True,0.0676
+Zillow ZHVI,"Lufkin, TX",Home Values,2000-01,2026-04,315,0.0324,0.0142,0.875,True,0.0551
+Zillow ZHVI,"Zanesville, OH",Home Values,2000-01,2026-04,315,0.0411,0.0172,0.895,True,0.0733
+Zillow ZHVI,"New Castle, PA",Home Values,2000-01,2026-04,244,0.0269,0.0186,0.836,True,0.0622
+Zillow ZHVI,"Oak Harbor, WA",Home Values,2000-01,2026-04,237,0.0365,0.0261,0.943,True,0.1521
+Zillow ZHVI,"Orangeburg, SC",Home Values,2000-01,2026-04,264,0.0262,0.0217,0.889,True,0.0896
+Zillow ZHVI,"Watertown, WI",Home Values,2000-01,2026-04,248,0.0373,0.0146,0.907,True,0.0661
+Zillow ZHVI,"Meadville, PA",Home Values,2000-01,2026-04,315,0.0415,0.0209,0.818,True,0.0661
+Zillow ZHVI,"Elmira, NY",Home Values,2000-01,2026-04,312,0.0395,0.0219,0.327,True,0.0308
+Zillow ZHVI,"Great Falls, MT",Home Values,2000-01,2026-04,225,0.0431,0.0186,0.845,True,0.0642
+Zillow ZHVI,"Laurel, MS",Home Values,2000-01,2026-04,171,0.0171,0.0242,0.826,True,0.0785
+Zillow ZHVI,"Russellville, AR",Home Values,2000-01,2026-04,315,0.0322,0.0116,0.875,True,0.0447
+Zillow ZHVI,"Indiana, PA",Home Values,2000-01,2026-04,206,0.0314,0.0174,0.755,True,0.0465
+Zillow ZHVI,"Midland, MI",Home Values,2000-01,2026-04,315,0.0319,0.0198,0.86,True,0.0723
+Zillow ZHVI,"Kokomo, IN",Home Values,2000-01,2026-04,207,0.0498,0.018,0.896,True,0.0767
+Zillow ZHVI,"Bloomsburg, PA",Home Values,2000-01,2026-04,315,0.033,0.0133,0.861,True,0.0487
+Zillow ZHVI,"Opelousas, LA",Home Values,2000-01,2026-04,207,0.0014,0.0299,0.822,True,0.0959
+Zillow ZHVI,"Helena, MT",Home Values,2000-01,2026-04,206,0.0515,0.0216,0.944,True,0.1267
+Zillow ZHVI,"Key West, FL",Home Values,2000-01,2026-04,122,0.0666,0.0341,0.928,True,0.1772
+Zillow ZHVI,"Talladega, AL",Home Values,2000-01,2026-04,305,0.0323,0.0184,0.894,True,0.0779
+Zillow ZHVI,"Stillwater, OK",Home Values,2000-01,2026-04,315,0.0359,0.0133,0.82,True,0.0422
+Zillow ZHVI,"Columbus, IN",Home Values,2000-01,2026-04,297,0.0169,0.026,0.825,True,0.084
+Zillow ZHVI,"Athens, TX",Home Values,2000-01,2026-04,207,0.039,0.0226,0.913,True,0.1061
+Zillow ZHVI,"Centralia, WA",Home Values,2000-01,2026-04,212,0.0499,0.0264,0.959,True,0.1828
+Zillow ZHVI,"Manitowoc, WI",Home Values,2000-01,2026-04,311,0.0376,0.0208,0.579,True,0.0404
+Zillow ZHVI,"Hinesville, GA",Home Values,2000-01,2026-04,311,0.0302,0.0303,0.469,True,0.0504
+Zillow ZHVI,"DuBois, PA",Home Values,2000-01,2026-04,315,0.0319,0.0246,0.837,True,0.0829
+Zillow ZHVI,"Warsaw, IN",Home Values,2000-01,2026-04,310,0.0368,0.0261,0.192,False,0.0261
+Zillow ZHVI,"Plattsburgh, NY",Home Values,2000-01,2026-04,312,0.0397,0.0166,0.837,True,0.0559
+Zillow ZHVI,"Statesboro, GA",Home Values,2000-01,2026-04,208,0.0412,0.021,0.946,True,0.1258
+Zillow ZHVI,"Casper, WY",Home Values,2000-01,2026-04,187,0.0379,0.0142,0.912,True,0.066
+Zillow ZHVI,"Wilson, NC",Home Values,2000-01,2026-04,207,0.04,0.0231,0.931,True,0.1227
+Zillow ZHVI,"Glenwood Springs, CO",Home Values,2000-01,2026-04,315,0.0636,0.019,0.941,True,0.1092
+Zillow ZHVI,"Seneca, SC",Home Values,2000-01,2026-04,186,0.0427,0.0238,0.859,True,0.0868
+Zillow ZHVI,"Minot, ND",Home Values,2000-01,2026-04,205,0.025,0.0225,0.938,True,0.1263
+Zillow ZHVI,"Olean, NY",Home Values,2000-01,2026-04,312,0.0417,0.0229,0.754,True,0.0612
+Zillow ZHVI,"Chillicothe, OH",Home Values,2000-01,2026-04,315,0.0306,0.0154,0.887,True,0.0629
+Zillow ZHVI,"Searcy, AR",Home Values,2000-01,2026-04,311,0.0312,0.0152,0.664,True,0.0338
+Zillow ZHVI,"Grand Island, NE",Home Values,2000-01,2026-04,263,0.0424,0.0119,0.877,True,0.0468
+Zillow ZHVI,"Port Angeles, WA",Home Values,2000-01,2026-04,222,0.0343,0.0252,0.961,True,0.1791
+Zillow ZHVI,"Auburn, NY",Home Values,2000-01,2026-04,313,0.0512,0.0196,0.796,True,0.0583
+Zillow ZHVI,"Huntsville, TX",Home Values,2000-01,2026-04,206,0.0369,0.0176,0.908,True,0.0803
+Zillow ZHVI,"Keene, NH",Home Values,2000-01,2026-04,315,0.0541,0.0222,0.913,True,0.104
+Zillow ZHVI,"Heber, UT",Home Values,2000-01,2026-04,206,0.0635,0.0313,0.942,True,0.1806
+Zillow ZHVI,"Quincy, IL",Home Values,2000-01,2026-04,207,0.024,0.0174,0.815,True,0.0544
+Zillow ZHVI,"Sandusky, OH",Home Values,2000-01,2026-04,314,0.0309,0.0172,0.858,True,0.0623
+Zillow ZHVI,"Findlay, OH",Home Values,2000-01,2026-04,315,0.0279,0.0161,0.868,True,0.0607
+Zillow ZHVI,"Frankfort, KY",Home Values,2000-01,2026-04,315,0.0373,0.0151,0.903,True,0.067
+Zillow ZHVI,"Danville, IL",Home Values,2000-01,2026-04,315,0.029,0.024,0.82,True,0.0765
+Zillow ZHVI,"Aberdeen, WA",Home Values,2000-01,2026-04,207,0.0402,0.0293,0.945,True,0.1736
+Zillow ZHVI,"Portsmouth, OH",Home Values,2000-01,2026-04,193,0.0388,0.0257,0.835,True,0.0853
+Zillow ZHVI,"Somerset, PA",Home Values,2000-01,2026-04,207,0.0238,0.0194,0.871,True,0.0741
+Zillow ZHVI,"Wisconsin Rapids, WI",Home Values,2000-01,2026-04,207,0.0393,0.0169,0.846,True,0.0585
+Zillow ZHVI,"Jefferson, GA",Home Values,2000-01,2026-04,313,0.0501,0.0222,0.93,True,0.1168
+Zillow ZHVI,"Kapaa, HI",Home Values,2000-01,2026-04,315,0.0741,0.0282,0.932,True,0.1507
+Zillow ZHVI,"Palatka, FL",Home Values,2000-01,2026-04,267,0.0457,0.037,0.946,True,0.2225
+Zillow ZHVI,"Gallup, NM",Home Values,2000-01,2026-04,171,0.0257,0.0188,0.806,True,0.0575
+Zillow ZHVI,"Hobbs, NM",Home Values,2000-01,2026-04,157,0.005,0.0295,0.808,True,0.09
+Zillow ZHVI,"Shawnee, OK",Home Values,2000-01,2026-04,315,0.0432,0.017,0.849,True,0.0595
+Zillow ZHVI,"Mount Airy, NC",Home Values,2000-01,2026-04,207,0.0402,0.0282,0.819,True,0.0897
+Zillow ZHVI,"Stevens Point, WI",Home Values,2000-01,2026-04,192,0.0548,0.0145,0.815,True,0.0453
+Zillow ZHVI,"Greeneville, TN",Home Values,2000-01,2026-04,315,0.0464,0.0218,0.874,True,0.0841
+Zillow ZHVI,"Greenwood, SC",Home Values,2000-01,2026-04,315,0.0405,0.0186,0.888,True,0.0767
+Zillow ZHVI,"Lake City, FL",Home Values,2000-01,2026-04,312,0.0479,0.0293,0.881,True,0.1167
+Zillow ZHVI,"Klamath Falls, OR",Home Values,2000-01,2026-04,315,0.0538,0.0251,0.961,True,0.1774
+Zillow ZHVI,"Morehead City, NC",Home Values,2000-01,2026-04,315,0.0466,0.0237,0.959,True,0.1644
+Zillow ZHVI,"Clearlake, CA",Home Values,2000-01,2026-04,231,0.0311,0.0309,0.928,True,0.1596
+Zillow ZHVI,"Alamogordo, NM",Home Values,2000-01,2026-04,122,0.0623,0.0217,0.881,True,0.0856
+Zillow ZHVI,"Roanoke Rapids, NC",Home Values,2000-01,2026-04,315,0.0257,0.0235,0.842,True,0.0801
+Zillow ZHVI,"Farmington, MO",Home Values,2000-01,2026-04,180,0.0586,0.0206,0.875,True,0.0797
+Zillow ZHVI,"Muskogee, OK",Home Values,2000-01,2026-04,311,0.0319,0.0235,0.509,True,0.0413
+Zillow ZHVI,"Marion, IN",Home Values,2000-01,2026-04,291,0.0264,0.0236,0.833,True,0.0784
+Zillow ZHVI,"Faribault, MN",Home Values,2000-01,2026-04,304,0.0389,0.0212,0.84,True,0.072
+Zillow ZHVI,"Richmond, IN",Home Values,2000-01,2026-04,206,0.0359,0.0175,0.892,True,0.0733
+Zillow ZHVI,"Marquette, MI",Home Values,2000-01,2026-04,313,0.0421,0.0177,0.774,True,0.0497
+Zillow ZHVI,"North Wilkesboro, NC",Home Values,2000-01,2026-04,315,0.0437,0.0283,0.844,True,0.0976
+Zillow ZHVI,"Mount Pleasant, MI",Home Values,2000-01,2026-04,171,0.0596,0.0218,0.783,True,0.0628
+Zillow ZHVI,"Rio Grande City, TX",Home Values,2000-01,2026-04,203,0.0142,0.0337,0.795,True,0.0998
+Zillow ZHVI,"Marion, OH",Home Values,2000-01,2026-04,205,0.0473,0.0287,0.757,True,0.0772
+Zillow ZHVI,"Baraboo, WI",Home Values,2000-01,2026-04,207,0.0399,0.0162,0.882,True,0.0646
+Zillow ZHVI,"Red Bluff, CA",Home Values,2000-01,2026-04,171,0.0736,0.0232,0.893,True,0.0976
+Zillow ZHVI,"Marinette, WI",Home Values,2000-01,2026-04,315,0.0398,0.0221,0.839,True,0.0747
+Zillow ZHVI,"Roswell, NM",Home Values,2000-01,2026-04,207,0.0174,0.0216,0.86,True,0.0789
+Zillow ZHVI,"Shelton, WA",Home Values,2000-01,2026-04,224,0.0382,0.0272,0.964,True,0.2014
+Zillow ZHVI,"Dublin, GA",Home Values,2000-01,2026-04,315,0.0256,0.0175,0.889,True,0.072
+Zillow ZHVI,"Nacogdoches, TX",Home Values,2000-01,2026-04,206,0.0298,0.0163,0.866,True,0.061
+Zillow ZHVI,"Somerset, KY",Home Values,2000-01,2026-04,315,0.0524,0.0242,0.84,True,0.0823
+Zillow ZHVI,"Coos Bay, OR",Home Values,2000-01,2026-04,219,0.0342,0.0235,0.96,True,0.165
+Zillow ZHVI,"Forest City, NC",Home Values,2000-01,2026-04,311,0.0422,0.0236,0.626,True,0.0491
+Zillow ZHVI,"Martinsville, VA",Home Values,2000-01,2026-04,312,0.0212,0.0322,0.537,True,0.0588
+Zillow ZHVI,"Rexburg, ID",Home Values,2000-01,2026-04,201,0.0549,0.0298,0.965,True,0.2232
+Zillow ZHVI,"Lewiston, ID",Home Values,2000-01,2026-04,205,0.041,0.0212,0.955,True,0.1404
+Zillow ZHVI,"Laconia, NH",Home Values,2000-01,2026-04,315,0.0597,0.0238,0.948,True,0.1463
+Zillow ZHVI,"Georgetown, SC",Home Values,2000-01,2026-04,167,0.0543,0.0197,0.922,True,0.0985
+Zillow ZHVI,"Athens, OH",Home Values,2000-01,2026-04,206,0.0326,0.0188,0.842,True,0.0643
+Zillow ZHVI,"Sanford, NC",Home Values,2000-01,2026-04,311,0.0429,0.0223,0.709,True,0.0543
+Zillow ZHVI,"Enid, OK",Home Values,2000-01,2026-04,308,0.0274,0.0243,0.359,True,0.0355
+Zillow ZHVI,"Mount Vernon, OH",Home Values,2000-01,2026-04,206,0.0659,0.0214,0.936,True,0.1172
+Zillow ZHVI,"Walla Walla, WA",Home Values,2000-01,2026-04,313,0.0471,0.0215,0.91,True,0.0989
+Zillow ZHVI,"Albemarle, NC",Home Values,2000-01,2026-04,122,0.0821,0.0252,0.911,True,0.1166
+Zillow ZHVI,"Hutchinson, KS",Home Values,2000-01,2026-04,189,0.0464,0.0175,0.856,True,0.0629
+Zillow ZHVI,"Hudson, NY",Home Values,2000-01,2026-04,315,0.0587,0.023,0.909,True,0.106
+Zillow ZHVI,"Starkville, MS",Home Values,2000-01,2026-04,204,0.0221,0.0185,0.855,True,0.0662
+Zillow ZHVI,"Carlsbad, NM",Home Values,2000-01,2026-04,122,0.014,0.0309,0.856,True,0.1114
+Zillow ZHVI,"Gillette, WY",Home Values,2000-01,2026-04,206,0.0163,0.015,0.892,True,0.0627
+Zillow ZHVI,"Sturgis, MI",Home Values,2000-01,2026-04,311,0.0306,0.0219,0.624,True,0.0456
+Zillow ZHVI,"Rutland, VT",Home Values,2000-01,2026-04,312,0.0459,0.0219,0.681,True,0.0504
+Zillow ZHVI,"Crossville, TN",Home Values,2000-01,2026-04,312,0.0442,0.0351,0.454,True,0.0574
+Zillow ZHVI,"Sayre, PA",Home Values,2000-01,2026-04,207,0.0278,0.0237,0.832,True,0.0783
+Zillow ZHVI,"Salina, KS",Home Values,2000-01,2026-04,171,0.0458,0.0148,0.834,True,0.0494
+Zillow ZHVI,"Marietta, OH",Home Values,2000-01,2026-04,315,0.0294,0.0135,0.868,True,0.0507
+Zillow ZHVI,"Fergus Falls, MN",Home Values,2000-01,2026-04,171,0.0598,0.0163,0.842,True,0.0557
+Zillow ZHVI,"Barre, VT",Home Values,2000-01,2026-04,314,0.0484,0.0174,0.842,True,0.0596
+Zillow ZHVI,"Fremont, OH",Home Values,2000-01,2026-04,315,0.0263,0.0153,0.916,True,0.0732
+Zillow ZHVI,"Oneonta, NY",Home Values,2000-01,2026-04,315,0.0535,0.0216,0.881,True,0.0858
+Zillow ZHVI,"Columbus, MS",Home Values,2000-01,2026-04,171,0.0336,0.0274,0.849,True,0.0959
+Zillow ZHVI,"Norwalk, OH",Home Values,2000-01,2026-04,312,0.0354,0.0212,0.84,True,0.0719
+Zillow ZHVI,"Batavia, NY",Home Values,2000-01,2026-04,315,0.0401,0.0194,0.924,True,0.0976
+Zillow ZHVI,"Ardmore, OK",Home Values,2000-01,2026-04,315,0.0416,0.0156,0.868,True,0.0587
+Zillow ZHVI,"Palestine, TX",Home Values,2000-01,2026-04,205,0.0326,0.0212,0.896,True,0.0909
+Zillow ZHVI,"Fort Madison, IA",Home Values,2000-01,2026-04,206,0.0309,0.0199,0.779,True,0.0566
+Zillow ZHVI,"Charleston, IL",Home Values,2000-01,2026-04,205,0.0215,0.018,0.795,True,0.0534
+Zillow ZHVI,"Fernley, NV",Home Values,2000-01,2026-04,228,0.035,0.0421,0.976,True,0.3845
+Zillow ZHVI,"Carson City, NV",Home Values,2000-01,2026-04,315,0.0491,0.0382,0.981,True,0.3886
+Zillow ZHVI,"Eagle Pass, TX",Home Values,2000-01,2026-04,206,0.0326,0.0199,0.831,True,0.0659
+Zillow ZHVI,"Calhoun, GA",Home Values,2000-01,2026-04,208,0.0564,0.0228,0.947,True,0.1381
+Zillow ZHVI,"Cullowhee, NC",Home Values,2000-01,2026-04,207,0.038,0.0255,0.92,True,0.1253
+Zillow ZHVI,"Kearney, NE",Home Values,2000-01,2026-04,235,0.0423,0.0144,0.839,True,0.0489
+Zillow ZHVI,"Fairmont, WV",Home Values,2000-01,2026-04,261,0.033,0.0219,0.842,True,0.0748
+Zillow ZHVI,"Ontario, OR",Home Values,2000-01,2026-04,315,0.0587,0.0275,0.969,True,0.2192
+Zillow ZHVI,"Gaffney, SC",Home Values,2000-01,2026-04,207,0.0329,0.0277,0.849,True,0.0972
+Zillow ZHVI,"Picayune, MS",Home Values,2000-01,2026-04,171,0.0572,0.0265,0.779,True,0.0754
+Zillow ZHVI,"Sterling, IL",Home Values,2000-01,2026-04,205,0.0175,0.0238,0.704,True,0.0573
+Zillow ZHVI,"Branson, MO",Home Values,2000-01,2026-04,206,0.0387,0.0247,0.92,True,0.1213
+Zillow ZHVI,"Cedar City, UT",Home Values,2000-01,2026-04,205,0.0523,0.031,0.706,True,0.0748
+Zillow ZHVI,"Waycross, GA",Home Values,2000-01,2026-04,315,0.0365,0.0199,0.901,True,0.0875
+Zillow ZHVI,"Oxford, MS",Home Values,2000-01,2026-04,202,0.0439,0.0169,0.902,True,0.0743
+Zillow ZHVI,"Jasper, IN",Home Values,2000-01,2026-04,227,0.0395,0.0135,0.886,True,0.0547
+Zillow ZHVI,"Edwards, CO",Home Values,2000-01,2026-04,312,0.0572,0.0357,0.697,True,0.0845
+Zillow ZHVI,"Durango, CO",Home Values,2000-01,2026-04,207,0.0441,0.0197,0.944,True,0.1166
+Zillow ZHVI,"Kinston, NC",Home Values,2000-01,2026-04,235,0.0375,0.0242,0.905,True,0.1087
+Zillow ZHVI,"Sonora, CA",Home Values,2000-01,2026-04,122,0.0315,0.0232,0.931,True,0.1235
+Zillow ZHVI,"Tiffin, OH",Home Values,2000-01,2026-04,315,0.0321,0.0173,0.885,True,0.0701
+Zillow ZHVI,"Batesville, AR",Home Values,2000-01,2026-04,315,0.0291,0.0148,0.84,True,0.0502
+Zillow ZHVI,"Point Pleasant, WV",Home Values,2000-01,2026-04,312,0.0328,0.0188,0.622,True,0.0389
+Zillow ZHVI,"Elko, NV",Home Values,2000-01,2026-04,207,0.0198,0.0178,0.943,True,0.1042
+Zillow ZHVI,"Danville, KY",Home Values,2000-01,2026-04,315,0.0381,0.0155,0.912,True,0.072
+Zillow ZHVI,"Glasgow, KY",Home Values,2000-01,2026-04,311,0.0461,0.021,0.489,True,0.0359
+Zillow ZHVI,"St. Marys, GA",Home Values,2000-01,2026-04,313,0.0483,0.0291,0.576,True,0.0561
+Zillow ZHVI,"Boone, NC",Home Values,2000-01,2026-04,313,0.0482,0.0253,0.777,True,0.0715
+Zillow ZHVI,"Warrensburg, MO",Home Values,2000-01,2026-04,207,0.0381,0.0161,0.912,True,0.0752
+Zillow ZHVI,"Gloversville, NY",Home Values,2000-01,2026-04,315,0.049,0.0184,0.895,True,0.0784
+Zillow ZHVI,"Fort Leonard Wood, MO",Home Values,2000-01,2026-04,197,0.0273,0.0198,0.882,True,0.0793
+Zillow ZHVI,"Poplar Bluff, MO",Home Values,2000-01,2026-04,308,0.0235,0.0208,0.488,True,0.0355
+Zillow ZHVI,"Elizabeth City, NC",Home Values,2000-01,2026-04,219,0.0173,0.0217,0.938,True,0.1214
+Zillow ZHVI,"Payson, AZ",Home Values,2000-01,2026-04,315,0.0572,0.0327,0.967,True,0.2523
+Zillow ZHVI,"Athens, TN",Home Values,2000-01,2026-04,175,0.0642,0.019,0.865,True,0.0709
+Zillow ZHVI,"Enterprise, AL",Home Values,2000-01,2026-04,166,0.0341,0.0157,0.861,True,0.0578
+Zillow ZHVI,"Ashland, OH",Home Values,2000-01,2026-04,205,0.0469,0.0177,0.915,True,0.0839
+Zillow ZHVI,"Scottsboro, AL",Home Values,2000-01,2026-04,196,0.0386,0.0239,0.869,True,0.0904
+Zillow ZHVI,"Milledgeville, GA",Home Values,2000-01,2026-04,208,0.0347,0.0233,0.919,True,0.1139
+Zillow ZHVI,"Kerrville, TX",Home Values,2000-01,2026-04,244,0.0384,0.0185,0.946,True,0.1116
+Zillow ZHVI,"Bartlesville, OK",Home Values,2000-01,2026-04,315,0.0386,0.0154,0.859,True,0.0558
+Zillow ZHVI,"Platteville, WI",Home Values,2000-01,2026-04,205,0.0385,0.0157,0.832,True,0.0519
+Zillow ZHVI,"Corsicana, TX",Home Values,2000-01,2026-04,205,0.0478,0.0208,0.884,True,0.0838
+Zillow ZHVI,"Greenville, OH",Home Values,2000-01,2026-04,311,0.032,0.0222,0.906,True,0.1004
+Zillow ZHVI,"Rochelle, IL",Home Values,2000-01,2026-04,207,0.0248,0.0289,0.911,True,0.1338
+Zillow ZHVI,"Douglas, GA",Home Values,2000-01,2026-04,313,0.0266,0.0218,0.866,True,0.0814
+Zillow ZHVI,"Oil City, PA",Home Values,2000-01,2026-04,315,0.0378,0.0193,0.878,True,0.0756
+Zillow ZHVI,"Mason City, IA",Home Values,2000-01,2026-04,206,0.0454,0.0169,0.826,True,0.0547
+Zillow ZHVI,"Jacksonville, TX",Home Values,2000-01,2026-04,205,0.0376,0.0223,0.889,True,0.0922
+Zillow ZHVI,"Galesburg, IL",Home Values,2000-01,2026-04,207,0.023,0.0241,0.798,True,0.0722
+Zillow ZHVI,"Pahrump, NV",Home Values,2000-01,2026-04,207,0.0548,0.0346,0.972,True,0.2901
+Zillow ZHVI,"Paris, TX",Home Values,2000-01,2026-04,205,0.0384,0.0231,0.89,True,0.0961
+Zillow ZHVI,"Winona, MN",Home Values,2000-01,2026-04,181,0.0477,0.012,0.872,True,0.0458
+Zillow ZHVI,"Newport, OR",Home Values,2000-01,2026-04,312,0.0518,0.0261,0.901,True,0.1147
+Zillow ZHVI,"Morgan City, LA",Home Values,2000-01,2026-04,130,-0.0081,0.0362,0.786,True,0.1048
+Zillow ZHVI,"Shelbyville, TN",Home Values,2000-01,2026-04,315,0.0485,0.0219,0.884,True,0.0884
+Zillow ZHVI,"Amsterdam, NY",Home Values,2000-01,2026-04,314,0.0463,0.0203,0.891,True,0.0847
+Zillow ZHVI,"Ozark, AL",Home Values,2000-01,2026-04,277,0.0309,0.0163,0.849,True,0.0573
+Zillow ZHVI,"Alice, TX",Home Values,2000-01,2026-04,205,-0.0177,0.0263,0.726,True,0.0662
+Zillow ZHVI,"Gardnerville Ranchos, NV",Home Values,2000-01,2026-04,314,0.0446,0.0369,0.947,True,0.2242
+Zillow ZHVI,"Fort Polk South, LA",Home Values,2000-01,2026-04,184,0.0176,0.0318,0.808,True,0.0976
+Zillow ZHVI,"Ca-¦on City, CO",Home Values,2000-01,2026-04,122,0.0751,0.0217,0.923,True,0.1086
+Zillow ZHVI,"Natchez, MS",Home Values,2000-01,2026-04,227,0.0089,0.0323,0.848,True,0.1126
+Zillow ZHVI,"New Castle, IN",Home Values,2000-01,2026-04,206,0.0476,0.0196,0.909,True,0.0898
+Zillow ZHVI,"Clovis, NM",Home Values,2000-01,2026-04,122,0.0095,0.0249,0.834,True,0.0828
+Zillow ZHVI,"Norfolk, NE",Home Values,2000-01,2026-04,273,0.0471,0.0135,0.857,True,0.0487
+Zillow ZHVI,"Cadillac, MI",Home Values,2000-01,2026-04,210,0.059,0.0506,0.443,True,0.0815
+Zillow ZHVI,"Ruston, LA",Home Values,2000-01,2026-04,311,0.0303,0.0145,0.531,True,0.0262
+Zillow ZHVI,"Sidney, OH",Home Values,2000-01,2026-04,311,0.0411,0.0153,0.818,True,0.0484
+Zillow ZHVI,"Pullman, WA",Home Values,2000-01,2026-04,237,0.0308,0.0272,0.594,True,0.054
+Zillow ZHVI,"Malone, NY",Home Values,2000-01,2026-04,315,0.0412,0.0215,0.895,True,0.0914
+Zillow ZHVI,"Del Rio, TX",Home Values,2000-01,2026-04,206,0.0264,0.0188,0.876,True,0.0731
+Zillow ZHVI,"Blackfoot, ID",Home Values,2000-01,2026-04,149,0.0795,0.029,0.955,True,0.1906
+Zillow ZHVI,"Red Wing, MN",Home Values,2000-01,2026-04,305,0.0385,0.0166,0.931,True,0.0877
+Zillow ZHVI,"Nogales, AZ",Home Values,2000-01,2026-04,315,0.0525,0.0333,0.93,True,0.1755
+Zillow ZHVI,"Tahlequah, OK",Home Values,2000-01,2026-04,314,0.0391,0.0181,0.862,True,0.0665
+Zillow ZHVI,"Kendallville, IN",Home Values,2000-01,2026-04,171,0.0664,0.0172,0.861,True,0.0629
+Zillow ZHVI,"Montrose, CO",Home Values,2000-01,2026-04,311,0.0543,0.0259,0.425,True,0.0409
+Zillow ZHVI,"Cortland, NY",Home Values,2000-01,2026-04,315,0.0446,0.0159,0.907,True,0.0724
+Zillow ZHVI,"Mount Sterling, KY",Home Values,2000-01,2026-04,315,0.0357,0.0213,0.84,True,0.0723
+Zillow ZHVI,"Clinton, IA",Home Values,2000-01,2026-04,203,0.0358,0.0181,0.696,True,0.0428
+Zillow ZHVI,"Sandpoint, ID",Home Values,2000-01,2026-04,205,0.0558,0.0372,0.914,True,0.1754
+Zillow ZHVI,"Bardstown, KY",Home Values,2000-01,2026-04,311,0.0414,0.0171,0.69,True,0.0398
+Zillow ZHVI,"Wapakoneta, OH",Home Values,2000-01,2026-04,205,0.0398,0.0154,0.886,True,0.0627
+Zillow ZHVI,"Plymouth, IN",Home Values,2000-01,2026-04,315,0.0385,0.0141,0.902,True,0.0621
+Zillow ZHVI,"Lewistown, PA",Home Values,2000-01,2026-04,160,0.0583,0.0223,0.828,True,0.0728
+Zillow ZHVI,"Bemidji, MN",Home Values,2000-01,2026-04,206,0.0211,0.0324,0.774,True,0.0911
+Zillow ZHVI,"Bellefontaine, OH",Home Values,2000-01,2026-04,300,0.037,0.0164,0.895,True,0.0698
+Zillow ZHVI,"Seymour, IN",Home Values,2000-01,2026-04,211,0.0422,0.0145,0.9,True,0.0631
+Zillow ZHVI,"Burley, ID",Home Values,2000-01,2026-04,204,0.0552,0.0254,0.951,True,0.161
+Zillow ZHVI,"Durant, OK",Home Values,2000-01,2026-04,311,0.046,0.0228,0.458,True,0.0375
+Zillow ZHVI,"Moultrie, GA",Home Values,2000-01,2026-04,315,0.0294,0.0204,0.876,True,0.0795
+Zillow ZHVI,"Bogalusa, LA",Home Values,2000-01,2026-04,193,0.0296,0.0302,0.781,True,0.0864
+Zillow ZHVI,"Cornelia, GA",Home Values,2000-01,2026-04,209,0.0529,0.0278,0.929,True,0.1453
+Zillow ZHVI,"Hillsdale, MI",Home Values,2000-01,2026-04,218,0.0393,0.0219,0.905,True,0.0982
+Zillow ZHVI,"Thomasville, GA",Home Values,2000-01,2026-04,314,0.0351,0.0176,0.888,True,0.0724
+Zillow ZHVI,"Paragould, AR",Home Values,2000-01,2026-04,311,0.036,0.025,0.319,True,0.0348
+Zillow ZHVI,"Greenville, MS",Home Values,2000-01,2026-04,83,-0.1033,0.0658,0.855,True,0.2358
+Zillow ZHVI,"Burlington, IA",Home Values,2000-01,2026-04,206,0.0261,0.0149,0.801,True,0.0449
+Zillow ZHVI,"Madisonville, KY",Home Values,2000-01,2026-04,311,0.0311,0.0245,0.463,True,0.0406
+Zillow ZHVI,"Menomonie, WI",Home Values,2000-01,2026-04,207,0.0464,0.0185,0.885,True,0.075
+Zillow ZHVI,"Shawano, WI",Home Values,2000-01,2026-04,206,0.0456,0.0214,0.885,True,0.0869
+Zillow ZHVI,"Vicksburg, MS",Home Values,2000-01,2026-04,171,0.0275,0.028,0.866,True,0.1051
+Zillow ZHVI,"Bedford, IN",Home Values,2000-01,2026-04,191,0.0557,0.0198,0.886,True,0.0807
+Zillow ZHVI,"Washington, NC",Home Values,2000-01,2026-04,312,0.0399,0.027,0.578,True,0.0523
+Zillow ZHVI,"Freeport, IL",Home Values,2000-01,2026-04,242,0.0311,0.03,0.898,True,0.1295
+Zillow ZHVI,"Harrison, AR",Home Values,2000-01,2026-04,312,0.0397,0.0169,0.847,True,0.0589
+Zillow ZHVI,"Rolla, MO",Home Values,2000-01,2026-04,122,0.0582,0.0183,0.871,True,0.0693
+Zillow ZHVI,"Coldwater, MI",Home Values,2000-01,2026-04,315,0.025,0.0201,0.843,True,0.0688
+Zillow ZHVI,"Marion, NC",Home Values,2000-01,2026-04,123,0.0616,0.0255,0.834,True,0.085
+Zillow ZHVI,"Huntingdon, PA",Home Values,2000-01,2026-04,205,0.0381,0.0233,0.816,True,0.0735
+Zillow ZHVI,"Ellensburg, WA",Home Values,2000-01,2026-04,207,0.0398,0.0246,0.953,True,0.1592
+Zillow ZHVI,"Ponca City, OK",Home Values,2000-01,2026-04,308,0.0305,0.0229,0.501,True,0.0398
+Zillow ZHVI,"Lawrenceburg, TN",Home Values,2000-01,2026-04,313,0.0452,0.0197,0.843,True,0.0676
+Zillow ZHVI,"McAlester, OK",Home Values,2000-01,2026-04,315,0.0312,0.0184,0.792,True,0.054
+Zillow ZHVI,"Mount Pleasant, TX",Home Values,2000-01,2026-04,203,0.0446,0.0223,0.88,True,0.0881
+Zillow ZHVI,"Willmar, MN",Home Values,2000-01,2026-04,246,0.0244,0.0168,0.913,True,0.0789
+Zillow ZHVI,"Rockingham, NC",Home Values,2000-01,2026-04,264,0.0331,0.0253,0.864,True,0.0937
+Zillow ZHVI,"Muscatine, IA",Home Values,2000-01,2026-04,207,0.0374,0.0149,0.862,True,0.0545
+Zillow ZHVI,"Lewisburg, PA",Home Values,2000-01,2026-04,171,0.0441,0.0141,0.84,True,0.0479
+Zillow ZHVI,"Auburn, IN",Home Values,2000-01,2026-04,207,0.0469,0.0159,0.913,True,0.0748
+Zillow ZHVI,"Duncan, OK",Home Values,2000-01,2026-04,313,0.0334,0.0216,0.644,True,0.0464
+Zillow ZHVI,"Sedalia, MO",Home Values,2000-01,2026-04,315,0.0475,0.0251,0.861,True,0.092
+Zillow ZHVI,"Cedartown, GA",Home Values,2000-01,2026-04,311,0.0512,0.0265,0.84,True,0.0898
+Zillow ZHVI,"Henderson, NC",Home Values,2000-01,2026-04,310,0.0361,0.026,0.758,True,0.0699
+Zillow ZHVI,"Aberdeen, SD",Home Values,2000-01,2026-04,205,0.037,0.0141,0.796,True,0.0418
+Zillow ZHVI,"Rock Springs, WY",Home Values,2000-01,2026-04,171,0.0353,0.0125,0.874,True,0.0482
+Zillow ZHVI,"Garden City, KS",Home Values,2000-01,2026-04,205,0.0393,0.0125,0.893,True,0.0528
+Zillow ZHVI,"Stephenville, TX",Home Values,2000-01,2026-04,206,0.0521,0.0187,0.917,True,0.0901
+Zillow ZHVI,"Celina, OH",Home Values,2000-01,2026-04,205,0.0477,0.0182,0.913,True,0.0855
+Zillow ZHVI,"Wilmington, OH",Home Values,2000-01,2026-04,272,0.0429,0.0199,0.852,True,0.0707
+Zillow ZHVI,"Bucyrus, OH",Home Values,2000-01,2026-04,180,0.0474,0.0223,0.839,True,0.0754
+Zillow ZHVI,"Alma, MI",Home Values,2000-01,2026-04,187,0.0454,0.0247,0.772,True,0.0688
+Zillow ZHVI,"El Campo, TX",Home Values,2000-01,2026-04,203,0.0342,0.0191,0.86,True,0.0698
+Zillow ZHVI,"Mountain Home, AR",Home Values,2000-01,2026-04,314,0.0363,0.0166,0.915,True,0.0789
+Zillow ZHVI,"Gainesville, TX",Home Values,2000-01,2026-04,205,0.0533,0.0205,0.91,True,0.0943
+Zillow ZHVI,"Tifton, GA",Home Values,2000-01,2026-04,315,0.0249,0.0148,0.916,True,0.0708
+Zillow ZHVI,"Blytheville, AR",Home Values,2000-01,2026-04,313,0.0342,0.0462,0.823,True,0.1487
+Zillow ZHVI,"McMinnville, TN",Home Values,2000-01,2026-04,313,0.0431,0.0209,0.877,True,0.0817
+Zillow ZHVI,"Astoria, OR",Home Values,2000-01,2026-04,270,0.0466,0.0259,0.959,True,0.1791
+Zillow ZHVI,"Bradford, PA",Home Values,2000-01,2026-04,205,0.0163,0.0224,0.773,True,0.0628
+Zillow ZHVI,"Espa-¦ola, NM",Home Values,2000-01,2026-04,171,0.0389,0.0285,0.77,True,0.0788
+Zillow ZHVI,"McComb, MS",Home Values,2000-01,2026-04,205,0.0007,0.027,0.788,True,0.0787
+Zillow ZHVI,"Big Stone Gap, VA",Home Values,2000-01,2026-04,205,0.0143,0.0259,0.846,True,0.0897
+Zillow ZHVI,"Marshalltown, IA",Home Values,2000-01,2026-04,206,0.0349,0.0211,0.811,True,0.0653
+Zillow ZHVI,"Big Rapids, MI",Home Values,2000-01,2026-04,221,0.0379,0.0222,0.901,True,0.0978
+Zillow ZHVI,"Austin, MN",Home Values,2000-01,2026-04,315,0.0418,0.0196,0.915,True,0.093
+Zillow ZHVI,"Selinsgrove, PA",Home Values,2000-01,2026-04,187,-0.0017,0.0409,0.891,True,0.1711
+Zillow ZHVI,"West Plains, MO",Home Values,2000-01,2026-04,202,0.0546,0.0347,0.464,True,0.0574
+Zillow ZHVI,"Okeechobee, FL",Home Values,2000-01,2026-04,315,0.0525,0.0309,0.97,True,0.2503
+Zillow ZHVI,"Houghton, MI",Home Values,2000-01,2026-04,315,0.0265,0.0231,0.775,True,0.0648
+Zillow ZHVI,"Moscow, ID",Home Values,2000-01,2026-04,204,0.0362,0.0232,0.934,True,0.1261
+Zillow ZHVI,"Clewiston, FL",Home Values,2000-01,2026-04,315,0.064,0.0335,0.97,True,0.2717
+Zillow ZHVI,"Riverton, WY",Home Values,2000-01,2026-04,197,0.0288,0.0207,0.902,True,0.0913
+Zillow ZHVI,"El Dorado, AR",Home Values,2000-01,2026-04,274,0.0192,0.0212,0.597,True,0.0424
+Zillow ZHVI,"Selma, AL",Home Values,2000-01,2026-04,314,0.0187,0.0309,0.778,True,0.0875
+Zillow ZHVI,"Pittsburg, KS",Home Values,2000-01,2026-04,206,0.0282,0.018,0.868,True,0.0679
+Zillow ZHVI,"Hannibal, MO",Home Values,2000-01,2026-04,202,0.0438,0.0204,0.856,True,0.0732
+Zillow ZHVI,"Warren, PA",Home Values,2000-01,2026-04,122,0.0387,0.0334,0.837,True,0.1119
+Zillow ZHVI,"Alexandria, MN",Home Values,2000-01,2026-04,268,0.0292,0.0181,0.903,True,0.0805
+Zillow ZHVI,"Urbana, OH",Home Values,2000-01,2026-04,315,0.0362,0.0163,0.898,True,0.0706
+Zillow ZHVI,"Greenwood, MS",Home Values,2000-01,2026-04,168,0.0253,0.0406,0.827,True,0.1321
+Zillow ZHVI,"Cambridge, OH",Home Values,2000-01,2026-04,311,0.0292,0.0317,0.388,True,0.0478
+Zillow ZHVI,"Williston, ND",Home Values,2000-01,2026-04,204,0.0418,0.0286,0.9,True,0.125
+Zillow ZHVI,"Defiance, OH",Home Values,2000-01,2026-04,315,0.0308,0.014,0.899,True,0.0611
+Zillow ZHVI,"Sikeston, MO",Home Values,2000-01,2026-04,122,0.0323,0.022,0.749,True,0.0583
+Zillow ZHVI,"Safford, AZ",Home Values,2000-01,2026-04,315,0.0431,0.0296,0.961,True,0.2096
+Zillow ZHVI,"Jacksonville, IL",Home Values,2000-01,2026-04,253,0.009,0.0191,0.796,True,0.0568
+Zillow ZHVI,"Ada, OK",Home Values,2000-01,2026-04,311,0.0395,0.0248,0.63,True,0.052
+Zillow ZHVI,"Brownwood, TX",Home Values,2000-01,2026-04,206,0.0281,0.0185,0.876,True,0.072
+Zillow ZHVI,"Crawfordsville, IN",Home Values,2000-01,2026-04,205,0.0458,0.0169,0.907,True,0.0767
+Zillow ZHVI,"Logansport, IN",Home Values,2000-01,2026-04,171,0.0598,0.0208,0.877,True,0.0815
+Zillow ZHVI,"Scottsbluff, NE",Home Values,2000-01,2026-04,205,0.0348,0.0148,0.831,True,0.0487
+Zillow ZHVI,"Natchitoches, LA",Home Values,2000-01,2026-04,140,0.0001,0.0258,0.75,True,0.0685
+Zillow ZHVI,"Newberry, SC",Home Values,2000-01,2026-04,200,0.0297,0.0232,0.859,True,0.0841
+Zillow ZHVI,"Lock Haven, PA",Home Values,2000-01,2026-04,206,0.0234,0.0178,0.848,True,0.0622
+Zillow ZHVI,"Centralia, IL",Home Values,2000-01,2026-04,122,0.0323,0.0289,0.788,True,0.0841
+Zillow ZHVI,"Easton, MD",Home Values,2000-01,2026-04,311,0.0369,0.0279,0.699,True,0.0665
+Zillow ZHVI,"Owatonna, MN",Home Values,2000-01,2026-04,207,0.0414,0.0174,0.937,True,0.097
+Zillow ZHVI,"Mount Vernon, IL",Home Values,2000-01,2026-04,206,0.0126,0.046,0.909,True,0.212
+Zillow ZHVI,"Laramie, WY",Home Values,2000-01,2026-04,205,0.0367,0.0144,0.925,True,0.0733
+Zillow ZHVI,"Murray, KY",Home Values,2000-01,2026-04,315,0.042,0.0385,0.869,True,0.1457
+Zillow ZHVI,"Fremont, NE",Home Values,2000-01,2026-04,207,0.054,0.0174,0.909,True,0.0796
+Zillow ZHVI,"Bennington, VT",Home Values,2000-01,2026-04,315,0.044,0.0204,0.906,True,0.0923
+Zillow ZHVI,"Sault Ste. Marie, MI",Home Values,2000-01,2026-04,206,0.0254,0.0301,0.84,True,0.1022
+Zillow ZHVI,"Campbellsville, KY",Home Values,2000-01,2026-04,205,0.0444,0.0195,0.905,True,0.0873
+Zillow ZHVI,"Dyersburg, TN",Home Values,2000-01,2026-04,311,0.0219,0.0228,0.537,True,0.0416
+Zillow ZHVI,"Escanaba, MI",Home Values,2000-01,2026-04,176,0.053,0.0237,0.819,True,0.0755
+Zillow ZHVI,"Mayfield, KY",Home Values,2000-01,2026-04,273,0.0434,0.0201,0.859,True,0.073
+Zillow ZHVI,"Kill Devil Hills, NC",Home Values,2000-01,2026-04,311,0.0406,0.0236,0.942,True,0.1368
+Zillow ZHVI,"Sulphur Springs, TX",Home Values,2000-01,2026-04,122,0.0488,0.0257,0.887,True,0.1055
+Zillow ZHVI,"Hutchinson, MN",Home Values,2000-01,2026-04,261,0.036,0.0207,0.921,True,0.1024
+Zillow ZHVI,"Coshocton, OH",Home Values,2000-01,2026-04,205,0.0468,0.0186,0.874,True,0.0719
+Zillow ZHVI,"Huntington, IN",Home Values,2000-01,2026-04,206,0.0455,0.016,0.898,True,0.0693
+Zillow ZHVI,"DeRidder, LA",Home Values,2000-01,2026-04,170,0.0157,0.0358,0.82,True,0.114
+Zillow ZHVI,"Vincennes, IN",Home Values,2000-01,2026-04,171,0.0508,0.0188,0.849,True,0.0662
+Zillow ZHVI,"Bay City, TX",Home Values,2000-01,2026-04,204,0.0304,0.0161,0.865,True,0.06
+Zillow ZHVI,"North Platte, NE",Home Values,2000-01,2026-04,228,0.0324,0.0185,0.409,True,0.0287
+Zillow ZHVI,"Peru, IN",Home Values,2000-01,2026-04,205,0.0523,0.0209,0.878,True,0.0817
+Zillow ZHVI,"Pontiac, IL",Home Values,2000-01,2026-04,315,0.0326,0.0186,0.885,True,0.0754
+Zillow ZHVI,"Lebanon, MO",Home Values,2000-01,2026-04,206,0.0398,0.0186,0.875,True,0.0722
+Zillow ZHVI,"Newport, TN",Home Values,2000-01,2026-04,315,0.0501,0.0206,0.862,True,0.0759
+Zillow ZHVI,"Decatur, IN",Home Values,2000-01,2026-04,204,0.0456,0.0156,0.89,True,0.0644
+Zillow ZHVI,"Vidalia, GA",Home Values,2000-01,2026-04,311,0.0343,0.029,0.436,True,0.0463
+Zillow ZHVI,"Brenham, TX",Home Values,2000-01,2026-04,204,0.0398,0.0173,0.926,True,0.0883
+Zillow ZHVI,"Vernal, UT",Home Values,2000-01,2026-04,205,0.0371,0.0279,0.944,True,0.1643
+Zillow ZHVI,"Ottumwa, IA",Home Values,2000-01,2026-04,205,0.0365,0.0277,0.832,True,0.0918
+Zillow ZHVI,"Butte, MT",Home Values,2000-01,2026-04,171,0.0748,0.024,0.929,True,0.1255
+Zillow ZHVI,"Corinth, MS",Home Values,2000-01,2026-04,171,0.0326,0.0246,0.849,True,0.0864
+Zillow ZHVI,"Brookhaven, MS",Home Values,2000-01,2026-04,150,0.04,0.0294,0.836,True,0.0981
+Zillow ZHVI,"Emporia, KS",Home Values,2000-01,2026-04,192,0.0414,0.0185,0.866,True,0.0691
+Zillow ZHVI,"Jackson, WY",Home Values,2000-01,2026-04,203,0.0564,0.0332,0.934,True,0.1799
+Zillow ZHVI,"Big Spring, TX",Home Values,2000-01,2026-04,171,0.0311,0.0338,0.908,True,0.1543
+Zillow ZHVI,"Effingham, IL",Home Values,2000-01,2026-04,206,0.0283,0.017,0.867,True,0.0637
+Zillow ZHVI,"Dodge City, KS",Home Values,2000-01,2026-04,122,0.0675,0.0235,0.854,True,0.0838
+Zillow ZHVI,"Watertown, SD",Home Values,2000-01,2026-04,127,0.0521,0.0185,0.854,True,0.0662
+Zillow ZHVI,"Angola, IN",Home Values,2000-01,2026-04,210,0.0449,0.0187,0.91,True,0.0865
+Zillow ZHVI,"Dixon, IL",Home Values,2000-01,2026-04,239,0.0154,0.043,0.86,True,0.1568
+Zillow ZHVI,"Laurinburg, NC",Home Values,2000-01,2026-04,314,0.0339,0.0226,0.874,True,0.0872
+Zillow ZHVI,"Taos, NM",Home Values,2000-01,2026-04,171,0.0346,0.0279,0.853,True,0.0992
+Zillow ZHVI,"Brookings, SD",Home Values,2000-01,2026-04,171,0.049,0.0121,0.864,True,0.0447
+Zillow ZHVI,"Americus, GA",Home Values,2000-01,2026-04,311,0.0155,0.0303,0.529,True,0.0547
+Zillow ZHVI,"Columbus, NE",Home Values,2000-01,2026-04,315,0.0515,0.014,0.838,True,0.0473
+Zillow ZHVI,"Taylorville, IL",Home Values,2000-01,2026-04,207,0.0256,0.0203,0.807,True,0.0623
+Zillow ZHVI,"Arcadia, FL",Home Values,2000-01,2026-04,315,0.0538,0.0353,0.972,True,0.2941
+Zillow ZHVI,"Lewisburg, TN",Home Values,2000-01,2026-04,311,0.0529,0.022,0.771,True,0.0613
+Zillow ZHVI,"Seneca Falls, NY",Home Values,2000-01,2026-04,315,0.0415,0.0187,0.917,True,0.0903
+Zillow ZHVI,"Dickinson, ND",Home Values,2000-01,2026-04,201,0.041,0.0196,0.937,True,0.1088
+Zillow ZHVI,"Washington, IN",Home Values,2000-01,2026-04,171,0.0564,0.0158,0.856,True,0.0567
+Zillow ZHVI,"Troy, AL",Home Values,2000-01,2026-04,122,0.0169,0.0198,0.843,True,0.0678
+Zillow ZHVI,"Malvern, AR",Home Values,2000-01,2026-04,315,0.0356,0.018,0.845,True,0.0623
+Zillow ZHVI,"Frankfort, IN",Home Values,2000-01,2026-04,313,0.0395,0.0165,0.916,True,0.0786
+Zillow ZHVI,"Madison, IN",Home Values,2000-01,2026-04,171,0.0727,0.02,0.84,True,0.068
+Zillow ZHVI,"Brevard, NC",Home Values,2000-01,2026-04,205,0.0453,0.0261,0.93,True,0.1379
+Zillow ZHVI,"Susanville, CA",Home Values,2000-01,2026-04,231,0.0106,0.0292,0.926,True,0.1487
+Zillow ZHVI,"Martin, TN",Home Values,2000-01,2026-04,314,0.0341,0.0179,0.84,True,0.0606
+Zillow ZHVI,"Plainview, TX",Home Values,2000-01,2026-04,206,0.0125,0.0208,0.812,True,0.0649
+Zillow ZHVI,"Dayton, TN",Home Values,2000-01,2026-04,315,0.0488,0.0187,0.914,True,0.0878
+Zillow ZHVI,"Jackson, OH",Home Values,2000-01,2026-04,315,0.0276,0.0193,0.824,True,0.0622
+Zillow ZHVI,"Cambridge, MD",Home Values,2000-01,2026-04,311,0.0508,0.0287,0.792,True,0.0845
+Zillow ZHVI,"Paris, TN",Home Values,2000-01,2026-04,311,0.0375,0.0199,0.676,True,0.0454
+Zillow ZHVI,"Juneau, AK",Home Values,2000-01,2026-04,250,0.0302,0.0172,0.58,True,0.0335
+Zillow ZHVI,"Coffeyville, KS",Home Values,2000-01,2026-04,192,0.0088,0.0264,0.889,True,0.1089
+Zillow ZHVI,"Las Vegas, NM",Home Values,2000-01,2026-04,171,0.0313,0.0269,0.759,True,0.073
+Zillow ZHVI,"Berlin, NH",Home Values,2000-01,2026-04,315,0.0507,0.0241,0.925,True,0.1226
+Zillow ZHVI,"Cleveland, MS",Home Values,2000-01,2026-04,122,-0.0241,0.0432,0.802,True,0.1309
+Zillow ZHVI,"Hastings, NE",Home Values,2000-01,2026-04,273,0.0391,0.0126,0.811,True,0.039
+Zillow ZHVI,"Beeville, TX",Home Values,2000-01,2026-04,171,0.0254,0.0252,0.836,True,0.0847
+Zillow ZHVI,"Kingsville, TX",Home Values,2000-01,2026-04,205,0.0229,0.0194,0.824,True,0.0626
+Zillow ZHVI,"Wabash, IN",Home Values,2000-01,2026-04,204,0.0448,0.0163,0.872,True,0.0624
+Zillow ZHVI,"Breckenridge, CO",Home Values,2000-01,2026-04,274,0.0546,0.0266,0.897,True,0.1144
+Zillow ZHVI,"Albert Lea, MN",Home Values,2000-01,2026-04,171,0.0635,0.019,0.825,True,0.0614
+Zillow ZHVI,"Sheridan, WY",Home Values,2000-01,2026-04,171,0.05,0.017,0.881,True,0.0676
+Zillow ZHVI,"Union City, TN",Home Values,2000-01,2026-04,311,0.0267,0.0213,0.605,True,0.043
+Zillow ZHVI,"Miami, OK",Home Values,2000-01,2026-04,315,0.0413,0.0234,0.84,True,0.0797
+Zillow ZHVI,"Iron Mountain, MI",Home Values,2000-01,2026-04,187,0.0389,0.0318,0.804,True,0.0961
+Zillow ZHVI,"Jesup, GA",Home Values,2000-01,2026-04,315,0.0356,0.0181,0.898,True,0.078
+Zillow ZHVI,"McPherson, KS",Home Values,2000-01,2026-04,147,0.0469,0.0118,0.786,True,0.034
+Zillow ZHVI,"Kirksville, MO",Home Values,2000-01,2026-04,171,0.0455,0.0157,0.807,True,0.0482
+Zillow ZHVI,"Ludington, MI",Home Values,2000-01,2026-04,314,0.0294,0.0278,0.796,True,0.0825
+Zillow ZHVI,"Bainbridge, GA",Home Values,2000-01,2026-04,311,0.0216,0.0304,0.425,True,0.0478
+Zillow ZHVI,"Alpena, MI",Home Values,2000-01,2026-04,314,0.0408,0.0322,0.819,True,0.1024
+Zillow ZHVI,"Washington Court House, OH",Home Values,2000-01,2026-04,315,0.0355,0.0171,0.89,True,0.0709
+Zillow ZHVI,"Hays, KS",Home Values,2000-01,2026-04,122,0.0385,0.0164,0.866,True,0.0609
+Zillow ZHVI,"Fort Morgan, CO",Home Values,2000-01,2026-04,171,0.0716,0.0181,0.933,True,0.0971
+Zillow ZHVI,"Van Wert, OH",Home Values,2000-01,2026-04,315,0.037,0.0158,0.891,True,0.0658
+Zillow ZHVI,"Kennett, MO",Home Values,2000-01,2026-04,204,0.006,0.0269,0.824,True,0.0868
+Zillow ZHVI,"Weatherford, OK",Home Values,2000-01,2026-04,314,0.0345,0.0171,0.82,True,0.0545
+Zillow ZHVI,"Mountain Home, ID",Home Values,2000-01,2026-04,238,0.0469,0.0315,0.969,True,0.2514
+Zillow ZHVI,"Mineral Wells, TX",Home Values,2000-01,2026-04,205,0.0469,0.0226,0.907,True,0.1024
+Zillow ZHVI,"Lincoln, IL",Home Values,2000-01,2026-04,147,0.031,0.0228,0.757,True,0.0616
+Zillow ZHVI,"Silver City, NM",Home Values,2000-01,2026-04,165,0.0229,0.0277,0.846,True,0.0963
+Zillow ZHVI,"Elkins, WV",Home Values,2000-01,2026-04,122,0.0396,0.0257,0.858,True,0.0933
+Zillow ZHVI,"Macomb, IL",Home Values,2000-01,2026-04,312,0.015,0.0239,0.511,True,0.042
+Zillow ZHVI,"Camden, AR",Home Values,2000-01,2026-04,315,0.0137,0.0251,0.818,True,0.0793
+Zillow ZHVI,"Crescent City, CA",Home Values,2000-01,2026-04,230,0.0145,0.0319,0.918,True,0.1545
+Zillow ZHVI,"North Vernon, IN",Home Values,2000-01,2026-04,300,0.0356,0.0161,0.901,True,0.0707
+Zillow ZHVI,"Thomaston, GA",Home Values,2000-01,2026-04,315,0.0463,0.0268,0.897,True,0.1153
+Zillow ZHVI,"Grants, NM",Home Values,2000-01,2026-04,122,0.0471,0.031,0.855,True,0.111
+Zillow ZHVI,"Bennettsville, SC",Home Values,2000-01,2026-04,147,0.0069,0.0517,0.832,True,0.1706
+Zillow ZHVI,"Fredericksburg, TX",Home Values,2000-01,2026-04,204,0.047,0.026,0.899,True,0.1131
+Zillow ZHVI,"Toccoa, GA",Home Values,2000-01,2026-04,315,0.0478,0.0239,0.924,True,0.1206
+Zillow ZHVI,"The Dalles, OR",Home Values,2000-01,2026-04,206,0.0438,0.0248,0.946,True,0.1489
+Zillow ZHVI,"Greensburg, IN",Home Values,2000-01,2026-04,171,0.0564,0.0164,0.876,True,0.064
+Zillow ZHVI,"Indianola, MS",Home Values,2000-01,2026-04,122,-0.0063,0.0447,0.792,True,0.1318
+Zillow ZHVI,"La Grande, OR",Home Values,2000-01,2026-04,204,0.0419,0.0189,0.946,True,0.1136
+Zillow ZHVI,"Ottawa, KS",Home Values,2000-01,2026-04,248,0.0569,0.0191,0.756,True,0.0514
+Zillow ZHVI,"New Ulm, MN",Home Values,2000-01,2026-04,171,0.0528,0.0142,0.84,True,0.0481
+Zillow ZHVI,"Lexington, NE",Home Values,2000-01,2026-04,217,0.047,0.0141,0.847,True,0.049
+Zillow ZHVI,"Great Bend, KS",Home Values,2000-01,2026-04,122,0.0392,0.0278,0.849,True,0.0968
+Zillow ZHVI,"Spearfish, SD",Home Values,2000-01,2026-04,167,0.0572,0.0191,0.929,True,0.0997
+Zillow ZHVI,"Wauchula, FL",Home Values,2000-01,2026-04,315,0.0523,0.0305,0.947,True,0.186
+Zillow ZHVI,"Marshall, MN",Home Values,2000-01,2026-04,183,0.0324,0.0172,0.803,True,0.0523
+Zillow ZHVI,"Deming, NM",Home Values,2000-01,2026-04,171,-0.0004,0.035,0.854,True,0.125
+Zillow ZHVI,"Mexico, MO",Home Values,2000-01,2026-04,264,0.034,0.0173,0.878,True,0.0682
+Zillow ZHVI,"Fallon, NV",Home Values,2000-01,2026-04,206,0.0494,0.0308,0.968,True,0.2419
+Zillow ZHVI,"Altus, OK",Home Values,2000-01,2026-04,312,0.0255,0.0226,0.696,True,0.0533
+Zillow ZHVI,"Uvalde, TX",Home Values,2000-01,2026-04,202,0.0245,0.0198,0.822,True,0.0637
+Zillow ZHVI,"Hailey, ID",Home Values,2000-01,2026-04,206,0.0572,0.0362,0.951,True,0.2299
+Zillow ZHVI,"Steamboat Springs, CO",Home Values,2000-01,2026-04,311,0.0648,0.029,0.621,True,0.0602
+Zillow ZHVI,"Summerville, GA",Home Values,2000-01,2026-04,315,0.0372,0.0247,0.896,True,0.106
+Zillow ZHVI,"Moberly, MO",Home Values,2000-01,2026-04,171,0.0545,0.0182,0.842,True,0.0622
+Zillow ZHVI,"Middlesborough, KY",Home Values,2000-01,2026-04,201,-0.0049,0.0364,0.813,True,0.1135
+Zillow ZHVI,"Woodward, OK",Home Values,2000-01,2026-04,311,0.0269,0.0221,0.429,True,0.035
+Zillow ZHVI,"Prineville, OR",Home Values,2000-01,2026-04,315,0.0649,0.0279,0.972,True,0.2354
+Zillow ZHVI,"Hood River, OR",Home Values,2000-01,2026-04,315,0.0527,0.0228,0.959,True,0.1571
+Zillow ZHVI,"Forrest City, AR",Home Values,2000-01,2026-04,315,0.014,0.0205,0.759,True,0.0554
+Zillow ZHVI,"Connersville, IN",Home Values,2000-01,2026-04,191,0.0614,0.0244,0.877,True,0.0953
+Zillow ZHVI,"Mitchell, SD",Home Values,2000-01,2026-04,145,0.0501,0.0157,0.872,True,0.0603
+Zillow ZHVI,"Marshall, MO",Home Values,2000-01,2026-04,171,0.0404,0.0382,0.817,True,0.1207
+Zillow ZHVI,"Brookings, OR",Home Values,2000-01,2026-04,315,0.0453,0.0256,0.96,True,0.1787
+Zillow ZHVI,"Yankton, SD",Home Values,2000-01,2026-04,204,0.0375,0.0164,0.847,True,0.0569
+Zillow ZHVI,"Wahpeton, ND",Home Values,2000-01,2026-04,201,0.0587,0.0173,0.825,True,0.0561
+Zillow ZHVI,"Magnolia, AR",Home Values,2000-01,2026-04,315,0.0153,0.0215,0.821,True,0.0688
+Zillow ZHVI,"Elk City, OK",Home Values,2000-01,2026-04,311,0.0184,0.0203,0.594,True,0.0402
+Zillow ZHVI,"Worthington, MN",Home Values,2000-01,2026-04,149,0.0588,0.0198,0.81,True,0.0611
+Zillow ZHVI,"Liberal, KS",Home Values,2000-01,2026-04,121,0.0296,0.0232,0.763,True,0.0636
+Zillow ZHVI,"Oskaloosa, IA",Home Values,2000-01,2026-04,205,0.0498,0.0192,0.863,True,0.0707
+Zillow ZHVI,"Pampa, TX",Home Values,2000-01,2026-04,201,0.0138,0.0249,0.799,True,0.0746
+Zillow ZHVI,"Clarksdale, MS",Home Values,2000-01,2026-04,122,-0.0033,0.0638,0.842,True,0.2189
+Zillow ZHVI,"Sterling, CO",Home Values,2000-01,2026-04,315,0.0398,0.0153,0.921,True,0.0754
+Zillow ZHVI,"Beatrice, NE",Home Values,2000-01,2026-04,238,0.0438,0.0158,0.837,True,0.053
+Zillow ZHVI,"Jamestown, ND",Home Values,2000-01,2026-04,123,0.0177,0.0215,0.817,True,0.0681
+Zillow ZHVI,"Levelland, TX",Home Values,2000-01,2026-04,205,0.0238,0.0156,0.762,True,0.0426
+Zillow ZHVI,"Grenada, MS",Home Values,2000-01,2026-04,122,0.0393,0.0348,0.786,True,0.1009
+Zillow ZHVI,"Maryville, MO",Home Values,2000-01,2026-04,171,0.0535,0.0221,0.805,True,0.0675
+Zillow ZHVI,"Arkadelphia, AR",Home Values,2000-01,2026-04,315,0.0283,0.0172,0.819,True,0.0544
+Zillow ZHVI,"Dumas, TX",Home Values,2000-01,2026-04,171,0.0572,0.0303,0.876,True,0.1181
+Zillow ZHVI,"Guymon, OK",Home Values,2000-01,2026-04,122,0.0484,0.0245,0.859,True,0.0891
+Zillow ZHVI,"Borger, TX",Home Values,2000-01,2026-04,205,0.0113,0.0238,0.81,True,0.0734
+Zillow ZHVI,"Pierre, SD",Home Values,2000-01,2026-04,205,0.0381,0.0139,0.896,True,0.0595
+Zillow ZHVI,"Huron, SD",Home Values,2000-01,2026-04,122,0.0362,0.0241,0.896,True,0.1033
+Zillow ZHVI,"Storm Lake, IA",Home Values,2000-01,2026-04,311,0.0385,0.0153,0.453,True,0.0249
+Zillow ZHVI,"Cordele, GA",Home Values,2000-01,2026-04,315,0.0249,0.0206,0.866,True,0.077
+Zillow ZHVI,"Evanston, WY",Home Values,2000-01,2026-04,205,0.0434,0.017,0.911,True,0.0792
+Zillow ZHVI,"Raymondville, TX",Home Values,2000-01,2026-04,164,0.0226,0.038,0.817,True,0.1198
+Zillow ZHVI,"Port Lavaca, TX",Home Values,2000-01,2026-04,203,0.0289,0.0175,0.856,True,0.063
+Zillow ZHVI,"Othello, WA",Home Values,2000-01,2026-04,205,0.044,0.0213,0.95,True,0.1322
+Zillow ZHVI,"Vineyard Haven, MA",Home Values,2000-01,2026-04,315,0.0605,0.0239,0.932,True,0.1279
+Zillow ZHVI,"Parsons, KS",Home Values,2000-01,2026-04,122,0.0194,0.0397,0.896,True,0.1687
+Zillow ZHVI,"Price, UT",Home Values,2000-01,2026-04,122,0.0811,0.0235,0.912,True,0.1093
+Zillow ZHVI,"Portales, NM",Home Values,2000-01,2026-04,200,0.0045,0.0241,0.834,True,0.0802
+Zillow ZHVI,"Los Alamos, NM",Home Values,2000-01,2026-04,205,0.036,0.0225,0.954,True,0.1476
+Zillow ZHVI,"Hereford, TX",Home Values,2000-01,2026-04,171,0.0607,0.0264,0.827,True,0.086
+Zillow ZHVI,"Andrews, TX",Home Values,2000-01,2026-04,203,0.0472,0.0175,0.863,True,0.0645
+Zillow ZHVI,"Spirit Lake, IA",Home Values,2000-01,2026-04,204,0.0462,0.0195,0.809,True,0.0601
+Zillow ZHVI,"Fitzgerald, GA",Home Values,2000-01,2026-04,315,0.0269,0.0258,0.865,True,0.0961
+Zillow ZHVI,"Winnemucca, NV",Home Values,2000-01,2026-04,132,0.0623,0.0197,0.839,True,0.0668
+Zillow ZHVI,"Maysville, KY",Home Values,2000-01,2026-04,191,0.0456,0.0263,0.871,True,0.1006
+Zillow ZHVI,"Snyder, TX",Home Values,2000-01,2026-04,205,0.0195,0.0188,0.836,True,0.063
+Zillow ZHVI,"Helena, AR",Home Values,2000-01,2026-04,156,-0.0104,0.0382,0.77,True,0.1061
+Zillow ZHVI,"Spencer, IA",Home Values,2000-01,2026-04,206,0.039,0.0157,0.823,True,0.0503
+Zillow ZHVI,"Atchison, KS",Home Values,2000-01,2026-04,171,0.0462,0.0321,0.909,True,0.1473
+Zillow ZHVI,"Fairfield, IA",Home Values,2000-01,2026-04,203,0.0449,0.0188,0.831,True,0.0623
+Zillow ZHVI,"Vermillion, SD",Home Values,2000-01,2026-04,122,0.0715,0.0164,0.81,True,0.0502
+Zillow ZHVI,"Sweetwater, TX",Home Values,2000-01,2026-04,203,0.0108,0.0249,0.805,True,0.0759
+Zillow ZHVI,"Pecos, TX",Home Values,2000-01,2026-04,122,0.002,0.0523,0.898,True,0.2264
+Zillow ZHVI,"Zapata, TX",Home Values,2000-01,2026-04,198,0.0097,0.029,0.806,True,0.0889
+Zillow ZHVI,"Ketchikan, AK",Home Values,2000-01,2026-04,251,0.0339,0.0134,0.85,True,0.0473
+Zillow ZHVI,"Craig, CO",Home Values,2000-01,2026-04,315,0.0437,0.0152,0.896,True,0.0647
+Zillow ZHVI,"Vernon, TX",Home Values,2000-01,2026-04,202,0.0057,0.0282,0.83,True,0.0928
+Zillow ZHVI,"Lamesa, TX",Home Values,2000-01,2026-04,180,0.0228,0.0332,0.813,True,0.1037
+Zillow ZORI,United States,Rents,2015-01,2026-04,135,0.0478,0.0155,0.897,True,0.0666
+Zillow ZORI,"New York, NY",Rents,2015-01,2026-04,135,0.0396,0.0266,0.906,True,0.1201
+Zillow ZORI,"Los Angeles, CA",Rents,2015-01,2026-04,135,0.0468,0.0142,0.843,True,0.0489
+Zillow ZORI,"Chicago, IL",Rents,2015-01,2026-04,135,0.0428,0.0207,0.849,True,0.0727
+Zillow ZORI,"Dallas, TX",Rents,2015-01,2026-04,135,0.0414,0.0188,0.874,True,0.0728
+Zillow ZORI,"Houston, TX",Rents,2015-01,2026-04,135,0.0276,0.0152,0.794,True,0.0451
+Zillow ZORI,"Washington, DC",Rents,2015-01,2026-04,135,0.0315,0.0185,0.843,True,0.0636
+Zillow ZORI,"Philadelphia, PA",Rents,2015-01,2026-04,135,0.042,0.0128,0.791,True,0.0376
+Zillow ZORI,"Miami, FL",Rents,2015-01,2026-04,135,0.055,0.0228,0.95,True,0.1428
+Zillow ZORI,"Atlanta, GA",Rents,2015-01,2026-04,135,0.0557,0.02,0.862,True,0.0737
+Zillow ZORI,"Boston, MA",Rents,2015-01,2026-04,135,0.0413,0.0262,0.84,True,0.0888
+Zillow ZORI,"Phoenix, AZ",Rents,2015-01,2026-04,135,0.0591,0.0224,0.882,True,0.0889
+Zillow ZORI,"San Francisco, CA",Rents,2015-01,2026-04,135,0.0341,0.022,0.854,True,0.0788
+Zillow ZORI,"Riverside, CA",Rents,2015-01,2026-04,135,0.0616,0.0167,0.816,True,0.0527
+Zillow ZORI,"Detroit, MI",Rents,2015-01,2026-04,135,0.0514,0.0147,0.769,True,0.0408
+Zillow ZORI,"Seattle, WA",Rents,2015-01,2026-04,135,0.0469,0.0272,0.839,True,0.0921
+Zillow ZORI,"Minneapolis, MN",Rents,2015-01,2026-04,135,0.0387,0.0141,0.709,True,0.0341
+Zillow ZORI,"San Diego, CA",Rents,2015-01,2026-04,135,0.0548,0.0187,0.874,True,0.0724
+Zillow ZORI,"Tampa, FL",Rents,2015-01,2026-04,135,0.0601,0.022,0.897,True,0.0947
+Zillow ZORI,"Denver, CO",Rents,2015-01,2026-04,135,0.0379,0.0232,0.852,True,0.082
+Zillow ZORI,"Baltimore, MD",Rents,2015-01,2026-04,135,0.034,0.0148,0.728,True,0.0375
+Zillow ZORI,"St. Louis, MO",Rents,2015-01,2026-04,135,0.0461,0.0128,0.714,True,0.0313
+Zillow ZORI,"Orlando, FL",Rents,2015-01,2026-04,135,0.0527,0.0216,0.893,True,0.0911
+Zillow ZORI,"Charlotte, NC",Rents,2015-01,2026-04,135,0.0511,0.0187,0.823,True,0.0603
+Zillow ZORI,"San Antonio, TX",Rents,2015-01,2026-04,135,0.0295,0.0174,0.831,True,0.0575
+Zillow ZORI,"Portland, OR",Rents,2015-01,2026-04,135,0.0441,0.021,0.839,True,0.0713
+Zillow ZORI,"Sacramento, CA",Rents,2015-01,2026-04,135,0.0575,0.0177,0.791,True,0.0521
+Zillow ZORI,"Pittsburgh, PA",Rents,2015-01,2026-04,135,0.0398,0.015,0.681,True,0.0345
+Zillow ZORI,"Cincinnati, OH",Rents,2015-01,2026-04,135,0.054,0.0138,0.602,True,0.0277
+Zillow ZORI,"Austin, TX",Rents,2015-01,2026-04,135,0.0289,0.0271,0.877,True,0.1062
+Zillow ZORI,"Las Vegas, NV",Rents,2015-01,2026-04,135,0.0536,0.0248,0.857,True,0.0895
+Zillow ZORI,"Kansas City, MO",Rents,2015-01,2026-04,135,0.0517,0.0147,0.741,True,0.0384
+Zillow ZORI,"Columbus, OH",Rents,2015-01,2026-04,135,0.0504,0.0182,0.635,True,0.0386
+Zillow ZORI,"Indianapolis, IN",Rents,2015-01,2026-04,135,0.0512,0.0164,0.74,True,0.0426
+Zillow ZORI,"Cleveland, OH",Rents,2015-01,2026-04,135,0.0519,0.0162,0.45,True,0.0263
+Zillow ZORI,"San Jose, CA",Rents,2015-01,2026-04,135,0.0324,0.0261,0.828,True,0.0854
+Zillow ZORI,"Nashville, TN",Rents,2015-01,2026-04,135,0.0427,0.022,0.772,True,0.0616
+Zillow ZORI,"Virginia Beach, VA",Rents,2015-01,2026-04,135,0.0491,0.0167,0.774,True,0.047
+Zillow ZORI,"Providence, RI",Rents,2015-01,2026-04,135,0.0675,0.0229,0.51,True,0.0401
+Zillow ZORI,"Jacksonville, FL",Rents,2015-01,2026-04,135,0.0487,0.0198,0.831,True,0.0657
+Zillow ZORI,"Milwaukee, WI",Rents,2015-01,2026-04,135,0.0414,0.0159,0.542,True,0.0275
+Zillow ZORI,"Oklahoma City, OK",Rents,2015-01,2026-04,135,0.038,0.0155,0.757,True,0.0416
+Zillow ZORI,"Raleigh, NC",Rents,2015-01,2026-04,135,0.0415,0.0213,0.834,True,0.0712
+Zillow ZORI,"Memphis, TN",Rents,2015-01,2026-04,135,0.0438,0.016,0.751,True,0.0426
+Zillow ZORI,"Richmond, VA",Rents,2015-01,2026-04,135,0.0519,0.0179,0.704,True,0.0432
+Zillow ZORI,"Louisville, KY",Rents,2015-01,2026-04,135,0.0488,0.015,0.477,True,0.0242
+Zillow ZORI,"New Orleans, LA",Rents,2015-01,2026-04,135,0.0331,0.0156,0.375,True,0.0231
+Zillow ZORI,"Salt Lake City, UT",Rents,2015-01,2026-04,135,0.0494,0.023,0.762,True,0.0629
+Zillow ZORI,"Hartford, CT",Rents,2015-01,2026-04,135,0.0495,0.0169,0.611,True,0.0343
+Zillow ZORI,"Buffalo, NY",Rents,2015-01,2026-04,135,0.0534,0.021,0.464,True,0.0344
+Zillow ZORI,"Birmingham, AL",Rents,2015-01,2026-04,135,0.0409,0.015,0.595,True,0.0298
+Zillow ZORI,"Rochester, NY",Rents,2015-01,2026-04,135,0.0505,0.019,0.574,True,0.0363
+Zillow ZORI,"Grand Rapids, MI",Rents,2015-01,2026-04,135,0.064,0.0249,0.632,True,0.0526
+Zillow ZORI,"Tucson, AZ",Rents,2015-01,2026-04,135,0.0551,0.0182,0.776,True,0.0513
+Zillow ZORI,"Urban Honolulu, HI",Rents,2015-01,2026-04,135,0.0376,0.0146,0.416,True,0.0228
+Zillow ZORI,"Tulsa, OK",Rents,2015-01,2026-04,135,0.0434,0.0166,0.645,True,0.0357
+Zillow ZORI,"Fresno, CA",Rents,2015-01,2026-04,135,0.0623,0.019,0.554,True,0.0356
+Zillow ZORI,"Worcester, MA",Rents,2015-01,2026-04,135,0.0648,0.0193,0.514,True,0.0341
+Zillow ZORI,"Omaha, NE",Rents,2015-01,2026-04,135,0.0468,0.0156,0.687,True,0.0363
+Zillow ZORI,"Bridgeport, CT",Rents,2015-01,2026-04,135,0.0479,0.0189,0.604,True,0.0381
+Zillow ZORI,"Greenville, SC",Rents,2015-01,2026-04,135,0.0501,0.0191,0.623,True,0.0397
+Zillow ZORI,"Albuquerque, NM",Rents,2015-01,2026-04,135,0.0539,0.0198,0.759,True,0.0537
+Zillow ZORI,"Bakersfield, CA",Rents,2015-01,2026-04,135,0.0568,0.0193,0.548,True,0.0359
+Zillow ZORI,"Albany, NY",Rents,2015-01,2026-04,135,0.044,0.019,0.417,True,0.0297
+Zillow ZORI,"Knoxville, TN",Rents,2015-01,2026-04,135,0.0659,0.0267,0.673,True,0.0606
+Zillow ZORI,"Baton Rouge, LA",Rents,2015-01,2026-04,135,0.0266,0.0182,0.603,True,0.0367
+Zillow ZORI,"McAllen, TX",Rents,2015-01,2026-04,135,0.0301,0.0173,0.217,True,0.0214
+Zillow ZORI,"New Haven, CT",Rents,2015-01,2026-04,135,0.053,0.0193,0.579,True,0.0375
+Zillow ZORI,"El Paso, TX",Rents,2015-01,2026-04,135,0.0427,0.0161,0.671,True,0.0365
+Zillow ZORI,"Allentown, PA",Rents,2015-01,2026-04,135,0.0518,0.0171,0.611,True,0.0349
+Zillow ZORI,"Oxnard, CA",Rents,2015-01,2026-04,135,0.0503,0.0162,0.472,True,0.0272
+Zillow ZORI,"Columbia, SC",Rents,2015-01,2026-04,135,0.053,0.0164,0.588,True,0.0322
+Zillow ZORI,"North Port, FL",Rents,2015-01,2026-04,135,0.0489,0.0311,0.795,True,0.0924
+Zillow ZORI,"Dayton, OH",Rents,2015-01,2026-04,135,0.0537,0.0157,0.535,True,0.0284
+Zillow ZORI,"Charleston, SC",Rents,2015-01,2026-04,135,0.0576,0.0213,0.771,True,0.0593
+Zillow ZORI,"Greensboro, NC",Rents,2015-01,2026-04,135,0.0565,0.0172,0.649,True,0.0374
+Zillow ZORI,"Stockton, CA",Rents,2015-01,2026-04,135,0.0619,0.0186,0.533,True,0.0337
+Zillow ZORI,"Cape Coral, FL",Rents,2015-01,2026-04,135,0.0584,0.0297,0.761,True,0.0809
+Zillow ZORI,"Boise City, ID",Rents,2015-01,2026-04,135,0.0687,0.0289,0.801,True,0.087
+Zillow ZORI,"Colorado Springs, CO",Rents,2015-01,2026-04,135,0.0526,0.0186,0.747,True,0.049
+Zillow ZORI,"Little Rock, AR",Rents,2015-01,2026-04,135,0.0396,0.0151,0.518,True,0.0269
+Zillow ZORI,"Lakeland, FL",Rents,2015-01,2026-04,135,0.0566,0.0208,0.732,True,0.0531
+Zillow ZORI,"Akron, OH",Rents,2015-01,2026-04,135,0.0533,0.02,0.482,True,0.0339
+Zillow ZORI,"Des Moines, IA",Rents,2015-01,2026-04,135,0.0288,0.0193,0.582,True,0.0376
+Zillow ZORI,"Springfield, MA",Rents,2015-01,2026-04,134,0.0566,0.0232,0.114,False,0.0232
+Zillow ZORI,"Poughkeepsie, NY",Rents,2015-01,2026-04,134,0.0632,0.0241,0.131,False,0.0241
+Zillow ZORI,"Ogden, UT",Rents,2015-01,2026-04,135,0.0594,0.023,0.491,True,0.0395
+Zillow ZORI,"Madison, WI",Rents,2015-01,2026-04,135,0.0442,0.0152,0.437,True,0.0242
+Zillow ZORI,"Winston, NC",Rents,2015-01,2026-04,135,0.059,0.0214,0.537,True,0.0391
+Zillow ZORI,"Deltona, FL",Rents,2015-01,2026-04,135,0.0598,0.0197,0.66,True,0.0435
+Zillow ZORI,"Syracuse, NY",Rents,2015-01,2026-04,123,0.06,0.0293,0.35,True,0.0424
+Zillow ZORI,"Provo, UT",Rents,2015-01,2026-04,135,0.0503,0.0225,0.464,True,0.0372
+Zillow ZORI,"Toledo, OH",Rents,2015-01,2026-04,135,0.0508,0.0206,0.57,True,0.0394
+Zillow ZORI,"Wichita, KS",Rents,2015-01,2026-04,135,0.0409,0.0142,0.546,True,0.0263
+Zillow ZORI,"Durham, NC",Rents,2015-01,2026-04,135,0.0466,0.0245,0.584,True,0.0458
+Zillow ZORI,"Augusta, GA",Rents,2015-01,2026-04,135,0.053,0.0176,0.589,True,0.0347
+Zillow ZORI,"Palm Bay, FL",Rents,2015-01,2026-04,135,0.0647,0.02,0.812,True,0.0621
+Zillow ZORI,"Jackson, MS",Rents,2015-01,2026-04,119,0.0425,0.0189,0.49,True,0.0323
+Zillow ZORI,"Harrisburg, PA",Rents,2015-01,2026-04,135,0.0482,0.0178,0.463,True,0.0295
+Zillow ZORI,"Spokane, WA",Rents,2015-01,2026-04,135,0.0671,0.0324,0.687,True,0.0755
+Zillow ZORI,"Scranton, PA",Rents,2015-01,2026-04,135,0.0554,0.0262,-0.124,False,0.0262
+Zillow ZORI,"Chattanooga, TN",Rents,2015-01,2026-04,135,0.0522,0.0262,0.357,True,0.0382
+Zillow ZORI,"Modesto, CA",Rents,2015-01,2026-04,135,0.0664,0.0216,0.357,True,0.0312
+Zillow ZORI,"Lancaster, PA",Rents,2015-01,2026-04,135,0.0575,0.016,0.228,True,0.0202
+Zillow ZORI,"Portland, ME",Rents,2015-01,2026-04,135,0.0614,0.0367,0.548,True,0.0681
+Zillow ZORI,"Youngstown, OH",Rents,2015-01,2026-04,132,0.0553,0.0233,0.088,False,0.0233
+Zillow ZORI,"Lansing, MI",Rents,2015-01,2026-04,135,0.057,0.0248,0.161,False,0.0248
+Zillow ZORI,"Fayetteville, AR",Rents,2015-01,2026-04,135,0.0558,0.0182,0.544,True,0.0336
+Zillow ZORI,"Fayetteville, NC",Rents,2015-01,2026-04,135,0.0554,0.0188,0.71,True,0.0457
+Zillow ZORI,"Lexington, KY",Rents,2015-01,2026-04,135,0.0536,0.0185,0.577,True,0.0355
+Zillow ZORI,"Pensacola, FL",Rents,2015-01,2026-04,134,0.0618,0.0266,0.535,True,0.0486
+Zillow ZORI,"Santa Rosa, CA",Rents,2015-01,2026-04,135,0.0454,0.0215,0.298,True,0.0294
+Zillow ZORI,"Reno, NV",Rents,2015-01,2026-04,135,0.0674,0.0256,0.648,True,0.0555
+Zillow ZORI,"Huntsville, AL",Rents,2015-01,2026-04,135,0.0558,0.0214,0.576,True,0.0413
+Zillow ZORI,"Port St. Lucie, FL",Rents,2015-01,2026-04,135,0.0667,0.0265,0.652,True,0.0578
+Zillow ZORI,"Lafayette, LA",Rents,2015-01,2026-04,119,0.0292,0.0209,0.38,True,0.0312
+Zillow ZORI,"Myrtle Beach, SC",Rents,2015-01,2026-04,135,0.0551,0.0268,0.552,True,0.05
+Zillow ZORI,"Springfield, MO",Rents,2015-01,2026-04,135,0.056,0.0253,0.536,True,0.0461
+Zillow ZORI,"Visalia, CA",Rents,2015-01,2026-04,135,0.056,0.0246,0.433,True,0.0392
+Zillow ZORI,"Killeen, TX",Rents,2015-01,2026-04,135,0.0422,0.0212,0.797,True,0.0634
+Zillow ZORI,"Asheville, NC",Rents,2015-01,2026-04,135,0.0562,0.0234,0.406,True,0.0355
+Zillow ZORI,"York, PA",Rents,2015-01,2026-04,135,0.0495,0.022,0.341,True,0.0314
+Zillow ZORI,"Vallejo, CA",Rents,2015-01,2026-04,135,0.0508,0.0182,0.567,True,0.0347
+Zillow ZORI,"Santa Maria, CA",Rents,2015-01,2026-04,135,0.0642,0.0284,0.411,True,0.0441
+Zillow ZORI,"Salinas, CA",Rents,2015-01,2026-04,135,0.0606,0.0232,0.342,True,0.0326
+Zillow ZORI,"Salem, OR",Rents,2015-01,2026-04,135,0.0633,0.0247,0.506,True,0.0431
+Zillow ZORI,"Mobile, AL",Rents,2015-01,2026-04,135,0.0548,0.0229,0.484,True,0.0389
+Zillow ZORI,"Reading, PA",Rents,2015-01,2026-04,135,0.0582,0.0289,0.375,True,0.0427
+Zillow ZORI,"Corpus Christi, TX",Rents,2015-01,2026-04,135,0.0278,0.0247,0.568,True,0.0473
+Zillow ZORI,"Brownsville, TX",Rents,2015-01,2026-04,130,0.0522,0.0276,0.165,False,0.0276
+Zillow ZORI,"Manchester, NH",Rents,2015-01,2026-04,135,0.0623,0.0234,0.399,True,0.0357
+Zillow ZORI,"Fort Wayne, IN",Rents,2015-01,2026-04,135,0.0577,0.0212,0.52,True,0.0377
+Zillow ZORI,"Gulfport, MS",Rents,2015-01,2026-04,135,0.0548,0.0254,0.168,False,0.0254
+Zillow ZORI,"Salisbury, MD",Rents,2015-01,2026-04,135,0.0508,0.0312,0.365,True,0.0456
+Zillow ZORI,"Flint, MI",Rents,2015-01,2026-04,135,0.0572,0.0297,0.164,False,0.0297
+Zillow ZORI,"Peoria, IL",Rents,2015-01,2026-04,130,0.0483,0.0291,0.166,False,0.0291
+Zillow ZORI,"Canton, OH",Rents,2015-01,2026-04,135,0.0518,0.0197,0.286,True,0.0265
+Zillow ZORI,"Savannah, GA",Rents,2015-01,2026-04,135,0.0573,0.0268,0.678,True,0.0615
+Zillow ZORI,"Anchorage, AK",Rents,2015-01,2026-04,135,0.0318,0.0201,0.704,True,0.0484
+Zillow ZORI,"Beaumont, TX",Rents,2015-01,2026-04,135,0.0457,0.023,0.182,False,0.023
+Zillow ZORI,"Shreveport, LA",Rents,2015-01,2026-04,135,0.0297,0.0207,0.568,True,0.0395
+Zillow ZORI,"Trenton, NJ",Rents,2015-01,2026-04,135,0.0464,0.0195,0.379,True,0.029
+Zillow ZORI,"Montgomery, AL",Rents,2015-01,2026-04,135,0.0422,0.0178,0.353,True,0.0258
+Zillow ZORI,"Davenport, IA",Rents,2015-01,2026-04,135,0.0351,0.0179,0.366,True,0.0262
+Zillow ZORI,"Tallahassee, FL",Rents,2015-01,2026-04,135,0.0528,0.0222,0.522,True,0.0397
+Zillow ZORI,"Eugene, OR",Rents,2015-01,2026-04,135,0.0607,0.0229,0.551,True,0.0423
+Zillow ZORI,"Naples, FL",Rents,2015-01,2026-04,135,0.0557,0.0475,0.672,True,0.1075
+Zillow ZORI,"Ann Arbor, MI",Rents,2015-01,2026-04,135,0.0458,0.0226,0.408,True,0.0344
+Zillow ZORI,"Ocala, FL",Rents,2015-01,2026-04,135,0.0615,0.0259,0.594,True,0.0516
+Zillow ZORI,"Hickory, NC",Rents,2015-01,2026-04,62,0.0772,0.0425,0.252,True,0.055
+Zillow ZORI,"Huntington, WV",Rents,2015-01,2026-04,113,0.0429,0.0242,0.004,False,0.0242
+Zillow ZORI,"Fort Collins, CO",Rents,2015-01,2026-04,135,0.0483,0.0283,0.573,True,0.0538
+Zillow ZORI,"Rockford, IL",Rents,2015-01,2026-04,135,0.0624,0.023,0.279,True,0.0304
+Zillow ZORI,"Lincoln, NE",Rents,2015-01,2026-04,123,0.0441,0.0194,0.519,True,0.0344
+Zillow ZORI,"Gainesville, FL",Rents,2015-01,2026-04,135,0.0562,0.0232,0.679,True,0.0527
+Zillow ZORI,"Boulder, CO",Rents,2015-01,2026-04,135,0.0447,0.0223,0.541,True,0.041
+Zillow ZORI,"Green Bay, WI",Rents,2015-01,2026-04,63,0.07,0.0252,0.346,True,0.0364
+Zillow ZORI,"Columbus, GA",Rents,2015-01,2026-04,135,0.0481,0.022,0.566,True,0.0415
+Zillow ZORI,"South Bend, IN",Rents,2015-01,2026-04,135,0.0636,0.0306,0.317,True,0.0424
+Zillow ZORI,"Spartanburg, SC",Rents,2015-01,2026-04,124,0.0525,0.0209,0.391,True,0.0311
+Zillow ZORI,"Greeley, CO",Rents,2015-01,2026-04,133,0.0397,0.0205,0.264,True,0.027
+Zillow ZORI,"Lubbock, TX",Rents,2015-01,2026-04,135,0.0321,0.0198,0.512,True,0.034
+Zillow ZORI,"Clarksville, TN",Rents,2015-01,2026-04,135,0.0481,0.0195,0.714,True,0.0478
+Zillow ZORI,"Roanoke, VA",Rents,2015-01,2026-04,135,0.0561,0.0278,0.258,True,0.0364
+Zillow ZORI,"Evansville, IN",Rents,2015-01,2026-04,135,0.056,0.0265,-0.071,False,0.0265
+Zillow ZORI,"Kingsport, TN",Rents,2015-01,2026-04,52,0.0955,0.0392,0.147,False,0.0392
+Zillow ZORI,"Kennewick, WA",Rents,2015-01,2026-04,135,0.0527,0.0235,0.391,True,0.0356
+Zillow ZORI,"Utica, NY",Rents,2015-01,2026-04,59,0.0739,0.0352,0.017,False,0.0352
+Zillow ZORI,"Hagerstown, MD",Rents,2015-01,2026-04,135,0.0515,0.0196,0.285,True,0.0264
+Zillow ZORI,"Duluth, MN",Rents,2015-01,2026-04,127,0.0413,0.0259,0.114,False,0.0259
+Zillow ZORI,"Olympia, WA",Rents,2015-01,2026-04,135,0.0606,0.0208,0.584,True,0.0407
+Zillow ZORI,"Longview, TX",Rents,2015-01,2026-04,117,0.0432,0.0255,0.429,True,0.0404
+Zillow ZORI,"Wilmington, NC",Rents,2015-01,2026-04,135,0.0574,0.0278,0.608,True,0.0565
+Zillow ZORI,"San Luis Obispo, CA",Rents,2015-01,2026-04,135,0.0611,0.0264,0.297,True,0.0359
+Zillow ZORI,"Crestview, FL",Rents,2015-01,2026-04,135,0.0602,0.0308,0.786,True,0.0889
+Zillow ZORI,"Merced, CA",Rents,2015-01,2026-04,135,0.0717,0.0296,0.438,True,0.0474
+Zillow ZORI,"Waco, TX",Rents,2015-01,2026-04,135,0.0466,0.0274,0.176,False,0.0274
+Zillow ZORI,"Cedar Rapids, IA",Rents,2015-01,2026-04,135,0.0412,0.0232,0.189,False,0.0232
+Zillow ZORI,"Atlantic City, NJ",Rents,2015-01,2026-04,135,0.0701,0.0401,0.31,True,0.0549
+Zillow ZORI,"Bremerton, WA",Rents,2015-01,2026-04,135,0.0624,0.0303,0.572,True,0.0582
+Zillow ZORI,"Sioux Falls, SD",Rents,2015-01,2026-04,123,0.0422,0.025,0.392,True,0.0379
+Zillow ZORI,"Santa Cruz, CA",Rents,2015-01,2026-04,135,0.0557,0.0338,0.176,False,0.0338
+Zillow ZORI,"Erie, PA",Rents,2015-01,2026-04,118,0.0514,0.0326,0.069,False,0.0326
+Zillow ZORI,"Norwich, CT",Rents,2015-01,2026-04,135,0.0578,0.0277,0.317,True,0.0385
+Zillow ZORI,"Amarillo, TX",Rents,2015-01,2026-04,120,0.0383,0.0228,0.356,True,0.0328
+Zillow ZORI,"Laredo, TX",Rents,2015-01,2026-04,110,0.0403,0.0292,0.306,True,0.0403
+Zillow ZORI,"Tuscaloosa, AL",Rents,2015-01,2026-04,119,0.0457,0.0277,0.225,True,0.0349
+Zillow ZORI,"College Station, TX",Rents,2015-01,2026-04,135,0.0411,0.0303,0.463,True,0.0501
+Zillow ZORI,"Kalamazoo, MI",Rents,2015-01,2026-04,135,0.0496,0.0231,0.217,True,0.0289
+Zillow ZORI,"Lynchburg, VA",Rents,2015-01,2026-04,135,0.0516,0.0282,0.133,False,0.0282
+Zillow ZORI,"Charleston, WV",Rents,2015-01,2026-04,111,0.0407,0.026,0.068,False,0.026
+Zillow ZORI,"Yakima, WA",Rents,2015-01,2026-04,51,0.0457,0.0394,0.24,True,0.0477
+Zillow ZORI,"Fargo, ND",Rents,2015-01,2026-04,119,0.0284,0.0241,0.26,True,0.031
+Zillow ZORI,"Binghamton, NY",Rents,2015-01,2026-04,99,0.0892,0.0523,0.009,False,0.0523
+Zillow ZORI,"Fort Smith, AR",Rents,2015-01,2026-04,132,0.0457,0.0228,0.312,True,0.0315
+Zillow ZORI,"Appleton, WI",Rents,2015-01,2026-04,51,0.0636,0.023,0.138,False,0.023
+Zillow ZORI,"Prescott Valley, AZ",Rents,2015-01,2026-04,135,0.0621,0.0256,0.536,True,0.0468
+Zillow ZORI,"Topeka, KS",Rents,2015-01,2026-04,135,0.0513,0.0277,0.144,False,0.0277
+Zillow ZORI,"Macon, GA",Rents,2015-01,2026-04,119,0.0537,0.0418,0.511,True,0.0737
+Zillow ZORI,"Tyler, TX",Rents,2015-01,2026-04,119,0.0366,0.0222,0.548,True,0.0412
+Zillow ZORI,"Barnstable Town, MA",Rents,2015-01,2026-04,84,0.0746,0.0713,0.032,False,0.0713
+Zillow ZORI,"Daphne, AL",Rents,2015-01,2026-04,134,0.0481,0.0336,0.577,True,0.0645
+Zillow ZORI,"Bellingham, WA",Rents,2015-01,2026-04,135,0.0663,0.0276,0.47,True,0.0461
+Zillow ZORI,"Burlington, VT",Rents,2015-01,2026-04,116,0.0503,0.0306,0.179,False,0.0306
+Zillow ZORI,"Rochester, MN",Rents,2015-01,2026-04,135,0.0406,0.03,0.411,True,0.0462
+Zillow ZORI,"Lafayette, IN",Rents,2015-01,2026-04,135,0.0519,0.0253,0.294,True,0.0343
+Zillow ZORI,"Champaign, IL",Rents,2015-01,2026-04,135,0.0447,0.0259,0.162,False,0.0259
+Zillow ZORI,"Medford, OR",Rents,2015-01,2026-04,135,0.0616,0.0273,0.186,False,0.0273
+Zillow ZORI,"Lebanon, NH",Rents,2015-01,2026-04,123,0.0673,0.0477,-0.011,False,0.0477
+Zillow ZORI,"Charlottesville, VA",Rents,2015-01,2026-04,135,0.0513,0.0211,0.493,True,0.0358
+Zillow ZORI,"Lake Charles, LA",Rents,2015-01,2026-04,118,0.0309,0.0616,0.386,True,0.0929
+Zillow ZORI,"Las Cruces, NM",Rents,2015-01,2026-04,135,0.0505,0.0217,0.39,True,0.0327
+Zillow ZORI,"Chico, CA",Rents,2015-01,2026-04,135,0.0494,0.0247,0.263,True,0.0324
+Zillow ZORI,"Hilton Head Island, SC",Rents,2015-01,2026-04,135,0.0609,0.0294,0.503,True,0.0512
+Zillow ZORI,"Athens, GA",Rents,2015-01,2026-04,135,0.0714,0.0257,0.179,False,0.0257
+Zillow ZORI,"Lake Havasu City, AZ",Rents,2015-01,2026-04,135,0.066,0.0313,0.4,True,0.048
+Zillow ZORI,"Columbia, MO",Rents,2015-01,2026-04,135,0.0564,0.0272,0.242,True,0.0331
+Zillow ZORI,"Springfield, IL",Rents,2015-01,2026-04,118,0.0496,0.0273,0.008,False,0.0273
+Zillow ZORI,"Houma, LA",Rents,2015-01,2026-04,48,0.039,0.0439,0.185,False,0.0439
+Zillow ZORI,"Monroe, LA",Rents,2015-01,2026-04,46,0.0888,0.0649,0.143,False,0.0649
+Zillow ZORI,"Elkhart, IN",Rents,2015-01,2026-04,54,0.0621,0.0475,0.242,True,0.0593
+Zillow ZORI,"Johnson City, TN",Rents,2015-01,2026-04,119,0.066,0.032,0.305,True,0.0437
+Zillow ZORI,"Yuma, AZ",Rents,2015-01,2026-04,52,0.0398,0.0232,0.277,True,0.0274
+Zillow ZORI,"Gainesville, GA",Rents,2015-01,2026-04,135,0.0605,0.0336,0.233,True,0.0427
+Zillow ZORI,"Jacksonville, NC",Rents,2015-01,2026-04,135,0.0535,0.0212,0.709,True,0.0516
+Zillow ZORI,"Florence, SC",Rents,2015-01,2026-04,84,0.0596,0.0377,0.256,True,0.0492
+Zillow ZORI,"Hilo, HI",Rents,2015-01,2026-04,54,0.0884,0.0431,0.406,True,0.0661
+Zillow ZORI,"St. Cloud, MN",Rents,2015-01,2026-04,135,0.0497,0.0331,0.139,False,0.0331
+Zillow ZORI,"Racine, WI",Rents,2015-01,2026-04,86,0.0597,0.0388,-0.025,False,0.0388
+Zillow ZORI,"Bend, OR",Rents,2015-01,2026-04,135,0.0641,0.0346,0.702,True,0.0829
+Zillow ZORI,"Saginaw, MI",Rents,2015-01,2026-04,61,0.0647,0.0322,0.078,False,0.0322
+Zillow ZORI,"Warner Robins, GA",Rents,2015-01,2026-04,134,0.0538,0.0249,0.313,True,0.0346
+Zillow ZORI,"Terre Haute, IN",Rents,2015-01,2026-04,63,0.0665,0.042,0.256,True,0.0538
+Zillow ZORI,"Torrington, CT",Rents,2015-01,2026-04,135,0.0677,0.0538,0.207,True,0.0664
+Zillow ZORI,"Punta Gorda, FL",Rents,2015-01,2026-04,135,0.0577,0.0399,0.409,True,0.0619
+Zillow ZORI,"Billings, MT",Rents,2015-01,2026-04,135,0.0481,0.0287,0.55,True,0.0534
+Zillow ZORI,"Redding, CA",Rents,2015-01,2026-04,127,0.0601,0.023,0.173,False,0.023
+Zillow ZORI,"Kingston, NY",Rents,2015-01,2026-04,119,0.0694,0.0577,0.306,True,0.0794
+Zillow ZORI,"Panama City, FL",Rents,2015-01,2026-04,133,0.0579,0.0575,0.271,True,0.0762
+Zillow ZORI,"Joplin, MO",Rents,2015-01,2026-04,53,0.0638,0.0301,0.209,True,0.0371
+Zillow ZORI,"Dover, DE",Rents,2015-01,2026-04,135,0.0505,0.0285,0.268,True,0.0375
+Zillow ZORI,"El Centro, CA",Rents,2015-01,2026-04,35,0.071,0.0637,-0.354,False,0.0637
+Zillow ZORI,"Jackson, TN",Rents,2015-01,2026-04,53,0.0778,0.0346,0.052,False,0.0346
+Zillow ZORI,"Yuba City, CA",Rents,2015-01,2026-04,123,0.0682,0.026,0.15,False,0.026
+Zillow ZORI,"Bowling Green, KY",Rents,2015-01,2026-04,103,0.0393,0.0251,0.395,True,0.0373
+Zillow ZORI,"St. George, UT",Rents,2015-01,2026-04,133,0.0569,0.0219,0.386,True,0.0326
+Zillow ZORI,"Muskegon, MI",Rents,2015-01,2026-04,58,0.0723,0.0399,0.203,True,0.0479
+Zillow ZORI,"Abilene, TX",Rents,2015-01,2026-04,135,0.079,0.0335,0.727,True,0.0848
+Zillow ZORI,"Iowa City, IA",Rents,2015-01,2026-04,125,0.0339,0.0265,0.241,True,0.034
+Zillow ZORI,"Auburn, AL",Rents,2015-01,2026-04,130,0.0956,0.0796,0.325,True,0.1068
+Zillow ZORI,"Midland, TX",Rents,2015-01,2026-04,118,0.0383,0.0633,0.709,True,0.1542
+Zillow ZORI,"Bloomington, IL",Rents,2015-01,2026-04,115,0.0598,0.0425,0.12,False,0.0425
+Zillow ZORI,"Hattiesburg, MS",Rents,2015-01,2026-04,51,0.0556,0.0329,0.262,True,0.043
+Zillow ZORI,"Oshkosh, WI",Rents,2015-01,2026-04,109,0.0673,0.0351,0.003,False,0.0351
+Zillow ZORI,"Eau Claire, WI",Rents,2015-01,2026-04,51,0.0567,0.03,-0.045,False,0.03
+Zillow ZORI,"Greenville, NC",Rents,2015-01,2026-04,135,0.0565,0.0214,0.256,True,0.0278
+Zillow ZORI,"Burlington, NC",Rents,2015-01,2026-04,124,0.069,0.0336,0.26,True,0.044
+Zillow ZORI,"Waterloo, IA",Rents,2015-01,2026-04,119,0.0387,0.0212,0.197,False,0.0212
+Zillow ZORI,"Coeur d'Alene, ID",Rents,2015-01,2026-04,110,0.0695,0.0404,0.759,True,0.1096
+Zillow ZORI,"East Stroudsburg, PA",Rents,2015-01,2026-04,135,0.0659,0.0348,0.24,True,0.0446
+Zillow ZORI,"Pueblo, CO",Rents,2015-01,2026-04,132,0.0587,0.0289,0.127,False,0.0289
+Zillow ZORI,"Blacksburg, VA",Rents,2015-01,2026-04,93,0.0598,0.0453,0.295,True,0.0614
+Zillow ZORI,"Wausau, WI",Rents,2015-01,2026-04,50,0.0571,0.0388,0.418,True,0.0606
+Zillow ZORI,"Kahului, HI",Rents,2015-01,2026-04,64,0.1002,0.069,0.38,True,0.1037
+Zillow ZORI,"Janesville, WI",Rents,2015-01,2026-04,51,0.0665,0.0255,0.177,False,0.0255
+Zillow ZORI,"Tupelo, MS",Rents,2015-01,2026-04,52,0.0805,0.0453,0.386,True,0.0625
+Zillow ZORI,"Bloomington, IN",Rents,2015-01,2026-04,134,0.0445,0.0304,0.297,True,0.0411
+Zillow ZORI,"Odessa, TX",Rents,2015-01,2026-04,102,0.0396,0.0601,0.458,True,0.0987
+Zillow ZORI,"Jackson, MI",Rents,2015-01,2026-04,118,0.0697,0.0605,0.097,False,0.0605
+Zillow ZORI,"State College, PA",Rents,2015-01,2026-04,84,0.0484,0.0324,0.242,True,0.0417
+Zillow ZORI,"Sebastian, FL",Rents,2015-01,2026-04,135,0.0767,0.0478,0.267,True,0.063
+Zillow ZORI,"Madera, CA",Rents,2015-01,2026-04,47,0.0386,0.0344,0.276,True,0.0462
+Zillow ZORI,"Decatur, AL",Rents,2015-01,2026-04,49,0.0626,0.0342,0.231,True,0.0419
+Zillow ZORI,"Chambersburg, PA",Rents,2015-01,2026-04,134,0.0542,0.0286,0.214,True,0.0353
+Zillow ZORI,"Vineland, NJ",Rents,2015-01,2026-04,29,0.0643,0.0421,0.326,True,0.0596
+Zillow ZORI,"Idaho Falls, ID",Rents,2015-01,2026-04,135,0.0672,0.0304,0.467,True,0.0505
+Zillow ZORI,"Grand Junction, CO",Rents,2015-01,2026-04,135,0.0634,0.0261,0.264,True,0.0342
+Zillow ZORI,"Elizabethtown, KY",Rents,2015-01,2026-04,51,0.0644,0.0366,0.314,True,0.0485
+Zillow ZORI,"Niles, MI",Rents,2015-01,2026-04,93,0.0623,0.0331,0.046,False,0.0331
+Zillow ZORI,"Monroe, MI",Rents,2015-01,2026-04,57,0.0475,0.04,0.138,False,0.04
+Zillow ZORI,"Santa Fe, NM",Rents,2015-01,2026-04,122,0.0646,0.0481,0.084,False,0.0481
+Zillow ZORI,"Concord, NH",Rents,2015-01,2026-04,50,0.0655,0.0411,0.357,True,0.0602
+Zillow ZORI,"Alexandria, LA",Rents,2015-01,2026-04,35,0.0338,0.0354,-0.079,False,0.0354
+Zillow ZORI,"Traverse City, MI",Rents,2015-01,2026-04,48,0.0676,0.0683,0.551,True,0.128
+Zillow ZORI,"Bangor, ME",Rents,2015-01,2026-04,100,0.0682,0.0344,0.341,True,0.0491
+Zillow ZORI,"Homosassa Springs, FL",Rents,2015-01,2026-04,119,0.0708,0.0343,0.188,False,0.0343
+Zillow ZORI,"Hanford, CA",Rents,2015-01,2026-04,47,0.0529,0.0313,0.223,True,0.0395
+Zillow ZORI,"Jefferson City, MO",Rents,2015-01,2026-04,36,0.0793,0.0343,0.057,False,0.0343
+Zillow ZORI,"Florence, AL",Rents,2015-01,2026-04,64,0.0899,0.0434,-0.173,False,0.0434
+Zillow ZORI,"Dothan, AL",Rents,2015-01,2026-04,39,0.0469,0.0505,0.089,False,0.0505
+Zillow ZORI,"Albany, GA",Rents,2015-01,2026-04,111,0.0603,0.0289,0.208,True,0.0357
+Zillow ZORI,"Sioux City, IA",Rents,2015-01,2026-04,40,0.0528,0.0391,0.158,False,0.0391
+Zillow ZORI,"Wichita Falls, TX",Rents,2015-01,2026-04,135,0.0567,0.0302,0.22,True,0.0374
+Zillow ZORI,"Texarkana, TX",Rents,2015-01,2026-04,53,0.0682,0.0381,-0.273,False,0.0381
+Zillow ZORI,"Valdosta, GA",Rents,2015-01,2026-04,72,0.077,0.034,0.282,True,0.0458
+Zillow ZORI,"Logan, UT",Rents,2015-01,2026-04,50,0.0574,0.0466,0.396,True,0.0715
+Zillow ZORI,"Flagstaff, AZ",Rents,2015-01,2026-04,98,0.0634,0.0413,0.578,True,0.0776
+Zillow ZORI,"Rocky Mount, NC",Rents,2015-01,2026-04,49,0.0655,0.0427,0.18,False,0.0427
+Zillow ZORI,"Pottsville, PA",Rents,2015-01,2026-04,47,0.0587,0.0359,-0.051,False,0.0359
+Zillow ZORI,"Dalton, GA",Rents,2015-01,2026-04,29,0.0547,0.0305,-0.233,False,0.0305
+Zillow ZORI,"Lebanon, PA",Rents,2015-01,2026-04,63,0.0677,0.0364,0.216,True,0.0456
+Zillow ZORI,"Morristown, TN",Rents,2015-01,2026-04,41,0.0614,0.0474,0.149,False,0.0474
+Zillow ZORI,"Winchester, VA",Rents,2015-01,2026-04,135,0.0523,0.0264,0.215,True,0.0329
+Zillow ZORI,"Wheeling, WV",Rents,2015-01,2026-04,95,0.0257,0.0436,0.062,False,0.0436
+Zillow ZORI,"Morgantown, WV",Rents,2015-01,2026-04,117,0.0402,0.0308,0.146,False,0.0308
+Zillow ZORI,"La Crosse, WI",Rents,2015-01,2026-04,52,0.0532,0.032,0.207,True,0.0353
+Zillow ZORI,"Napa, CA",Rents,2015-01,2026-04,120,0.0394,0.0283,0.323,True,0.0397
+Zillow ZORI,"Rapid City, SD",Rents,2015-01,2026-04,103,0.0515,0.0333,0.293,True,0.0452
+Zillow ZORI,"Sumter, SC",Rents,2015-01,2026-04,132,0.0528,0.0228,0.172,False,0.0228
+Zillow ZORI,"Eureka, CA",Rents,2015-01,2026-04,48,0.0325,0.0445,0.044,False,0.0445
+Zillow ZORI,"Springfield, OH",Rents,2015-01,2026-04,45,0.1152,0.0677,-0.088,False,0.0677
+Zillow ZORI,"Harrisonburg, VA",Rents,2015-01,2026-04,135,0.0633,0.0406,0.082,False,0.0406
+Zillow ZORI,"Battle Creek, MI",Rents,2015-01,2026-04,47,0.0479,0.0263,0.047,False,0.0263
+Zillow ZORI,"Sherman, TX",Rents,2015-01,2026-04,87,0.0439,0.0352,0.088,False,0.0352
+Zillow ZORI,"Manhattan, KS",Rents,2015-01,2026-04,135,0.0264,0.0215,0.44,True,0.0346
+Zillow ZORI,"Carbondale, IL",Rents,2015-01,2026-04,102,0.0478,0.0378,0.276,True,0.0496
+Zillow ZORI,"Johnstown, PA",Rents,2015-01,2026-04,96,0.0589,0.0431,0.075,False,0.0431
+Zillow ZORI,"Jonesboro, AR",Rents,2015-01,2026-04,121,0.0392,0.0244,0.0,False,0.0244
+Zillow ZORI,"Bismarck, ND",Rents,2015-01,2026-04,105,0.0511,0.0398,0.258,True,0.0521
+Zillow ZORI,"Hammond, LA",Rents,2015-01,2026-04,54,0.0404,0.0296,0.235,True,0.0369
+Zillow ZORI,"Pittsfield, MA",Rents,2015-01,2026-04,60,0.0842,0.0477,-0.007,False,0.0477
+Zillow ZORI,"Mount Vernon, WA",Rents,2015-01,2026-04,94,0.0637,0.0336,0.345,True,0.0478
+Zillow ZORI,"The Villages, FL",Rents,2015-01,2026-04,51,0.0448,0.0497,0.308,True,0.069
+Zillow ZORI,"Albany, OR",Rents,2015-01,2026-04,61,0.0655,0.0301,0.016,False,0.0301
+Zillow ZORI,"Lawton, OK",Rents,2015-01,2026-04,135,0.0445,0.0294,0.416,True,0.0459
+Zillow ZORI,"Cleveland, TN",Rents,2015-01,2026-04,64,0.0624,0.0318,0.454,True,0.0521
+Zillow ZORI,"Sierra Vista, AZ",Rents,2015-01,2026-04,52,0.0338,0.041,0.106,False,0.041
+Zillow ZORI,"Ames, IA",Rents,2015-01,2026-04,102,0.029,0.0304,0.339,True,0.0432
+Zillow ZORI,"Mansfield, OH",Rents,2015-01,2026-04,35,0.0684,0.0358,0.08,False,0.0358
+Zillow ZORI,"Staunton, VA",Rents,2015-01,2026-04,97,0.0615,0.034,0.187,False,0.034
+Zillow ZORI,"Augusta, ME",Rents,2015-01,2026-04,119,0.0733,0.0375,0.221,True,0.0461
+Zillow ZORI,"Altoona, PA",Rents,2015-01,2026-04,37,0.0584,0.0529,-0.311,False,0.0529
+Zillow ZORI,"New Bern, NC",Rents,2015-01,2026-04,59,0.0658,0.0336,0.461,True,0.0553
+Zillow ZORI,"Farmington, NM",Rents,2015-01,2026-04,36,0.0694,0.037,-0.189,False,0.037
+Zillow ZORI,"St. Joseph, MO",Rents,2015-01,2026-04,56,0.0753,0.0421,0.112,False,0.0421
+Zillow ZORI,"San Angelo, TX",Rents,2015-01,2026-04,111,0.0357,0.026,0.15,False,0.026
+Zillow ZORI,"Wenatchee, WA",Rents,2015-01,2026-04,61,0.0449,0.0283,0.552,True,0.0531
+Zillow ZORI,"Owensboro, KY",Rents,2015-01,2026-04,38,0.0619,0.0454,-0.068,False,0.0454
+Zillow ZORI,"Lawrence, KS",Rents,2015-01,2026-04,112,0.0536,0.0232,0.231,True,0.0282
+Zillow ZORI,"Goldsboro, NC",Rents,2015-01,2026-04,39,0.0456,0.0316,0.213,True,0.0392
+Zillow ZORI,"Watertown, NY",Rents,2015-01,2026-04,49,0.0468,0.0386,0.202,True,0.0475
+Zillow ZORI,"Sheboygan, WI",Rents,2015-01,2026-04,44,0.0726,0.0516,0.18,False,0.0516
+Zillow ZORI,"Weirton, WV",Rents,2015-01,2026-04,46,0.0352,0.0394,0.085,False,0.0394
+Zillow ZORI,"Missoula, MT",Rents,2015-01,2026-04,135,0.0619,0.0402,0.507,True,0.0706
+Zillow ZORI,"Wooster, OH",Rents,2015-01,2026-04,46,0.0626,0.0413,0.284,True,0.0559
+Zillow ZORI,"Bozeman, MT",Rents,2015-01,2026-04,63,0.0495,0.0453,0.612,True,0.0929
+Zillow ZORI,"Anniston, AL",Rents,2015-01,2026-04,36,0.0465,0.0254,0.248,True,0.0302
+Zillow ZORI,"Williamsport, PA",Rents,2015-01,2026-04,35,0.0468,0.0346,0.035,False,0.0346
+Zillow ZORI,"Brunswick, GA",Rents,2015-01,2026-04,52,0.0372,0.0374,0.381,True,0.0513
+Zillow ZORI,"California, MD",Rents,2015-01,2026-04,135,0.0479,0.0334,0.308,True,0.046
+Zillow ZORI,"Twin Falls, ID",Rents,2015-01,2026-04,47,0.0336,0.0262,0.078,False,0.0262
+Zillow ZORI,"Cookeville, TN",Rents,2015-01,2026-04,55,0.0475,0.0372,0.158,False,0.0372
+Zillow ZORI,"Muncie, IN",Rents,2015-01,2026-04,106,0.0684,0.0386,0.044,False,0.0386
+Zillow ZORI,"Michigan City, IN",Rents,2015-01,2026-04,50,0.0675,0.0448,0.325,True,0.0624
+Zillow ZORI,"Roseburg, OR",Rents,2015-01,2026-04,40,0.0382,0.0427,0.199,False,0.0427
+Zillow ZORI,"Lewiston, ME",Rents,2015-01,2026-04,40,0.0552,0.0368,0.027,False,0.0368
+Zillow ZORI,"Longview, WA",Rents,2015-01,2026-04,50,0.0386,0.0335,0.24,True,0.0422
+Zillow ZORI,"Kankakee, IL",Rents,2015-01,2026-04,61,0.0641,0.0333,0.188,False,0.0333
+Zillow ZORI,"Bluefield, WV",Rents,2015-01,2026-04,35,0.1159,0.0604,0.26,True,0.0793
+Zillow ZORI,"Richmond, KY",Rents,2015-01,2026-04,87,0.0574,0.0306,0.331,True,0.0434
+Zillow ZORI,"Tullahoma, TN",Rents,2015-01,2026-04,51,0.0678,0.0303,0.064,False,0.0303
+Zillow ZORI,"Whitewater, WI",Rents,2015-01,2026-04,52,0.0928,0.0593,-0.232,False,0.0593
+Zillow ZORI,"Ithaca, NY",Rents,2015-01,2026-04,87,0.0494,0.0544,0.244,True,0.0697
+Zillow ZORI,"Grand Forks, ND",Rents,2015-01,2026-04,100,0.0412,0.0251,0.483,True,0.0426
+Zillow ZORI,"Decatur, IL",Rents,2015-01,2026-04,39,0.0584,0.0605,0.085,False,0.0605
+Zillow ZORI,"LaGrange, GA",Rents,2015-01,2026-04,52,0.086,0.0614,0.29,True,0.0833
+Zillow ZORI,"Bay City, MI",Rents,2015-01,2026-04,47,0.0391,0.0534,0.141,False,0.0534
+Zillow ZORI,"Fond du Lac, WI",Rents,2015-01,2026-04,48,0.0865,0.0444,0.247,True,0.0557
+Zillow ZORI,"Gettysburg, PA",Rents,2015-01,2026-04,48,0.0386,0.0442,0.061,False,0.0442
+Zillow ZORI,"Kalispell, MT",Rents,2015-01,2026-04,51,0.0215,0.0443,0.62,True,0.0896
+Zillow ZORI,"Mankato, MN",Rents,2015-01,2026-04,41,0.075,0.0541,0.219,True,0.0682
+Zillow ZORI,"Truckee, CA",Rents,2015-01,2026-04,51,0.0481,0.045,-0.061,False,0.045
+Zillow ZORI,"Sebring, FL",Rents,2015-01,2026-04,102,0.0665,0.0353,0.114,False,0.0353
+Zillow ZORI,"Cheyenne, WY",Rents,2015-01,2026-04,135,0.0432,0.0203,0.156,False,0.0203
+Zillow ZORI,"Hot Springs, AR",Rents,2015-01,2026-04,58,0.0624,0.0444,0.257,True,0.058
+Zillow ZORI,"Shelby, NC",Rents,2015-01,2026-04,38,0.0335,0.027,0.259,True,0.0354
+Zillow ZORI,"Dubuque, IA",Rents,2015-01,2026-04,52,0.065,0.0412,0.219,True,0.0519
+Zillow ZORI,"Pinehurst, NC",Rents,2015-01,2026-04,132,0.0398,0.0348,0.248,True,0.0449
+Zillow ZORI,"Victoria, TX",Rents,2015-01,2026-04,49,0.0267,0.0354,0.161,False,0.0354
+Zillow ZORI,"Rome, GA",Rents,2015-01,2026-04,46,0.0411,0.0354,0.109,False,0.0354
+Zillow ZORI,"Sevierville, TN",Rents,2015-01,2026-04,33,0.0834,0.0558,0.151,False,0.0558
+Zillow ZORI,"Moses Lake, WA",Rents,2015-01,2026-04,124,0.057,0.0299,0.493,True,0.0515
+Zillow ZORI,"Cape Girardeau, MO",Rents,2015-01,2026-04,46,0.0582,0.035,0.112,False,0.035
+Zillow ZORI,"Fairbanks, AK",Rents,2015-01,2026-04,58,0.0603,0.0407,0.08,False,0.0407
+Zillow ZORI,"Cumberland, MD",Rents,2015-01,2026-04,38,0.0672,0.0526,0.149,False,0.0526
+Zillow ZORI,"Corvallis, OR",Rents,2015-01,2026-04,135,0.0575,0.0341,0.404,True,0.0522
+Zillow ZORI,"Pocatello, ID",Rents,2015-01,2026-04,51,0.0241,0.0425,0.315,True,0.059
+Zillow ZORI,"Hermiston, OR",Rents,2015-01,2026-04,41,0.0247,0.0453,-0.138,False,0.0453
+Zillow ZORI,"Clarksburg, WV",Rents,2015-01,2026-04,56,0.0533,0.0431,0.044,False,0.0431
+Zillow ZORI,"Parkersburg, WV",Rents,2015-01,2026-04,36,0.0597,0.0443,-0.039,False,0.0443
+Zillow ZORI,"Grants Pass, OR",Rents,2015-01,2026-04,41,0.0381,0.0536,0.218,True,0.0669
+Zillow ZORI,"Zanesville, OH",Rents,2015-01,2026-04,36,0.0614,0.0541,0.221,True,0.0624
+Zillow ZORI,"New Castle, PA",Rents,2015-01,2026-04,35,0.102,0.0686,-0.035,False,0.0686
+Zillow ZORI,"Oak Harbor, WA",Rents,2015-01,2026-04,135,0.0747,0.0244,0.436,True,0.039
+Zillow ZORI,"Watertown, WI",Rents,2015-01,2026-04,48,0.0779,0.0362,0.051,False,0.0362
+Zillow ZORI,"Great Falls, MT",Rents,2015-01,2026-04,105,0.067,0.0381,0.374,True,0.0566
+Zillow ZORI,"Russellville, AR",Rents,2015-01,2026-04,38,0.0562,0.0474,-0.246,False,0.0474
+Zillow ZORI,"Midland, MI",Rents,2015-01,2026-04,46,0.0575,0.0398,0.041,False,0.0398
+Zillow ZORI,"Kokomo, IN",Rents,2015-01,2026-04,104,0.0691,0.0445,0.077,False,0.0445
+Zillow ZORI,"Bloomsburg, PA",Rents,2015-01,2026-04,50,0.0637,0.0375,-0.274,False,0.0375
+Zillow ZORI,"Helena, MT",Rents,2015-01,2026-04,36,0.0536,0.0424,0.139,False,0.0424
+Zillow ZORI,"Key West, FL",Rents,2015-01,2026-04,102,0.0569,0.0543,0.022,False,0.0543
+Zillow ZORI,"Talladega, AL",Rents,2015-01,2026-04,39,0.0268,0.0394,0.137,False,0.0394
+Zillow ZORI,"Stillwater, OK",Rents,2015-01,2026-04,66,0.0707,0.0273,-0.089,False,0.0273
+Zillow ZORI,"Columbus, IN",Rents,2015-01,2026-04,95,0.0505,0.0369,0.165,False,0.0369
+Zillow ZORI,"Athens, TX",Rents,2015-01,2026-04,41,0.0221,0.043,0.499,True,0.0754
+Zillow ZORI,"Centralia, WA",Rents,2015-01,2026-04,35,0.0341,0.0391,-0.136,False,0.0391
+Zillow ZORI,"Hinesville, GA",Rents,2015-01,2026-04,135,0.0585,0.0315,0.233,True,0.04
+Zillow ZORI,"Warsaw, IN",Rents,2015-01,2026-04,40,0.0548,0.0487,-0.143,False,0.0487
+Zillow ZORI,"Statesboro, GA",Rents,2015-01,2026-04,52,0.0795,0.0464,0.198,False,0.0464
+Zillow ZORI,"Casper, WY",Rents,2015-01,2026-04,124,0.028,0.0413,0.554,True,0.0774
+Zillow ZORI,"Wilson, NC",Rents,2015-01,2026-04,33,0.0484,0.0426,0.27,True,0.0562
+Zillow ZORI,"Glenwood Springs, CO",Rents,2015-01,2026-04,121,0.0969,0.0692,0.03,False,0.0692
+Zillow ZORI,"Seneca, SC",Rents,2015-01,2026-04,37,0.0513,0.0418,0.019,False,0.0418
+Zillow ZORI,"Minot, ND",Rents,2015-01,2026-04,64,0.0524,0.0275,0.247,True,0.0355
+Zillow ZORI,"Port Angeles, WA",Rents,2015-01,2026-04,36,0.0335,0.0393,0.039,False,0.0393
+Zillow ZORI,"Huntsville, TX",Rents,2015-01,2026-04,41,0.0283,0.03,-0.084,False,0.03
+Zillow ZORI,"Keene, NH",Rents,2015-01,2026-04,51,0.0606,0.0335,-0.082,False,0.0335
+Zillow ZORI,"Heber, UT",Rents,2015-01,2026-04,85,0.0729,0.0502,0.575,True,0.0964
+Zillow ZORI,"Findlay, OH",Rents,2015-01,2026-04,45,0.0526,0.0509,0.007,False,0.0509
+Zillow ZORI,"Frankfort, KY",Rents,2015-01,2026-04,68,0.0703,0.0418,0.338,True,0.0599
+Zillow ZORI,"Danville, IL",Rents,2015-01,2026-04,45,0.066,0.0688,0.429,True,0.1059
+Zillow ZORI,"Aberdeen, WA",Rents,2015-01,2026-04,46,0.0547,0.0411,0.413,True,0.0637
+Zillow ZORI,"Jefferson, GA",Rents,2015-01,2026-04,49,0.0456,0.0356,0.511,True,0.0628
+Zillow ZORI,"Palatka, FL",Rents,2015-01,2026-04,29,0.0357,0.0705,0.262,True,0.0939
+Zillow ZORI,"Hobbs, NM",Rents,2015-01,2026-04,36,0.0474,0.0494,-0.106,False,0.0494
+Zillow ZORI,"Shawnee, OK",Rents,2015-01,2026-04,37,0.0345,0.0242,0.2,True,0.0294
+Zillow ZORI,"Stevens Point, WI",Rents,2015-01,2026-04,49,0.0484,0.0416,0.032,False,0.0416
+Zillow ZORI,"Greeneville, TN",Rents,2015-01,2026-04,29,0.0755,0.0843,0.311,True,0.1175
+Zillow ZORI,"Lake City, FL",Rents,2015-01,2026-04,34,0.0474,0.0553,-0.068,False,0.0553
+Zillow ZORI,"Klamath Falls, OR",Rents,2015-01,2026-04,36,0.0233,0.0307,0.4,True,0.0474
+Zillow ZORI,"Morehead City, NC",Rents,2015-01,2026-04,54,0.0627,0.0492,0.095,False,0.0492
+Zillow ZORI,"Clearlake, CA",Rents,2015-01,2026-04,49,0.0552,0.0656,0.014,False,0.0656
+Zillow ZORI,"Alamogordo, NM",Rents,2015-01,2026-04,47,0.0413,0.0387,0.039,False,0.0387
+Zillow ZORI,"Muskogee, OK",Rents,2015-01,2026-04,42,0.1055,0.0731,0.19,False,0.0731
+Zillow ZORI,"Richmond, IN",Rents,2015-01,2026-04,39,0.0643,0.0372,-0.354,False,0.0372
+Zillow ZORI,"Marquette, MI",Rents,2015-01,2026-04,30,0.0728,0.0651,-0.285,False,0.0651
+Zillow ZORI,"Mount Pleasant, MI",Rents,2015-01,2026-04,31,0.0858,0.104,0.193,False,0.104
+Zillow ZORI,"Red Bluff, CA",Rents,2015-01,2026-04,38,0.0576,0.0493,0.046,False,0.0493
+Zillow ZORI,"Jasper, AL",Rents,2015-01,2026-04,33,0.0104,0.0454,0.41,True,0.0707
+Zillow ZORI,"Roswell, NM",Rents,2015-01,2026-04,46,0.0532,0.0521,0.141,False,0.0521
+Zillow ZORI,"Rexburg, ID",Rents,2015-01,2026-04,62,0.0577,0.0375,0.146,False,0.0375
+Zillow ZORI,"Laconia, NH",Rents,2015-01,2026-04,37,0.0672,0.0688,0.116,False,0.0688
+Zillow ZORI,"Athens, OH",Rents,2015-01,2026-04,36,0.081,0.0841,0.008,False,0.0841
+Zillow ZORI,"Sanford, NC",Rents,2015-01,2026-04,34,0.0356,0.0414,0.1,False,0.0414
+Zillow ZORI,"Enid, OK",Rents,2015-01,2026-04,47,0.0434,0.0281,0.129,False,0.0281
+Zillow ZORI,"Walla Walla, WA",Rents,2015-01,2026-04,50,0.04,0.0212,0.247,True,0.0276
+Zillow ZORI,"Hutchinson, KS",Rents,2015-01,2026-04,106,0.0482,0.0343,-0.02,False,0.0343
+Zillow ZORI,"Hudson, NY",Rents,2015-01,2026-04,51,0.0593,0.0579,-0.278,False,0.0579
+Zillow ZORI,"Starkville, MS",Rents,2015-01,2026-04,30,0.0685,0.0344,-0.027,False,0.0344
+Zillow ZORI,"Gillette, WY",Rents,2015-01,2026-04,35,0.0428,0.0348,0.431,True,0.0559
+Zillow ZORI,"Granbury, TX",Rents,2015-01,2026-04,121,0.0514,0.0403,0.222,True,0.0507
+Zillow ZORI,"Salina, KS",Rents,2015-01,2026-04,35,0.0515,0.0399,-0.008,False,0.0399
+Zillow ZORI,"Columbus, MS",Rents,2015-01,2026-04,31,0.033,0.0347,0.371,True,0.0522
+Zillow ZORI,"Fernley, NV",Rents,2015-01,2026-04,62,0.0499,0.0315,0.222,True,0.0393
+Zillow ZORI,"Carson City, NV",Rents,2015-01,2026-04,42,0.0431,0.0256,0.217,True,0.0322
+Zillow ZORI,"Branson, MO",Rents,2015-01,2026-04,35,0.0549,0.0407,-0.122,False,0.0407
+Zillow ZORI,"Cedar City, UT",Rents,2015-01,2026-04,49,0.0194,0.0399,-0.07,False,0.0399
+Zillow ZORI,"Oxford, MS",Rents,2015-01,2026-04,54,0.1074,0.0599,0.434,True,0.0959
+Zillow ZORI,"Edwards, CO",Rents,2015-01,2026-04,39,0.0493,0.0572,-0.116,False,0.0572
+Zillow ZORI,"Durango, CO",Rents,2015-01,2026-04,63,0.0608,0.0416,0.556,True,0.0784
+Zillow ZORI,"St. Marys, GA",Rents,2015-01,2026-04,47,0.034,0.0314,0.256,True,0.0408
+Zillow ZORI,"Warrensburg, MO",Rents,2015-01,2026-04,99,0.0573,0.0222,0.071,False,0.0222
+Zillow ZORI,"Fort Leonard Wood, MO",Rents,2015-01,2026-04,36,0.0649,0.025,-0.321,False,0.025
+Zillow ZORI,"Elizabeth City, NC",Rents,2015-01,2026-04,45,0.0677,0.0488,0.061,False,0.0488
+Zillow ZORI,"Athens, TN",Rents,2015-01,2026-04,34,0.0609,0.055,-0.102,False,0.055
+Zillow ZORI,"Enterprise, AL",Rents,2015-01,2026-04,135,0.0512,0.0303,0.344,True,0.0435
+Zillow ZORI,"Kerrville, TX",Rents,2015-01,2026-04,37,0.0213,0.039,0.098,False,0.039
+Zillow ZORI,"Bartlesville, OK",Rents,2015-01,2026-04,38,0.0459,0.0439,0.443,True,0.0709
+Zillow ZORI,"Corsicana, TX",Rents,2015-01,2026-04,39,0.0157,0.0396,-0.002,False,0.0396
+Zillow ZORI,"Pahrump, NV",Rents,2015-01,2026-04,39,0.0279,0.0313,0.017,False,0.0313
+Zillow ZORI,"Winona, MN",Rents,2015-01,2026-04,45,0.0992,0.0647,0.252,True,0.0841
+Zillow ZORI,"Newport, OR",Rents,2015-01,2026-04,34,0.0818,0.0529,0.09,False,0.0529
+Zillow ZORI,"Ozark, AL",Rents,2015-01,2026-04,36,0.0517,0.0611,0.173,False,0.0611
+Zillow ZORI,"Gardnerville Ranchos, NV",Rents,2015-01,2026-04,39,0.0502,0.0633,-0.161,False,0.0633
+Zillow ZORI,"Fort Polk South, LA",Rents,2015-01,2026-04,37,0.0407,0.0449,-0.284,False,0.0449
+Zillow ZORI,"Ca-¦on City, CO",Rents,2015-01,2026-04,30,0.0395,0.0507,0.035,False,0.0507
+Zillow ZORI,"Clovis, NM",Rents,2015-01,2026-04,50,0.0485,0.0273,0.129,False,0.0273
+Zillow ZORI,"Ruston, LA",Rents,2015-01,2026-04,59,0.0488,0.0431,0.247,True,0.0559
+Zillow ZORI,"Pullman, WA",Rents,2015-01,2026-04,44,0.0313,0.0592,0.078,False,0.0592
+Zillow ZORI,"Montrose, CO",Rents,2015-01,2026-04,36,0.0687,0.0594,0.421,True,0.0938
+Zillow ZORI,"Cortland, NY",Rents,2015-01,2026-04,38,0.0898,0.0745,0.241,True,0.0962
+Zillow ZORI,"Menomonie, WI",Rents,2015-01,2026-04,39,0.0411,0.042,-0.1,False,0.042
+Zillow ZORI,"Rolla, MO",Rents,2015-01,2026-04,37,0.0751,0.0484,0.156,False,0.0484
+Zillow ZORI,"Ellensburg, WA",Rents,2015-01,2026-04,49,0.0318,0.0413,0.375,True,0.0587
+Zillow ZORI,"Rock Springs, WY",Rents,2015-01,2026-04,69,0.0572,0.064,0.435,True,0.1024
+Zillow ZORI,"Stephenville, TX",Rents,2015-01,2026-04,37,0.0307,0.0416,0.002,False,0.0416
+Zillow ZORI,"Astoria, OR",Rents,2015-01,2026-04,35,0.0323,0.0521,-0.123,False,0.0521
+Zillow ZORI,"Austin, MN",Rents,2015-01,2026-04,38,0.1066,0.055,0.009,False,0.055
+Zillow ZORI,"Williston, ND",Rents,2015-01,2026-04,65,0.0868,0.0375,0.288,True,0.0493
+Zillow ZORI,"Ada, OK",Rents,2015-01,2026-04,43,0.0482,0.037,0.196,False,0.037
+Zillow ZORI,"Lock Haven, PA",Rents,2015-01,2026-04,35,0.0492,0.0558,0.022,False,0.0558
+Zillow ZORI,"Laramie, WY",Rents,2015-01,2026-04,53,0.0717,0.0473,0.231,True,0.0604
+Zillow ZORI,"Butte, MT",Rents,2015-01,2026-04,36,0.0553,0.068,0.285,True,0.0921
+Zillow ZORI,"Emporia, KS",Rents,2015-01,2026-04,30,0.0461,0.0666,0.106,False,0.0666
+Zillow ZORI,"Brookings, SD",Rents,2015-01,2026-04,42,0.0688,0.0458,0.017,False,0.0458
+Zillow ZORI,"Kirksville, MO",Rents,2015-01,2026-04,30,0.017,0.0545,0.02,False,0.0545
+Zillow ZORI,"Jamestown, ND",Rents,2015-01,2026-04,40,0.0466,0.0337,0.315,True,0.0466
+Zillow ZORI,"Portales, NM",Rents,2015-01,2026-04,35,0.0477,0.0361,-0.439,False,0.0361
