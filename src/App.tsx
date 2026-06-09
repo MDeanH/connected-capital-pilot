@@ -1,8 +1,9 @@
 import { useState, useMemo } from 'react'
 import Plot from 'react-plotly.js'
-import { Settings, BarChart3, MessageSquare, Upload, Target } from 'lucide-react'
+import { Settings, BarChart3, MessageSquare, Upload, Target, Globe } from 'lucide-react'
 import DealScore from './DealScore'
 import USMarket from './USMarket'
+import Market3D from './Market3D'
 
 // Types (ported from Python model)
 interface Opportunity {
@@ -248,7 +249,7 @@ export default function App() {
   const [config, setConfig] = useState<ModelConfig>(DEFAULT_CONFIG)
   const [opportunities, setOpportunities] = useState<Opportunity[]>(INITIAL_OPPORTUNITIES)
   const [pastDeals] = useState<PastDeal[]>(SAMPLE_PAST_DEALS)
-  const [activeTab, setActiveTab] = useState<'score' | 'usmarket' | 'dashboard' | 'opps' | 'ddq' | 'model' | 'corr' | 'copilot'>('score')
+  const [activeTab, setActiveTab] = useState<'score' | 'usmarket' | 'market3d' | 'dashboard' | 'opps' | 'ddq' | 'model' | 'corr' | 'copilot'>('score')
   const [minProb, setMinProb] = useState(0)
   const [selectedSubtypes, setSelectedSubtypes] = useState<('Development' | 'Value-Add')[]>(['Development', 'Value-Add'])
   const [selectedOppId, setSelectedOppId] = useState<string | null>(null)
@@ -393,6 +394,7 @@ ${pastDeals.slice(0, 3).map(d => `- ${d.id}: realized ${(d.realized_irr*100).toF
         {[
           { id: 'score', label: '🎯 Deal Score', icon: Target },
           { id: 'usmarket', label: '🇺🇸 US Market', icon: BarChart3 },
+          { id: 'market3d', label: '🌐 3D Market', icon: Globe },
           { id: 'dashboard', label: '📊 Client Dashboard', icon: BarChart3 },
           { id: 'opps', label: 'Opportunities', icon: Target },
           { id: 'ddq', label: 'DDQ Intake', icon: Upload },
@@ -420,6 +422,9 @@ ${pastDeals.slice(0, 3).map(d => `- ${d.id}: realized ${(d.realized_irr*100).toF
 
         {/* US MARKET — national RE base rates + cross-correlations */}
         {activeTab === 'usmarket' && <USMarket />}
+
+        {/* 3D MARKET — navigable environment built from the repo's real datasets */}
+        {activeTab === 'market3d' && <Market3D />}
 
         {/* DASHBOARD */}
         {activeTab === 'dashboard' && (

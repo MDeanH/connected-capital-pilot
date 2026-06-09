@@ -75,6 +75,9 @@ See plan.md for detailed structure and phases.
 ## Run with Sample Data
 The app seeds realistic RE Dev/Value-Add examples derived from the internal scoping document. Upload your own CSVs or PDFs to extend.
 
+## 3D Market Environment
+The **🌐 3D Market** tab renders a navigable three.js environment built entirely from the repo's real datasets: a phyllotaxis "city" of the 150 largest metros (tower height = annualized ZHVI home-value growth, color = de-smoothed risk, distance from center = market-size rank), a ring of 17 macro indicators (green/red by YoY direction), and three time-series ridges — national ZHVI (2000+), 30-yr mortgage rate (1971+), and housing starts (1959+). Hover anything for the underlying diligence stats. Regenerate the scene data after refreshing sources with `python3 scripts/build_market3d_data.py`.
+
 ## Next / Done
 - **Real data ingest for 100+ sources**: `scripts/ingest_real_data.py --fetch-all-curated` (Zillow, FHFA, FRED, NCREIF snapshots, REITs, Census, etc.). See `data/data_sources_inventory.md` (full categorized list with direct URLs + exact MC mapping: prices_to_returns, ppy, geltner, bias_mu/sigma, n_obs for confidence, etc.).
 - Connectors + scoring now load real pulled market comps / macro (boosts n_obs, applies source-appropriate bias, macro mu_adj).
