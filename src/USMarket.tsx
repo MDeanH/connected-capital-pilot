@@ -148,7 +148,7 @@ export default function USMarket() {
 }
 
 const CSS = `
-.um-root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Arial,sans-serif;color:#11161f}
+.um-root{font-family:'Poppins',-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Arial,sans-serif;color:#11161f}
 /* neutralize the app's global dark-theme table styles inside this light panel */
 .um-root table{background:transparent;border-radius:0;overflow:visible}
 .um-root th,.um-root td{background:transparent;color:#11161f}

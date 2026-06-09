@@ -314,7 +314,7 @@ function Sensitivity({ drivers }: { drivers: { factor: string; delta: number }[]
 }
 
 const CSS = `
-.ds-root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Arial,sans-serif;color:#11161f}
+.ds-root{font-family:'Poppins',-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Arial,sans-serif;color:#11161f}
 /* neutralize the app's global dark-theme table styles inside this light panel */
 .ds-root table{background:transparent;border-radius:0;overflow:visible}
 .ds-root th,.ds-root td{background:transparent;color:#11161f}

@@ -615,7 +615,7 @@ ${pastDeals.slice(0, 3).map(d => `- ${d.id}: realized ${(d.realized_irr*100).toF
                           margin: { t: 10, b: 30, l: 30, r: 10 },
                           paper_bgcolor: 'rgba(0,0,0,0)',
                           plot_bgcolor: 'rgba(0,0,0,0)',
-                          font: { color: '#11161f' },
+                          font: { color: '#11161f', family: 'Poppins, system-ui, sans-serif' },
                           title: 'De-biased Monte Carlo (real sims from client history + weights)',
                           shapes: [
                             { type: 'line', x0: config.target_return_default, x1: config.target_return_default, y0: 0, y1: 12, line: { color: '#eab308', dash: 'dash' } },
@@ -711,7 +711,7 @@ ${pastDeals.slice(0, 3).map(d => `- ${d.id}: realized ${(d.realized_irr*100).toF
                 height: 420,
                 paper_bgcolor: 'rgba(0,0,0,0)',
                 plot_bgcolor: 'rgba(0,0,0,0)',
-                font: { color: '#11161f' },
+                font: { color: '#11161f', family: 'Poppins, system-ui, sans-serif' },
                 title: 'Illustrative Correlation Matrix'
               }}
             />
