@@ -6,6 +6,12 @@
 [build.environment]
   NODE_VERSION = "20"
 
+# Diligence scoring engine (verified Monte Carlo, TS port)
+[[redirects]]
+  from = "/api/score"
+  to = "/.netlify/functions/score"
+  status = 200
+
 # Grok / AI copilot proxy
 [[redirects]]
   from = "/api/grok/chat"

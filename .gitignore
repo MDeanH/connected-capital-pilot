@@ -15,8 +15,6 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
 parts/
 sdist/
 var/
@@ -27,9 +25,13 @@ wheels/
 
 # Node
 node_modules/
+*.tsbuildinfo
 
 # Backups
 *.bak
+
+# NOTE: do NOT add a bare `lib/` here — it would ignore netlify/functions/lib/
+# (the scoring engine). Python venv libs are already covered by .venv/ above.
 
 # IDE and editors
 .idea/

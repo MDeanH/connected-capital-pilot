@@ -138,7 +138,7 @@ def geltner_unsmooth(returns: np.ndarray, a: float | None = None) -> np.ndarray:
     """
     returns = _validate_returns(returns, min_obs=3)
     if a is None:
-        a = lag1_autocorr(returns)
+        a = min(lag1_autocorr(returns), 0.6)  # cap de-smoothing (avoid 6x+ blow-up on ZHVI-smooth series)
     if not (0.0 < a < 0.99):
         return returns.copy()
     return (returns[1:] - a * returns[:-1]) / (1.0 - a)

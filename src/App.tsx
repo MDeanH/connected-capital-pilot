@@ -1,6 +1,8 @@
 import { useState, useMemo } from 'react'
 import Plot from 'react-plotly.js'
 import { Settings, BarChart3, MessageSquare, Upload, Target } from 'lucide-react'
+import DealScore from './DealScore'
+import USMarket from './USMarket'
 
 // Types (ported from Python model)
 interface Opportunity {
@@ -201,8 +203,6 @@ function computeScore(opp: Opportunity, config: ModelConfig, pastDeals: PastDeal
   // 4. Keep the old driver logic for explainability (transparent)
   const sponsorScore = Math.min(1.0, (opp.sponsor_exits || 2) / 8.0) * w.sponsor
   const marketScore = (0.5 + 0.5 * (1.0 - Math.min(1.0, opp.ltv || 0.65))) * w.market
-  const structureScore = (opp.execution_risk !== 'High' ? 0.7 : 0.35) * w.structure
-  const macroScore = (opp.rate_environment === 'elevated' ? 0.6 : 0.8) * w.macro
   const qualScore = (opp.execution_risk === 'High' ? 0.4 : 0.75) * w.qual
 
   const drivers = [
@@ -248,7 +248,7 @@ export default function App() {
   const [config, setConfig] = useState<ModelConfig>(DEFAULT_CONFIG)
   const [opportunities, setOpportunities] = useState<Opportunity[]>(INITIAL_OPPORTUNITIES)
   const [pastDeals] = useState<PastDeal[]>(SAMPLE_PAST_DEALS)
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'opps' | 'ddq' | 'model' | 'corr' | 'copilot'>('dashboard')
+  const [activeTab, setActiveTab] = useState<'score' | 'usmarket' | 'dashboard' | 'opps' | 'ddq' | 'model' | 'corr' | 'copilot'>('score')
   const [minProb, setMinProb] = useState(0)
   const [selectedSubtypes, setSelectedSubtypes] = useState<('Development' | 'Value-Add')[]>(['Development', 'Value-Add'])
   const [selectedOppId, setSelectedOppId] = useState<string | null>(null)
@@ -310,7 +310,7 @@ export default function App() {
   }
 
   // Real copilot - calls Netlify function (works in production + with `netlify dev`)
-  const [isCopilotThinking, setIsCopilotThinking] = useState(false)
+  const [, setIsCopilotThinking] = useState(false)
 
   const sendChat = async () => {
     const trimmed = chatInput.trim()
@@ -391,6 +391,8 @@ ${pastDeals.slice(0, 3).map(d => `- ${d.id}: realized ${(d.realized_irr*100).toF
 
       <div className="tabs">
         {[
+          { id: 'score', label: '🎯 Deal Score', icon: Target },
+          { id: 'usmarket', label: '🇺🇸 US Market', icon: BarChart3 },
           { id: 'dashboard', label: '📊 Client Dashboard', icon: BarChart3 },
           { id: 'opps', label: 'Opportunities', icon: Target },
           { id: 'ddq', label: 'DDQ Intake', icon: Upload },
@@ -413,6 +415,12 @@ ${pastDeals.slice(0, 3).map(d => `- ${d.id}: realized ${(d.realized_irr*100).toF
       </div>
 
       <div className="main">
+        {/* DEAL SCORE — engine-backed (Netlify /api/score) */}
+        {activeTab === 'score' && <DealScore />}
+
+        {/* US MARKET — national RE base rates + cross-correlations */}
+        {activeTab === 'usmarket' && <USMarket />}
+
         {/* DASHBOARD */}
         {activeTab === 'dashboard' && (
           <>
@@ -512,7 +520,7 @@ ${pastDeals.slice(0, 3).map(d => `- ${d.id}: realized ${(d.realized_irr*100).toF
                   <div>
                     <div style={{ marginBottom: '0.5rem' }}>Top Drivers</div>
                     {selected!.score.top_drivers.map((d, i) => (
-                      <div key={i} style={{ margin: '4px 0', padding: '4px 8px', background: '#27272a', borderRadius: 4 }}>{d}</div>
+                      <div key={i} style={{ margin: '4px 0', padding: '4px 8px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 4 }}>{d}</div>
                     ))}
 
                     <div style={{ marginTop: '1rem' }}>
@@ -522,14 +530,14 @@ ${pastDeals.slice(0, 3).map(d => `- ${d.id}: realized ${(d.realized_irr*100).toF
                             ? selected!.score.sims
                             : Array.from({ length: 2000 }, () => randomNormal(selected!.score.expected_return || 0.12, (selected!.score.de_smoothed_sigma || 0.09))),
                           type: 'histogram',
-                          marker: { color: '#6366f1' }
+                          marker: { color: '#3b5bdb' }
                         }]}
                         layout={{
                           height: 220,
                           margin: { t: 10, b: 30, l: 30, r: 10 },
-                          paper_bgcolor: '#1a1f2e',
-                          plot_bgcolor: '#1a1f2e',
-                          font: { color: '#e6e6e6' },
+                          paper_bgcolor: 'rgba(0,0,0,0)',
+                          plot_bgcolor: 'rgba(0,0,0,0)',
+                          font: { color: '#11161f' },
                           title: 'De-biased Monte Carlo (real sims from client history + weights)',
                           shapes: [
                             { type: 'line', x0: config.target_return_default, x1: config.target_return_default, y0: 0, y1: 12, line: { color: '#eab308', dash: 'dash' } },
@@ -601,7 +609,7 @@ ${pastDeals.slice(0, 3).map(d => `- ${d.id}: realized ${(d.realized_irr*100).toF
               </div>
             ))}
             <button onClick={recompute}>Recompute All</button>
-            <pre style={{ marginTop: '1rem', background: '#111', padding: '1rem', borderRadius: 6 }}>{JSON.stringify(config, null, 2)}</pre>
+            <pre style={{ marginTop: '1rem', background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)', padding: '1rem', borderRadius: 6, overflowX: 'auto' }}>{JSON.stringify(config, null, 2)}</pre>
           </div>
         )}
 
@@ -614,7 +622,8 @@ ${pastDeals.slice(0, 3).map(d => `- ${d.id}: realized ${(d.realized_irr*100).toF
                 x: corrLabels,
                 y: corrLabels,
                 type: 'heatmap',
-                colorscale: 'RdYlGn',
+                colorscale: 'RdBu',
+                reversescale: true,
                 zmin: -1,
                 zmax: 1,
                 text: corrData.map(row => row.map(v => v.toFixed(2))),
@@ -622,8 +631,9 @@ ${pastDeals.slice(0, 3).map(d => `- ${d.id}: realized ${(d.realized_irr*100).toF
               }]}
               layout={{
                 height: 420,
-                paper_bgcolor: '#1a1f2e',
-                font: { color: '#e6e6e6' },
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: 'rgba(0,0,0,0)',
+                font: { color: '#11161f' },
                 title: 'Illustrative Correlation Matrix'
               }}
             />
@@ -641,13 +651,13 @@ ${pastDeals.slice(0, 3).map(d => `- ${d.id}: realized ${(d.realized_irr*100).toF
                   <div key={i} className={`message ${m.role}`}>{m.content}</div>
                 ))}
               </div>
-              <div style={{ display: 'flex', padding: '0.5rem', borderTop: '1px solid #2a3142' }}>
+              <div style={{ display: 'flex', padding: '0.5rem', borderTop: '1px solid var(--border)' }}>
                 <input
                   value={chatInput}
                   onChange={e => setChatInput(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && sendChat()}
                   placeholder="What is driving the low probability on the downtown value-add deal?"
-                  style={{ flex: 1, background: '#111', border: '1px solid #2a3142', color: 'white', padding: '0.5rem' }}
+                  style={{ flex: 1, background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text)', padding: '0.5rem', borderRadius: 6 }}
                 />
                 <button onClick={sendChat} style={{ marginLeft: 8 }}>Send</button>
               </div>

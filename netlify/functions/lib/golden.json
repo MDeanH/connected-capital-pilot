@@ -1,0 +1,39 @@
+{
+  "inputs": {
+    "baseline": "re_value_add",
+    "desmooth": true,
+    "target": 0.2,
+    "rf": 0.04,
+    "holding": 5,
+    "answers": {
+      "sponsor_track_record": "established",
+      "alignment": "modest",
+      "business_plan": "value_add",
+      "leverage_ltv": "moderate",
+      "market_quality": "secondary",
+      "asset_status": "transitional",
+      "downside_protection": "pref",
+      "correlation_to_book": "moderate",
+      "comp_quality": "fair"
+    },
+    "idiosyncratic": 0.18
+  },
+  "fit": {
+    "mu": 0.08443,
+    "sigma": 0.06977,
+    "n_obs": 155
+  },
+  "ddq": {
+    "bias_mu": 0.05,
+    "sigma_mult": 3.8089,
+    "book_corr": 0.4
+  },
+  "expect": {
+    "p_target": 0.2245,
+    "expected": 0.1042,
+    "p_loss": 0.2076,
+    "var_loss": 0.097,
+    "position": 25.0,
+    "confidence": 50.0
+  }
+}
