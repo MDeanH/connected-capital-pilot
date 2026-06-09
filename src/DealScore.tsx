@@ -33,7 +33,7 @@ const STATE_ABBR: Record<string, string> = {
 }
 
 function normMetro(s: string): string {
-  let q = s.toLowerCase().replace(/[.,]/g, ' ').replace(/\s+/g, ' ').trim()
+  let q = s.toLowerCase().replace(/[.,\-]/g, ' ').replace(/\s+/g, ' ').trim()
   for (const [name, abbr] of Object.entries(STATE_ABBR)) {
     if (q.endsWith(' ' + name)) { q = q.slice(0, q.length - name.length).trim() + ' ' + abbr.toLowerCase(); break }
   }
@@ -125,8 +125,8 @@ export default function DealScore() {
         {/* CONTROLS */}
         <aside className="ds-controls">
           <h3>Deal inputs</h3>
-          <label>Market / metro history <Info>Type any of {METRO_LIST.length} U.S. metros (e.g. "Phoenix, AZ"). The engine scores the deal on <b>that metro's real price history</b> — de-smoothed to recover its true volatility.</Info> <span className="ds-rv">{METRO_LIST.length} metros</span>
-            <input list="ds-metros" value={metroQuery} placeholder="Type a metro, e.g. Miami, FL"
+          <label>Market / metro history <Info>Type any of {METRO_LIST.length} U.S. markets — metros like "Miami, FL" or counties like "Miami-Dade County, FL". The engine scores the deal on <b>that market's real price history</b> — de-smoothed to recover its true volatility.</Info> <span className="ds-rv">{METRO_LIST.length} markets</span>
+            <input list="ds-metros" value={metroQuery} placeholder="Metro or county, e.g. Miami, FL"
               onChange={e => {
                 const v = e.target.value
                 setMetroQuery(v)
