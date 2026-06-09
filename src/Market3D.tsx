@@ -7,14 +7,24 @@ import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPa
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js'
 import { DATA, buildEnvironment, disposeScene, WORLD_RADIUS } from './market3dScene'
 import type { MacroSeries, Metro } from './market3dScene'
-import { MAX_PICKS, MISSION_TEXT, rankFor, runDiligence } from './market3dGame'
-import type { RunResult } from './market3dGame'
+import {
+  HOLD_YEARS, MAX_PICKS, MISSIONS, MISSION_TEXT,
+  drawHistogram, loadBest, loadMissionsDone, quickPreview, rankFor, runDiligence,
+  saveBest, saveMissionsDone,
+} from './market3dGame'
+import type { Preview, RunResult } from './market3dGame'
+import { createSfx, loadMuted, saveMuted } from './market3dSfx'
 
 const SCAN_RADIUS = 7.5
 const ORB_RADIUS = 3.2
+const MAP_SIZE = 132
 
 function fmtPct(v: number | null | undefined, digits = 1): string {
   return v == null ? '—' : `${(v * 100).toFixed(digits)}%`
+}
+
+function soloMedian(m: Metro): number {
+  return Math.exp(Math.log(1 + m.mu) - 0.5 * m.sigma * m.sigma) - 1
 }
 
 function tooltipHtml(d: Record<string, unknown>): string {
@@ -37,7 +47,6 @@ function tooltipHtml(d: Record<string, unknown>): string {
   return `<strong>${d.title}</strong><br/>${d.detail}`
 }
 
-// Scene-side operations exposed to the React handlers.
 interface SceneApi {
   setBeacon(name: string, on: boolean): void
   setOrbVisible(id: string, visible: boolean): void
@@ -48,28 +57,48 @@ const hudPanel: React.CSSProperties = {
   background: 'rgba(8,12,24,0.8)', border: '1px solid #22304f', borderRadius: 10,
   padding: '10px 14px', color: '#c4d3f2', fontSize: '0.78rem', lineHeight: 1.55,
 }
+const btnStyle: React.CSSProperties = {
+  padding: '6px 12px', fontSize: '0.78rem', borderRadius: 8, cursor: 'pointer',
+}
 
 export default function Market3D() {
   const mountRef = useRef<HTMLDivElement>(null)
   const tipRef = useRef<HTMLDivElement>(null)
+  const mapRef = useRef<HTMLCanvasElement>(null)
+  const histRef = useRef<HTMLCanvasElement>(null)
+  const compassRef = useRef<HTMLDivElement>(null)
   const apiRef = useRef<SceneApi | null>(null)
+
+  const sfxRef = useRef<ReturnType<typeof createSfx> | null>(null)
+  if (!sfxRef.current) sfxRef.current = createSfx(loadMuted())
+  const sfx = sfxRef.current
 
   const [mode, setMode] = useState<'game' | 'orbit'>('game')
   const [autoRotate, setAutoRotate] = useState(true)
+  const [intro, setIntro] = useState(true)
+  const [muted, setMuted] = useState(loadMuted())
   const [picks, setPicks] = useState<Metro[]>([])
   const [nearby, setNearby] = useState<Metro | null>(null)
+  const [preview, setPreview] = useState<Preview | null>(null)
   const [orbFacts, setOrbFacts] = useState<string[]>([])
   const [toast, setToast] = useState<string | null>(null)
   const [results, setResults] = useState<RunResult | null>(null)
   const [totalOrbs, setTotalOrbs] = useState(8)
+  const [missionsDone, setMissionsDone] = useState<string[]>(loadMissionsDone())
+  const [missionsOpen, setMissionsOpen] = useState(false)
+  const [newMissions, setNewMissions] = useState<string[]>([])
+  const [best, setBest] = useState(loadBest())
+  const [newBest, setNewBest] = useState(false)
 
-  // Refs mirroring state for use inside the render loop / key handlers
   const autoRotateRef = useRef(autoRotate); autoRotateRef.current = autoRotate
+  const introRef = useRef(intro); introRef.current = intro
   const picksRef = useRef(picks); picksRef.current = picks
   const nearbyRef = useRef(nearby); nearbyRef.current = nearby
   const resultsRef = useRef(results); resultsRef.current = results
+  const missionsDoneRef = useRef(missionsDone); missionsDoneRef.current = missionsDone
+  const bestRef = useRef(best); bestRef.current = best
+  const totalOrbsRef = useRef(totalOrbs); totalOrbsRef.current = totalOrbs
   const collectedRef = useRef<Set<string>>(new Set())
-  const factsRef = useRef(orbFacts); factsRef.current = orbFacts
   const baselineRef = useRef(0.0427)
   const startRef = useRef(performance.now())
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -84,6 +113,7 @@ export default function Market3D() {
     setPicks(prev => {
       if (prev.some(p => p.name === m.name)) {
         apiRef.current?.setBeacon(m.name, false)
+        sfx.remove()
         return prev.filter(p => p.name !== m.name)
       }
       if (prev.length >= MAX_PICKS) {
@@ -91,19 +121,21 @@ export default function Market3D() {
         return prev
       }
       apiRef.current?.setBeacon(m.name, true)
+      sfx.acquire()
       showToast(`Acquired ${m.name} — growth ${fmtPct(m.mu)}/yr, σ ${fmtPct(m.sigma)}`)
       return [...prev, m]
     })
-  }, [showToast])
+  }, [sfx, showToast])
   const togglePickRef = useRef(togglePick); togglePickRef.current = togglePick
 
   const collectOrb = useCallback((id: string, fact: string) => {
     if (collectedRef.current.has(id)) return
     collectedRef.current.add(id)
     apiRef.current?.setOrbVisible(id, false)
+    sfx.orb()
     setOrbFacts(prev => [...prev, fact])
     showToast(`📀 DATA ORB — ${fact}`, 11000)
-  }, [showToast])
+  }, [sfx, showToast])
   const collectOrbRef = useRef(collectOrb); collectOrbRef.current = collectOrb
 
   const doRun = useCallback(() => {
@@ -112,21 +144,46 @@ export default function Market3D() {
       showToast('Acquire at least one metro first (fly close, press E).')
       return
     }
-    setResults(runDiligence(
-      p, baselineRef.current, collectedRef.current.size, totalOrbs,
+    const res = runDiligence(
+      p, baselineRef.current, collectedRef.current.size, totalOrbsRef.current,
       (performance.now() - startRef.current) / 1000,
-    ))
-  }, [showToast, totalOrbs])
+    )
+    const earned = MISSIONS.filter(m => m.check(res)).map(m => m.id)
+    const fresh = earned.filter(id => !missionsDoneRef.current.includes(id))
+    if (fresh.length > 0) {
+      const all = [...missionsDoneRef.current, ...fresh]
+      setMissionsDone(all)
+      saveMissionsDone(all)
+      sfx.mission()
+    } else {
+      sfx.results()
+    }
+    setNewMissions(fresh)
+    const isBest = res.score > bestRef.current
+    setNewBest(isBest)
+    if (isBest) { setBest(res.score); saveBest(res.score) }
+    setResults(res)
+  }, [sfx, showToast])
   const doRunRef = useRef(doRun); doRunRef.current = doRun
 
   const resetRun = useCallback(() => {
     picksRef.current.forEach(p => apiRef.current?.setBeacon(p.name, false))
     collectedRef.current.forEach(id => apiRef.current?.setOrbVisible(id, true))
     collectedRef.current.clear()
-    setPicks([]); setOrbFacts([]); setResults(null)
+    setPicks([]); setOrbFacts([]); setResults(null); setNewMissions([]); setNewBest(false)
     startRef.current = performance.now()
     showToast('New run — the city is yours. Good hunting.')
   }, [showToast])
+
+  // Live portfolio preview (correlated mini-MC) whenever the book changes
+  useEffect(() => {
+    setPreview(picks.length > 0 ? quickPreview(picks, baselineRef.current) : null)
+  }, [picks])
+
+  // Results histogram
+  useEffect(() => {
+    if (results && histRef.current) drawHistogram(histRef.current, results)
+  }, [results])
 
   useEffect(() => {
     const mount = mountRef.current
@@ -143,8 +200,9 @@ export default function Market3D() {
     const handles = buildEnvironment(scene)
     baselineRef.current = handles.baselineCagr
     setTotalOrbs(handles.orbSpecs.length)
+    totalOrbsRef.current = handles.orbSpecs.length
 
-    // --- Beacons + orbs (scene API used by React handlers) -----------------
+    // --- Beacons + orbs -----------------------------------------------------
     const beacons = new Map<string, THREE.Group>()
     const beaconMat = new THREE.MeshBasicMaterial({ color: 0xfbbf24, transparent: true, opacity: 0.55 })
     const setBeacon = (name: string, on: boolean) => {
@@ -189,7 +247,6 @@ export default function Market3D() {
     }
     picksRef.current.forEach(p => setBeacon(p.name, true))
 
-    // --- Composer -----------------------------------------------------------
     const composer = new EffectComposer(renderer)
     composer.addPass(new RenderPass(scene, camera))
     composer.addPass(new UnrealBloomPass(
@@ -197,9 +254,33 @@ export default function Market3D() {
     ))
     composer.addPass(new OutputPass())
 
-    // --- Mode-specific controls ---------------------------------------------
+    // --- Minimap static layer -----------------------------------------------
+    const mapBg = document.createElement('canvas')
+    mapBg.width = MAP_SIZE; mapBg.height = MAP_SIZE
+    {
+      const c = mapBg.getContext('2d')!
+      const half = MAP_SIZE / 2, sc = (half - 6) / 120
+      c.fillStyle = 'rgba(8,12,24,0.85)'
+      c.beginPath(); c.arc(half, half, half - 1, 0, Math.PI * 2); c.fill()
+      c.strokeStyle = '#22304f'
+      c.beginPath(); c.arc(half, half, half - 1, 0, Math.PI * 2); c.stroke()
+      c.fillStyle = '#475569'
+      handles.towers.forEach(t => c.fillRect(half + t.position.x * sc - 0.7, half + t.position.z * sc - 0.7, 1.4, 1.4))
+      const line = (x1: number, z1: number, x2: number, z2: number, col: string) => {
+        c.strokeStyle = col; c.lineWidth = 2
+        c.beginPath(); c.moveTo(half + x1 * sc, half + z1 * sc); c.lineTo(half + x2 * sc, half + z2 * sc); c.stroke()
+      }
+      line(-43, -50, 43, -50, 'rgba(56,189,248,0.8)')   // ZHVI ridge
+      line(-43, 50, 43, 50, 'rgba(245,158,11,0.8)')     // mortgage wall
+      line(-50, -43, -50, 43, 'rgba(167,139,250,0.8)')  // housing starts
+    }
+
+    // --- Mode-specific controls ----------------------------------------------
     let controls: OrbitControls | null = null
     let drone: THREE.Group | null = null
+    let compass: THREE.Mesh | null = null
+    let trail: THREE.Points | null = null
+    let trailIdx = 0
     const pos = new THREE.Vector3(0, 12, 44)
     const vel = new THREE.Vector3()
     let yaw = 0, pitch = -0.12
@@ -229,7 +310,6 @@ export default function Market3D() {
       }
     }
 
-    // Drag-to-look (game mode)
     let dragging = false, lastX = 0, lastY = 0
     const onDown = (ev: PointerEvent) => {
       dragging = true; lastX = ev.clientX; lastY = ev.clientY
@@ -243,6 +323,7 @@ export default function Market3D() {
       lastX = ev.clientX; lastY = ev.clientY
     }
     const onKeyDown = (ev: KeyboardEvent) => {
+      if (introRef.current) return
       if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(ev.code)) ev.preventDefault()
       if (ev.code === 'KeyE' && !resultsRef.current) {
         const m = nearbyRef.current
@@ -266,7 +347,6 @@ export default function Market3D() {
       controls.autoRotateSpeed = 0.5
       renderer.domElement.addEventListener('pointermove', onPointerMoveOrbit)
     } else {
-      // Scout drone
       drone = new THREE.Group()
       const body = new THREE.Mesh(
         new THREE.OctahedronGeometry(0.55),
@@ -276,6 +356,28 @@ export default function Market3D() {
       const glow = new THREE.PointLight(0x67e8f9, 60, 20)
       drone.add(glow)
       scene.add(drone)
+
+      // Orb compass: a small cone above the drone pointing to the nearest orb
+      const coneGeo = new THREE.ConeGeometry(0.22, 0.75, 12).rotateX(Math.PI / 2)
+      compass = new THREE.Mesh(coneGeo, new THREE.MeshStandardMaterial({
+        color: 0x67e8f9, emissive: 0x22d3ee, emissiveIntensity: 1.6,
+      }))
+      scene.add(compass)
+
+      // Glowing particle trail
+      const TRAIL_N = 70
+      const trailPos = new Float32Array(TRAIL_N * 3)
+      for (let i = 0; i < TRAIL_N; i++) {
+        trailPos[i * 3] = pos.x; trailPos[i * 3 + 1] = pos.y; trailPos[i * 3 + 2] = pos.z
+      }
+      const trailGeo = new THREE.BufferGeometry()
+      trailGeo.setAttribute('position', new THREE.BufferAttribute(trailPos, 3))
+      trail = new THREE.Points(trailGeo, new THREE.PointsMaterial({
+        color: 0x38bdf8, size: 0.3, transparent: true, opacity: 0.5,
+        depthWrite: false, blending: THREE.AdditiveBlending,
+      }))
+      scene.add(trail)
+
       renderer.domElement.addEventListener('pointerdown', onDown)
       renderer.domElement.addEventListener('pointerup', onUp)
       renderer.domElement.addEventListener('pointermove', onMoveGame)
@@ -294,15 +396,43 @@ export default function Market3D() {
 
     const clock = new THREE.Clock()
     let raf = 0
+    let frame = 0
     const fwd = new THREE.Vector3(), flat = new THREE.Vector3(), right = new THREE.Vector3()
     const camGoal = new THREE.Vector3()
+
+    const drawMinimap = () => {
+      const cv = mapRef.current
+      if (!cv) return
+      const c = cv.getContext('2d')
+      if (!c) return
+      const half = MAP_SIZE / 2, sc = (half - 6) / 120
+      c.clearRect(0, 0, MAP_SIZE, MAP_SIZE)
+      c.drawImage(mapBg, 0, 0)
+      orbs.forEach(o => {
+        if (!o.visible) return
+        c.fillStyle = '#22d3ee'
+        c.beginPath(); c.arc(half + o.position.x * sc, half + o.position.z * sc, 2.4, 0, Math.PI * 2); c.fill()
+      })
+      c.fillStyle = '#fbbf24'
+      for (const p of picksRef.current) {
+        const t = handles.towers.get(p.name)
+        if (t) { c.beginPath(); c.arc(half + t.position.x * sc, half + t.position.z * sc, 2.6, 0, Math.PI * 2); c.fill() }
+      }
+      // drone wedge oriented by yaw (forward = (-sin yaw, -cos yaw) in x,z)
+      c.save()
+      c.translate(half + pos.x * sc, half + pos.z * sc)
+      c.rotate(Math.atan2(-Math.sin(yaw), -Math.cos(yaw)) - Math.PI / 2)
+      c.fillStyle = '#ffffff'
+      c.beginPath(); c.moveTo(3.6, 0); c.lineTo(-2.4, 2.2); c.lineTo(-2.4, -2.2); c.closePath(); c.fill()
+      c.restore()
+    }
 
     const animate = () => {
       raf = requestAnimationFrame(animate)
       const dt = Math.min(clock.getDelta(), 0.05)
       const t = clock.elapsedTime
+      frame++
 
-      // Animate orbs (both modes — they mark the landmarks)
       orbs.forEach((o, id) => {
         if (!o.visible) return
         o.rotation.y += dt * 1.4
@@ -314,17 +444,19 @@ export default function Market3D() {
         controls.autoRotate = autoRotateRef.current
         controls.update()
       } else if (drone) {
-        // Flight integration
         fwd.set(-Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), -Math.cos(yaw) * Math.cos(pitch))
         flat.set(-Math.sin(yaw), 0, -Math.cos(yaw))
         right.set(-flat.z, 0, flat.x)
-        const ACCEL = 55
-        if (keys.has('KeyW') || keys.has('ArrowUp')) vel.addScaledVector(fwd, ACCEL * dt)
-        if (keys.has('KeyS') || keys.has('ArrowDown')) vel.addScaledVector(fwd, -ACCEL * dt)
-        if (keys.has('KeyD') || keys.has('ArrowRight')) vel.addScaledVector(right, ACCEL * dt)
-        if (keys.has('KeyA') || keys.has('ArrowLeft')) vel.addScaledVector(right, -ACCEL * dt)
-        if (keys.has('Space')) vel.y += ACCEL * dt
-        if (keys.has('ShiftLeft') || keys.has('ShiftRight')) vel.y -= ACCEL * dt
+        const boost = (keys.has('ShiftLeft') || keys.has('ShiftRight')) ? 2.25 : 1
+        const A = 55 * boost
+        if (!introRef.current) {
+          if (keys.has('KeyW') || keys.has('ArrowUp')) vel.addScaledVector(fwd, A * dt)
+          if (keys.has('KeyS') || keys.has('ArrowDown')) vel.addScaledVector(fwd, -A * dt)
+          if (keys.has('KeyD') || keys.has('ArrowRight')) vel.addScaledVector(right, A * dt)
+          if (keys.has('KeyA') || keys.has('ArrowLeft')) vel.addScaledVector(right, -A * dt)
+          if (keys.has('Space')) vel.y += A * dt
+          if (keys.has('KeyC')) vel.y -= A * dt
+        }
         vel.multiplyScalar(Math.exp(-2.6 * dt))
         pos.addScaledVector(vel, dt)
         pos.y = THREE.MathUtils.clamp(pos.y, 1.2, 70)
@@ -333,36 +465,68 @@ export default function Market3D() {
 
         drone.position.copy(pos)
         drone.rotation.y = yaw
+        drone.rotation.z = THREE.MathUtils.clamp(-vel.dot(right) * 0.045, -0.55, 0.55)
+        drone.rotation.x = THREE.MathUtils.clamp(vel.dot(flat) * 0.015, -0.35, 0.35)
+        drone.children[0].rotation.y += dt * 3
+
+        if (trail && frame % 2 === 0) {
+          const attr = trail.geometry.getAttribute('position') as THREE.BufferAttribute
+          attr.setXYZ(trailIdx % 70, pos.x, pos.y - 0.3, pos.z)
+          attr.needsUpdate = true
+          trailIdx++
+        }
+
         camGoal.copy(pos).addScaledVector(fwd, -9).add(new THREE.Vector3(0, 3.2, 0))
         camera.position.lerp(camGoal, 1 - Math.exp(-6 * dt))
         camera.lookAt(pos.x + fwd.x * 8, pos.y + fwd.y * 8, pos.z + fwd.z * 8)
 
-        // Proximity scan: nearest tower within range
-        let best: THREE.Mesh | null = null
+        // Proximity scan
+        let bestTower: THREE.Mesh | null = null
         let bestD = SCAN_RADIUS
         for (const tower of handles.towers.values()) {
           const d = Math.hypot(tower.position.x - pos.x, tower.position.z - pos.z)
           const inY = pos.y < tower.scale.y + 10
-          if (d < bestD && inY) { bestD = d; best = tower }
+          if (d < bestD && inY) { bestD = d; bestTower = tower }
         }
-        if (best !== highlighted) {
+        if (bestTower !== highlighted) {
           if (highlighted) (highlighted.material as THREE.MeshStandardMaterial).emissiveIntensity = 1
-          highlighted = best
-          const m = best ? (best.userData as unknown as Metro) : null
+          highlighted = bestTower
+          const m = bestTower ? (bestTower.userData as unknown as Metro) : null
           nearbyRef.current = m
           setNearby(m)
+          if (m) sfx.scan()
         }
         if (highlighted) {
           ;(highlighted.material as THREE.MeshStandardMaterial).emissiveIntensity = 1.6 + Math.sin(t * 6) * 0.7
         }
 
-        // Orb collection
+        // Orb collection + compass to nearest orb
+        let nearOrb: THREE.Mesh | null = null
+        let nearD = Infinity
         orbs.forEach(o => {
-          if (o.visible && o.position.distanceTo(pos) < ORB_RADIUS) {
+          if (!o.visible) return
+          const d = o.position.distanceTo(pos)
+          if (d < ORB_RADIUS) {
             const spec = o.userData as { id: string; fact: string }
             collectOrbRef.current(spec.id, spec.fact)
+            return
           }
+          if (d < nearD) { nearD = d; nearOrb = o }
         })
+        if (compass) {
+          if (nearOrb) {
+            compass.visible = true
+            compass.position.set(pos.x, pos.y + 1.35, pos.z)
+            compass.lookAt((nearOrb as THREE.Mesh).position)
+            if (compassRef.current && frame % 12 === 0) {
+              compassRef.current.textContent = `📡 nearest data orb ${Math.round(nearD)}m`
+            }
+          } else {
+            compass.visible = false
+            if (compassRef.current) compassRef.current.textContent = '📀 all orbs collected!'
+          }
+        }
+        if (frame % 3 === 0) drawMinimap()
       }
       composer.render()
     }
@@ -384,9 +548,10 @@ export default function Market3D() {
       renderer.dispose()
       mount.removeChild(renderer.domElement)
     }
-  }, [mode])
+  }, [mode, sfx])
 
   const pickedNearby = nearby != null && picks.some(p => p.name === nearby.name)
+  const doneCount = missionsDone.length
 
   return (
     <div style={{ position: 'relative', width: '100%', height: 'max(540px, calc(100vh - 230px))', borderRadius: 10, overflow: 'hidden', border: '1px solid var(--border, #1e293b)' }}>
@@ -397,28 +562,34 @@ export default function Market3D() {
         padding: '8px 10px', color: '#dbe7ff', fontSize: '0.8rem', lineHeight: 1.45,
       }} />
 
-      {/* Mode toggle */}
-      <button
-        onClick={() => setMode(m => (m === 'game' ? 'orbit' : 'game'))}
-        style={{ position: 'absolute', zIndex: 4, top: 12, right: 12, padding: '6px 12px', fontSize: '0.78rem', borderRadius: 8, cursor: 'pointer' }}
-      >
-        {mode === 'game' ? '📊 Switch to Analysis Orbit' : '🎮 Switch to Market Quest'}
-      </button>
+      {/* Top-right controls */}
+      <div style={{ position: 'absolute', zIndex: 4, top: 12, right: 12, display: 'flex', gap: 6 }}>
+        <button
+          onClick={() => { const m = !muted; setMuted(m); sfx.setMuted(m); saveMuted(m) }}
+          style={btnStyle}
+          title={muted ? 'Unmute' : 'Mute'}
+        >
+          {muted ? '🔇' : '🔊'}
+        </button>
+        <button onClick={() => setMode(m => (m === 'game' ? 'orbit' : 'game'))} style={btnStyle}>
+          {mode === 'game' ? '📊 Analysis Orbit' : '🎮 Market Quest'}
+        </button>
+      </div>
 
       {/* GAME HUD */}
-      {mode === 'game' && (
+      {mode === 'game' && !intro && (
         <>
-          <div style={{ ...hudPanel, top: 12, left: 12, maxWidth: 360 }}>
+          <div style={{ ...hudPanel, top: 12, left: 12, maxWidth: 330 }}>
             <div style={{ fontWeight: 700, fontSize: '0.95rem', color: '#fff' }}>🎮 MARKET QUEST</div>
-            <div style={{ opacity: 0.85, marginTop: 4 }}>{MISSION_TEXT}</div>
-            <div style={{ marginTop: 6, opacity: 0.7 }}>
-              <strong>WASD</strong> fly • <strong>Space/Shift</strong> up/down • <strong>drag</strong> look • <strong>E</strong> acquire • <strong>R</strong> run diligence
+            <div style={{ marginTop: 4, opacity: 0.7 }}>
+              <strong>WASD</strong> fly • <strong>Shift</strong> boost • <strong>Space/C</strong> up/down • <strong>drag</strong> look • <strong>E</strong> acquire • <strong>R</strong> run diligence
             </div>
+            <div ref={compassRef} style={{ marginTop: 4, color: '#67e8f9' }}>📡 scanning…</div>
           </div>
 
-          <div style={{ ...hudPanel, top: 52, right: 12, minWidth: 230, maxWidth: 300 }}>
+          <div style={{ ...hudPanel, top: 52, right: 12, minWidth: 240, maxWidth: 310 }}>
             <div style={{ fontWeight: 700, color: '#fff' }}>
-              Portfolio {picks.length}/{MAX_PICKS} <span style={{ opacity: 0.6, fontWeight: 400 }}>• orbs {orbFacts.length}/{totalOrbs}</span>
+              Portfolio {picks.length}/{MAX_PICKS} <span style={{ opacity: 0.6, fontWeight: 400 }}>• orbs {orbFacts.length}/{totalOrbs} • best {best}</span>
             </div>
             {picks.length === 0 && <div style={{ opacity: 0.6, marginTop: 4 }}>No metros acquired yet.</div>}
             {picks.map(p => (
@@ -427,6 +598,11 @@ export default function Market3D() {
                 <button onClick={() => togglePick(p)} style={{ fontSize: '0.7rem', padding: '1px 7px', borderRadius: 6, cursor: 'pointer' }}>✕</button>
               </div>
             ))}
+            {preview && (
+              <div style={{ marginTop: 6, padding: '5px 8px', background: 'rgba(59,91,219,0.18)', border: '1px solid #3b5bdb', borderRadius: 7 }}>
+                live book: median <strong>{fmtPct(preview.medianIRR)}</strong> • beat&nbsp;US <strong>{fmtPct(preview.pBeat, 0)}</strong> • loss <strong>{fmtPct(preview.pLoss, 1)}</strong>
+              </div>
+            )}
             <button
               onClick={doRun}
               disabled={picks.length === 0}
@@ -434,14 +610,33 @@ export default function Market3D() {
             >
               ▶ Run Diligence (R)
             </button>
+            <div
+              onClick={() => setMissionsOpen(o => !o)}
+              style={{ marginTop: 7, cursor: 'pointer', fontWeight: 700, color: '#fff' }}
+            >
+              🏆 Missions {doneCount}/{MISSIONS.length} <span style={{ opacity: 0.6 }}>{missionsOpen ? '▾' : '▸'}</span>
+            </div>
+            {missionsOpen && MISSIONS.map(m => (
+              <div key={m.id} style={{ marginTop: 3, opacity: missionsDone.includes(m.id) ? 1 : 0.65 }}>
+                {missionsDone.includes(m.id) ? '✅' : '○'} <strong>{m.name}</strong>
+                <div style={{ fontSize: '0.7rem', opacity: 0.7, marginLeft: 18 }}>{m.desc}</div>
+              </div>
+            ))}
           </div>
+
+          <canvas
+            ref={mapRef}
+            width={MAP_SIZE}
+            height={MAP_SIZE}
+            style={{ position: 'absolute', zIndex: 2, bottom: 14, right: 14, borderRadius: '50%' }}
+          />
 
           {nearby && !results && (
             <div style={{ ...hudPanel, bottom: 16, left: '50%', transform: 'translateX(-50%)', textAlign: 'center', border: '1px solid #3b5bdb' }}>
               <div style={{ fontWeight: 700, color: '#fff' }}>SCAN — #{nearby.rank} {nearby.name}</div>
               <div style={{ marginTop: 2 }}>
-                growth <strong>{fmtPct(nearby.mu)}/yr</strong> • de-smoothed σ <strong>{fmtPct(nearby.sigma)}</strong>
-                {nearby.rentMu != null && <> • rents {fmtPct(nearby.rentMu)}/yr</>} • {nearby.n} obs
+                growth <strong>{fmtPct(nearby.mu)}/yr</strong> • σ <strong>{fmtPct(nearby.sigma)}</strong>
+                {nearby.rentMu != null && <> • rents {fmtPct(nearby.rentMu)}/yr</>} • solo median {fmtPct(soloMedian(nearby))}
               </div>
               <button onClick={() => togglePick(nearby)} style={{ marginTop: 6, padding: '4px 14px', borderRadius: 7, cursor: 'pointer', fontWeight: 700 }}>
                 {pickedNearby ? '✕ Remove from portfolio (E)' : '＋ Acquire (E)'}
@@ -470,7 +665,7 @@ export default function Market3D() {
       )}
 
       {/* TOAST */}
-      {toast && (
+      {toast && !intro && (
         <div
           onClick={() => setToast(null)}
           style={{ ...hudPanel, bottom: 16, left: 12, maxWidth: 420, border: '1px solid #22d3ee', cursor: 'pointer', zIndex: 4 }}
@@ -479,25 +674,87 @@ export default function Market3D() {
         </div>
       )}
 
+      {/* INTRO */}
+      {mode === 'game' && intro && (
+        <div style={{ position: 'absolute', inset: 0, zIndex: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(3,5,12,0.8)' }}>
+          <div style={{ ...hudPanel, position: 'relative', maxWidth: 540, width: '92%', maxHeight: '90%', overflowY: 'auto', fontSize: '0.85rem' }}>
+            <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#fff' }}>🎮 MARKET QUEST</div>
+            <div style={{ color: '#67e8f9', marginTop: 2 }}>A diligence scout's tour of the US housing market — every object is real data.</div>
+            <div style={{ marginTop: 10, opacity: 0.9 }}>{MISSION_TEXT}</div>
+            <div style={{ marginTop: 10, opacity: 0.9 }}>
+              The Monte Carlo is <strong>correlated</strong>: metros share national and state shocks, so true
+              diversification — not just five towers in Florida — is what protects your downside.
+              Scores blend median IRR, conviction, risk, diversification and exploration.
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4, marginTop: 12, background: 'rgba(59,91,219,0.12)', border: '1px solid #2b3a5e', borderRadius: 8, padding: '8px 10px' }}>
+              <div><strong>WASD</strong> — fly</div>
+              <div><strong>drag</strong> — look around</div>
+              <div><strong>Shift</strong> — boost</div>
+              <div><strong>Space / C</strong> — climb / descend</div>
+              <div><strong>E</strong> — acquire / remove metro</div>
+              <div><strong>R</strong> — run diligence</div>
+            </div>
+            <div style={{ marginTop: 10, fontWeight: 700, color: '#fff' }}>Missions {doneCount}/{MISSIONS.length}</div>
+            {MISSIONS.map(m => (
+              <div key={m.id} style={{ marginTop: 2, opacity: missionsDone.includes(m.id) ? 1 : 0.7 }}>
+                {missionsDone.includes(m.id) ? '✅' : '○'} <strong>{m.name}</strong> — {m.desc}
+              </div>
+            ))}
+            {best > 0 && <div style={{ marginTop: 8, color: '#fbbf24' }}>Personal best: {best} pts ({rankFor(best)})</div>}
+            <button
+              onClick={() => { sfx.unlock(); setIntro(false); startRef.current = performance.now() }}
+              style={{ marginTop: 12, width: '100%', padding: '10px 0', borderRadius: 8, cursor: 'pointer', fontWeight: 800, fontSize: '1rem', background: '#3b5bdb', color: '#fff', border: 'none' }}
+            >
+              ▶ LAUNCH DRONE
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* RESULTS */}
       {results && (
         <div style={{ position: 'absolute', inset: 0, zIndex: 5, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(3,5,12,0.72)' }}>
-          <div style={{ ...hudPanel, position: 'relative', maxWidth: 520, width: '92%', maxHeight: '88%', overflowY: 'auto', fontSize: '0.85rem' }}>
+          <div style={{ ...hudPanel, position: 'relative', maxWidth: 540, width: '92%', maxHeight: '88%', overflowY: 'auto', fontSize: '0.85rem' }}>
+            {newBest && <div style={{ color: '#fbbf24', fontWeight: 800, letterSpacing: 1 }}>★ NEW PERSONAL BEST ★</div>}
             <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#fff' }}>
               🏅 {results.rank} <span style={{ color: '#fbbf24' }}>• {results.score} pts</span>
+              <span style={{ opacity: 0.55, fontSize: '0.8rem', fontWeight: 400 }}> (best {best})</span>
             </div>
+            {newMissions.map(id => {
+              const m = MISSIONS.find(x => x.id === id)
+              return m ? (
+                <div key={id} style={{ marginTop: 4, padding: '4px 8px', background: 'rgba(251,191,36,0.14)', border: '1px solid #fbbf24', borderRadius: 7, color: '#fde68a' }}>
+                  🏆 MISSION COMPLETE — <strong>{m.name}</strong>
+                </div>
+              ) : null
+            })}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginTop: 10 }}>
-              <div>Median portfolio IRR ({4}-yr): <strong>{fmtPct(results.medianIRR)}</strong></div>
+              <div>Median portfolio IRR ({HOLD_YEARS}-yr): <strong>{fmtPct(results.medianIRR)}</strong></div>
               <div>P(beat US {fmtPct(results.baseline, 2)}/yr): <strong>{fmtPct(results.pBeat, 0)}</strong></div>
               <div>P(loss): <strong>{fmtPct(results.pLoss, 1)}</strong></div>
               <div>States covered: <strong>{results.uniqueStates}</strong></div>
               <div>Data orbs: <strong>{results.orbs}/{results.totalOrbs}</strong></div>
               <div>Run time: <strong>{Math.floor(results.timeSec / 60)}m {Math.round(results.timeSec % 60)}s</strong></div>
             </div>
+            <canvas ref={histRef} width={480} height={110} style={{ width: '100%', marginTop: 10, background: 'rgba(13,19,36,0.7)', borderRadius: 8 }} />
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 4, marginTop: 8, textAlign: 'center', fontSize: '0.72rem' }}>
+              {([
+                ['Median', results.parts.base],
+                ['Conviction', results.parts.conviction],
+                ['Risk', results.parts.risk],
+                ['Diversity', results.parts.diversification],
+                ['Exploration', results.parts.exploration],
+              ] as const).map(([label, v]) => (
+                <div key={label} style={{ background: 'rgba(59,91,219,0.12)', border: '1px solid #2b3a5e', borderRadius: 6, padding: '4px 2px' }}>
+                  <div style={{ opacity: 0.65 }}>{label}</div>
+                  <div style={{ fontWeight: 700, color: v < 0 ? '#f87171' : '#fff' }}>{v >= 0 ? '+' : ''}{v}</div>
+                </div>
+              ))}
+            </div>
             <div style={{ marginTop: 10, fontWeight: 700, color: '#fff' }}>Your book</div>
             {results.picks.map(p => (
               <div key={p.name} style={{ marginTop: 2 }}>
-                #{p.rank} {p.name} — growth {fmtPct(p.mu)}/yr, σ {fmtPct(p.sigma)}{p.rentMu != null && <>, rents {fmtPct(p.rentMu)}/yr</>}
+                #{p.rank} {p.name} — growth {fmtPct(p.mu)}/yr, σ {fmtPct(p.sigma)}, solo median {fmtPct(soloMedian(p))}
               </div>
             ))}
             {orbFacts.length > 0 && (
@@ -507,7 +764,8 @@ export default function Market3D() {
               </>
             )}
             <div style={{ marginTop: 8, opacity: 0.6, fontSize: '0.75rem' }}>
-              Monte Carlo: equal-weight lognormal compounding paths per metro (independent), de-smoothed σ from the distribution catalog. Next rank: {results.rank === 'Market Oracle' ? 'you hold the crown' : rankFor(results.score + 200)} territory.
+              Correlated Monte Carlo: equal-weight lognormal paths sharing national (35%) and state (25%) variance factors —
+              same-state picks move together, so spreading out genuinely cuts P(loss).
             </div>
             <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
               <button onClick={() => setResults(null)} style={{ flex: 1, padding: '7px 0', borderRadius: 8, cursor: 'pointer', fontWeight: 700 }}>Keep exploring (Esc)</button>
