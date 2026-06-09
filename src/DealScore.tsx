@@ -16,6 +16,41 @@ const DDQ_FIELDS: { key: string; q: string; opts: [string, string][] }[] = [
   { key: 'comp_quality', q: 'Comp / data quality', opts: [['strong', 'Strong'], ['fair', 'Fair / partial'], ['weak', 'Weak / sparse']] },
 ]
 const METRO_LIST = METROS as { key: string; label: string; n: number; rank: number }[]
+
+// Forgiving metro lookup: "Miami Florida", "miami, fl" and plain "miami" all
+// resolve to "Miami, FL" (ties go to the larger metro by rank).
+const STATE_ABBR: Record<string, string> = {
+  alabama: 'AL', alaska: 'AK', arizona: 'AZ', arkansas: 'AR', california: 'CA', colorado: 'CO',
+  connecticut: 'CT', delaware: 'DE', 'district of columbia': 'DC', florida: 'FL', georgia: 'GA',
+  hawaii: 'HI', idaho: 'ID', illinois: 'IL', indiana: 'IN', iowa: 'IA', kansas: 'KS',
+  kentucky: 'KY', louisiana: 'LA', maine: 'ME', maryland: 'MD', massachusetts: 'MA',
+  michigan: 'MI', minnesota: 'MN', mississippi: 'MS', missouri: 'MO', montana: 'MT',
+  nebraska: 'NE', nevada: 'NV', 'new hampshire': 'NH', 'new jersey': 'NJ', 'new mexico': 'NM',
+  'new york': 'NY', 'north carolina': 'NC', 'north dakota': 'ND', ohio: 'OH', oklahoma: 'OK',
+  oregon: 'OR', pennsylvania: 'PA', 'rhode island': 'RI', 'south carolina': 'SC',
+  'south dakota': 'SD', tennessee: 'TN', texas: 'TX', utah: 'UT', vermont: 'VT',
+  virginia: 'VA', washington: 'WA', 'west virginia': 'WV', wisconsin: 'WI', wyoming: 'WY',
+}
+
+function normMetro(s: string): string {
+  let q = s.toLowerCase().replace(/[.,]/g, ' ').replace(/\s+/g, ' ').trim()
+  for (const [name, abbr] of Object.entries(STATE_ABBR)) {
+    if (q.endsWith(' ' + name)) { q = q.slice(0, q.length - name.length).trim() + ' ' + abbr.toLowerCase(); break }
+  }
+  return q
+}
+
+const METRO_NORM = METRO_LIST.map(m => ({ ...m, norm: normMetro(m.key) }))
+
+function resolveMetro(query: string): string | null {
+  const q = normMetro(query)
+  if (q.length < 3) return null
+  const exact = METRO_NORM.find(m => m.norm === q)
+  if (exact) return exact.key
+  const candidates = METRO_NORM.filter(m => m.norm.startsWith(q))
+  if (candidates.length === 0) return null
+  return candidates.sort((a, b) => a.rank - b.rank)[0].key
+}
 const DEFAULTS: Record<string, string> = {
   sponsor_track_record: 'established', business_plan: 'value_add', leverage_ltv: 'moderate',
   asset_status: 'transitional', market_quality: 'secondary', downside_protection: 'pref',
@@ -91,10 +126,19 @@ export default function DealScore() {
         <aside className="ds-controls">
           <h3>Deal inputs</h3>
           <label>Market / metro history <Info>Type any of {METRO_LIST.length} U.S. metros (e.g. "Phoenix, AZ"). The engine scores the deal on <b>that metro's real price history</b> — de-smoothed to recover its true volatility.</Info> <span className="ds-rv">{METRO_LIST.length} metros</span>
-            <input list="ds-metros" value={metroQuery} placeholder="Type a metro, e.g. Phoenix, AZ"
-              onChange={e => { const v = e.target.value; setMetroQuery(v); if (metroKeys.has(v)) setBaseline(v) }} />
+            <input list="ds-metros" value={metroQuery} placeholder="Type a metro, e.g. Miami, FL"
+              onChange={e => {
+                const v = e.target.value
+                setMetroQuery(v)
+                const match = metroKeys.has(v) ? v : resolveMetro(v)
+                if (match) setBaseline(match)
+              }} />
             <datalist id="ds-metros">{METRO_LIST.map(m => <option key={m.key} value={m.key} />)}</datalist>
-            {!metroKeys.has(metroQuery) && <span className="ds-warn">↳ pick a metro from the list</span>}
+            {!metroKeys.has(metroQuery) && (
+              resolveMetro(metroQuery)
+                ? <span className="ds-rv">↳ using {resolveMetro(metroQuery)}</span>
+                : <span className="ds-warn">↳ pick a metro from the list</span>
+            )}
           </label>
           <Range label={<>Target annual return <Info>The IRR hurdle you want this deal to clear (e.g. 20%). Every probability above is computed against this.</Info></>} v={target} min={0.05} max={0.5} step={0.01} fmt={pct0} set={setTarget} />
           <Range label="Risk-free rate" v={rf} min={0} max={0.1} step={0.005} fmt={pct} set={setRf} />
