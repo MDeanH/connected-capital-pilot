@@ -394,7 +394,7 @@ ${pastDeals.slice(0, 3).map(d => `- ${d.id}: realized ${(d.realized_irr*100).toF
         {[
           { id: 'score', label: '🎯 Deal Score', icon: Target },
           { id: 'usmarket', label: '🇺🇸 US Market', icon: BarChart3 },
-          { id: 'market3d', label: '🌐 3D Market', icon: Globe },
+          { id: 'market3d', label: '🎮 Market Quest 3D', icon: Globe },
           { id: 'dashboard', label: '📊 Client Dashboard', icon: BarChart3 },
           { id: 'opps', label: 'Opportunities', icon: Target },
           { id: 'ddq', label: 'DDQ Intake', icon: Upload },
