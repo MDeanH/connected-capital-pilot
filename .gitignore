@@ -33,6 +33,9 @@ node_modules/
 # NOTE: do NOT add a bare `lib/` here — it would ignore netlify/functions/lib/
 # (the scoring engine). Python venv libs are already covered by .venv/ above.
 
+# Netlify CLI local state
+.netlify/
+
 # IDE and editors
 .idea/
 .vscode/
