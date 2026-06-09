@@ -33,7 +33,7 @@ const STATE_ABBR: Record<string, string> = {
 }
 
 function normMetro(s: string): string {
-  let q = s.toLowerCase().replace(/[.,\-]/g, ' ').replace(/\s+/g, ' ').trim()
+  let q = s.toLowerCase().replace(/[.,\-()]/g, ' ').replace(/\s+/g, ' ').trim()
   for (const [name, abbr] of Object.entries(STATE_ABBR)) {
     if (q.endsWith(' ' + name)) { q = q.slice(0, q.length - name.length).trim() + ' ' + abbr.toLowerCase(); break }
   }
@@ -50,6 +50,16 @@ function resolveMetro(query: string): string | null {
   const candidates = METRO_NORM.filter(m => m.norm.startsWith(q))
   if (candidates.length === 0) return null
   return candidates.sort((a, b) => a.rank - b.rank)[0].key
+}
+
+// Top datalist suggestions for the current query — with 20k+ markets we only
+// render a handful of <option>s, not the whole list.
+function suggestMetros(query: string, limit = 40): string[] {
+  const q = normMetro(query)
+  const pool = q.length < 2
+    ? METRO_NORM
+    : METRO_NORM.filter(m => m.norm.startsWith(q) || m.norm.includes(' ' + q) || m.key.toLowerCase().includes(query.toLowerCase()))
+  return pool.slice().sort((a, b) => a.rank - b.rank).slice(0, limit).map(m => m.key)
 }
 const DEFAULTS: Record<string, string> = {
   sponsor_track_record: 'established', business_plan: 'value_add', leverage_ltv: 'moderate',
@@ -125,15 +135,15 @@ export default function DealScore() {
         {/* CONTROLS */}
         <aside className="ds-controls">
           <h3>Deal inputs</h3>
-          <label>Market / metro history <Info>Type any of {METRO_LIST.length} U.S. markets — metros like "Miami, FL" or counties like "Miami-Dade County, FL". The engine scores the deal on <b>that market's real price history</b> — de-smoothed to recover its true volatility.</Info> <span className="ds-rv">{METRO_LIST.length} markets</span>
-            <input list="ds-metros" value={metroQuery} placeholder="Metro or county, e.g. Miami, FL"
+          <label>Market / metro history <Info>Type any of {METRO_LIST.length.toLocaleString()} U.S. markets — metros ("Miami, FL"), counties ("Miami-Dade County, FL") or cities ("Coral Gables, FL"). The engine scores the deal on <b>that market's real price history</b> — de-smoothed to recover its true volatility.</Info> <span className="ds-rv">{METRO_LIST.length.toLocaleString()} markets</span>
+            <input list="ds-metros" value={metroQuery} placeholder="Metro, county or city, e.g. Miami, FL"
               onChange={e => {
                 const v = e.target.value
                 setMetroQuery(v)
                 const match = metroKeys.has(v) ? v : resolveMetro(v)
                 if (match) setBaseline(match)
               }} />
-            <datalist id="ds-metros">{METRO_LIST.map(m => <option key={m.key} value={m.key} />)}</datalist>
+            <datalist id="ds-metros">{suggestMetros(metroQuery).map(k => <option key={k} value={k} />)}</datalist>
             {!metroKeys.has(metroQuery) && (
               resolveMetro(metroQuery)
                 ? <span className="ds-rv">↳ using {resolveMetro(metroQuery)}</span>
