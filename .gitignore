@@ -26,6 +26,8 @@ wheels/
 # Node
 node_modules/
 *.tsbuildinfo
+# Local Node runtime (no system node on this machine)
+.node-local/
 
 # Backups
 *.bak
@@ -35,6 +37,9 @@ node_modules/
 
 # Netlify CLI local state
 .netlify/
+
+# Claude Code local state (machine-specific paths)
+.claude/
 
 # IDE and editors
 .idea/

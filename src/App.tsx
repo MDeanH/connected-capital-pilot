@@ -1,8 +1,10 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import Plot from 'react-plotly.js'
-import { Settings, BarChart3, MessageSquare, Upload, Target } from 'lucide-react'
+import { Settings, BarChart3, MessageSquare, Upload, Target, Home as HomeIcon, Send } from 'lucide-react'
 import DealScore from './DealScore'
 import USMarket from './USMarket'
+import Home from './Home'
+import type { ParseResult } from './excel'
 
 // Types (ported from Python model)
 interface Opportunity {
@@ -247,13 +249,16 @@ const DEFAULT_CONFIG: ModelConfig = {
 export default function App() {
   const [config, setConfig] = useState<ModelConfig>(DEFAULT_CONFIG)
   const [opportunities, setOpportunities] = useState<Opportunity[]>(INITIAL_OPPORTUNITIES)
-  const [pastDeals] = useState<PastDeal[]>(SAMPLE_PAST_DEALS)
-  const [activeTab, setActiveTab] = useState<'score' | 'usmarket' | 'dashboard' | 'opps' | 'ddq' | 'model' | 'corr' | 'copilot'>('score')
+  const [pastDeals, setPastDeals] = useState<PastDeal[]>(SAMPLE_PAST_DEALS)
+  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<'home' | 'score' | 'usmarket' | 'dashboard' | 'opps' | 'ddq' | 'model' | 'corr'>('home')
   const [minProb, setMinProb] = useState(0)
   const [selectedSubtypes, setSelectedSubtypes] = useState<('Development' | 'Value-Add')[]>(['Development', 'Value-Add'])
   const [selectedOppId, setSelectedOppId] = useState<string | null>(null)
   const [chatHistory, setChatHistory] = useState<{ role: 'user' | 'assistant'; content: string }[]>([])
   const [chatInput, setChatInput] = useState('')
+  const [copilotOpen, setCopilotOpen] = useState(false)
+  const copilotMessagesRef = useRef<HTMLDivElement>(null)
 
   // DDQ form state
   const [ddqSponsorExits, setDdqSponsorExits] = useState(3)
@@ -309,14 +314,32 @@ export default function App() {
     setDdqNotes('')
   }
 
+  // Client data upload (Home tab) — replaces the sample data so every score
+  // is computed from the client's own history/pipeline
+  const handleDataLoaded = (result: ParseResult, fileName: string) => {
+    if (result.pastDeals.length > 0) setPastDeals(result.pastDeals)
+    if (result.opportunities.length > 0) {
+      setOpportunities(result.opportunities)
+      setSelectedOppId(null)
+    }
+    setUploadedFileName(fileName)
+  }
+
   // Real copilot - calls Netlify function (works in production + with `netlify dev`)
-  const [, setIsCopilotThinking] = useState(false)
+  const [isCopilotThinking, setIsCopilotThinking] = useState(false)
+
+  // Keep the copilot panel scrolled to the latest message
+  useEffect(() => {
+    const el = copilotMessagesRef.current
+    if (el) el.scrollTop = el.scrollHeight
+  }, [chatHistory, isCopilotThinking])
 
   const sendChat = async () => {
     const trimmed = chatInput.trim()
     if (!trimmed) return
 
     const userMsg = trimmed
+    setCopilotOpen(true)
     setChatHistory(prev => [...prev, { role: 'user', content: userMsg }])
     setChatInput('')
     setIsCopilotThinking(true)
@@ -360,9 +383,10 @@ ${pastDeals.slice(0, 3).map(d => `- ${d.id}: realized ${(d.realized_irr*100).toF
         content: data.reply || "No response from the model." 
       }])
     } catch (err: any) {
-      setChatHistory(prev => [...prev, { 
-        role: 'assistant', 
-        content: `Copilot error: ${err.message}. (Make sure XAI_API_KEY is set in Netlify, or run with "netlify dev" locally.)` 
+      console.error('Copilot request failed:', err)
+      setChatHistory(prev => [...prev, {
+        role: 'assistant',
+        content: "The copilot couldn't reach the AI service. Please try again in a moment."
       }])
     } finally {
       setIsCopilotThinking(false)
@@ -379,18 +403,57 @@ ${pastDeals.slice(0, 3).map(d => `- ${d.id}: realized ${(d.realized_irr*100).toF
 
   return (
     <div className="app">
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <h1>AI Diligence Platform</h1>
-          <div style={{ fontSize: '0.8rem', color: '#64748b' }}>Probability of hitting target return • Risk quantification • Transparent drivers</div>
+      <header>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <h1>AI Diligence Platform</h1>
+            <div style={{ fontSize: '0.8rem', color: '#64748b' }}>Probability of hitting target return • Risk quantification • Transparent drivers</div>
+          </div>
+          <div style={{ fontSize: '0.75rem', color: '#64748b', textAlign: 'right' }}>
+            Netlify • v0.3-debiased-mc • client-history de-smoothed MC
+            <div>{uploadedFileName ? `Data: ${uploadedFileName}` : 'Data: sample (upload yours on Home)'}</div>
+          </div>
         </div>
-        <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
-          Netlify • v0.3-debiased-mc • client-history de-smoothed MC
+
+        {/* Diligence Copilot — pinned to the top on every tab */}
+        <div className="copilot-bar">
+          <MessageSquare size={16} style={{ color: 'var(--accent)', flexShrink: 0 }} />
+          <span className="copilot-label">🧠 Copilot</span>
+          <input
+            value={chatInput}
+            onChange={e => setChatInput(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && sendChat()}
+            placeholder="Ask the diligence copilot anything — e.g. why is the downtown deal scoring low?"
+          />
+          <button onClick={sendChat} disabled={isCopilotThinking} title="Send">
+            <Send size={14} style={{ verticalAlign: 'text-bottom', marginRight: 4 }} />
+            {isCopilotThinking ? 'Thinking…' : 'Ask'}
+          </button>
+          {chatHistory.length > 0 && (
+            <button className="secondary" onClick={() => setCopilotOpen(o => !o)}>
+              {copilotOpen ? 'Hide chat' : `Show chat (${chatHistory.length})`}
+            </button>
+          )}
         </div>
+
+        {copilotOpen && (
+          <div className="copilot-panel" ref={copilotMessagesRef}>
+            {chatHistory.length === 0 && (
+              <div style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>
+                Ask about drivers, scenarios, or recommendations. The copilot sees the live scores, weights and your uploaded deals.
+              </div>
+            )}
+            {chatHistory.map((m, i) => (
+              <div key={i} className={`message ${m.role}`}>{m.content}</div>
+            ))}
+            {isCopilotThinking && <div className="message assistant" style={{ color: 'var(--muted)' }}>Thinking…</div>}
+          </div>
+        )}
       </header>
 
       <div className="tabs">
         {[
+          { id: 'home', label: '🏠 Home / Upload', icon: HomeIcon },
           { id: 'score', label: '🎯 Deal Score', icon: Target },
           { id: 'usmarket', label: '🇺🇸 US Market', icon: BarChart3 },
           { id: 'dashboard', label: '📊 Client Dashboard', icon: BarChart3 },
@@ -398,7 +461,6 @@ ${pastDeals.slice(0, 3).map(d => `- ${d.id}: realized ${(d.realized_irr*100).toF
           { id: 'ddq', label: 'DDQ Intake', icon: Upload },
           { id: 'model', label: 'Analyst Model Studio', icon: Settings },
           { id: 'corr', label: 'Correlations', icon: BarChart3 },
-          { id: 'copilot', label: '🧠 Diligence Copilot', icon: MessageSquare },
         ].map(t => {
           const Icon = t.icon;
           return (
@@ -415,6 +477,17 @@ ${pastDeals.slice(0, 3).map(d => `- ${d.id}: realized ${(d.realized_irr*100).toF
       </div>
 
       <div className="main">
+        {/* HOME — client data upload + how-to guide */}
+        {activeTab === 'home' && (
+          <Home
+            pastDealsCount={pastDeals.length}
+            oppsCount={opportunities.length}
+            uploadedFileName={uploadedFileName}
+            onDataLoaded={handleDataLoaded}
+            goTo={(tab) => setActiveTab(tab as any)}
+          />
+        )}
+
         {/* DEAL SCORE — engine-backed (Netlify /api/score) */}
         {activeTab === 'score' && <DealScore />}
 
@@ -641,29 +714,6 @@ ${pastDeals.slice(0, 3).map(d => `- ${d.id}: realized ${(d.realized_irr*100).toF
           </div>
         )}
 
-        {activeTab === 'copilot' && (
-          <div className="card" style={{ maxWidth: 720 }}>
-            <h2>🧠 Diligence Copilot (AI Analyst)</h2>
-            <div className="chat">
-              <div className="chat-messages">
-                {chatHistory.length === 0 && <div style={{ color: '#64748b' }}>Ask about drivers, scenarios, or recommendations. The copilot calls the live Grok model via Netlify Function (make sure XAI_API_KEY is set in Netlify).</div>}
-                {chatHistory.map((m, i) => (
-                  <div key={i} className={`message ${m.role}`}>{m.content}</div>
-                ))}
-              </div>
-              <div style={{ display: 'flex', padding: '0.5rem', borderTop: '1px solid var(--border)' }}>
-                <input
-                  value={chatInput}
-                  onChange={e => setChatInput(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && sendChat()}
-                  placeholder="What is driving the low probability on the downtown value-add deal?"
-                  style={{ flex: 1, background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text)', padding: '0.5rem', borderRadius: 6 }}
-                />
-                <button onClick={sendChat} style={{ marginLeft: 8 }}>Send</button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
       <div className="disclaimer" style={{ padding: '0 1.5rem 2rem' }}>
