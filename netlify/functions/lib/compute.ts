@@ -12,7 +12,7 @@ const BASELINES: Record<string, Baseline> = {
   ...(metros as unknown as Record<string, Baseline>),
   ...(baselines as unknown as Record<string, Baseline>),
 };
-const DEFAULT_BASELINE = 'Phoenix, AZ' in BASELINES ? 'Phoenix, AZ' : 're_value_add';
+const DEFAULT_BASELINE = 'Miami, FL' in BASELINES ? 'Miami, FL' : 're_value_add';
 
 const num = (x: any, d: number) => { const v = Number(x); return Number.isFinite(v) ? v : d; };
 const clamp = (x: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, x));

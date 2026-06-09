@@ -72,8 +72,8 @@ const pct0 = (x: number) => (x * 100).toFixed(0) + '%'
 const usd = (x: number) => '$' + (x >= 1e6 ? (x / 1e6).toFixed(2) + 'M' : Math.round(x / 1e3) + 'k')
 
 export default function DealScore() {
-  const [baseline, setBaseline] = useState('Phoenix, AZ')
-  const [metroQuery, setMetroQuery] = useState('Phoenix, AZ')
+  const [baseline, setBaseline] = useState('Miami, FL')
+  const [metroQuery, setMetroQuery] = useState('Miami, FL')
   const metroKeys = useMemo(() => new Set(METRO_LIST.map(m => m.key)), [])
   const [target, setTarget] = useState(0.2)
   const [rf, setRf] = useState(0.04)
