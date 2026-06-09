@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { Upload, FileSpreadsheet, Download, CheckCircle2, AlertTriangle, Target, BarChart3, Settings, MessageSquare, ArrowRight } from 'lucide-react'
+import { Upload, FileSpreadsheet, Download, CheckCircle2, AlertTriangle, Target, BarChart3, Settings, MessageSquare, ArrowRight, Gamepad2 } from 'lucide-react'
 import { parseWorkbook, downloadTemplate } from './excel'
 import type { ParseResult } from './excel'
 
@@ -43,6 +43,10 @@ const HOW_TO_STEPS = [
   {
     tab: 'model', icon: Settings, title: '6. Tune the model',
     body: 'Analyst Model Studio exposes the feature weights (sponsor, market, structure, macro, qual). Move a slider and every score recomputes live.',
+  },
+  {
+    tab: 'market3d', icon: Gamepad2, title: 'Bonus: Market Quest 3D',
+    body: 'Fly a scout drone through a 3D city built from real market data — scan metro towers, assemble a portfolio, and run a correlated Monte Carlo on it. Or flip to Analysis Orbit for a serious 3D data view.',
   },
   {
     tab: 'copilot', icon: MessageSquare, title: 'Anytime: ask the Copilot',

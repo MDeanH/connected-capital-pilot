@@ -1,8 +1,9 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import Plot from 'react-plotly.js'
-import { Settings, BarChart3, MessageSquare, Upload, Target, Home as HomeIcon, Send } from 'lucide-react'
+import { Settings, BarChart3, MessageSquare, Upload, Target, Home as HomeIcon, Send, Globe } from 'lucide-react'
 import DealScore from './DealScore'
 import USMarket from './USMarket'
+import Market3D from './Market3D'
 import Home from './Home'
 import type { ParseResult } from './excel'
 
@@ -251,7 +252,7 @@ export default function App() {
   const [opportunities, setOpportunities] = useState<Opportunity[]>(INITIAL_OPPORTUNITIES)
   const [pastDeals, setPastDeals] = useState<PastDeal[]>(SAMPLE_PAST_DEALS)
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<'home' | 'score' | 'usmarket' | 'dashboard' | 'opps' | 'ddq' | 'model' | 'corr'>('home')
+  const [activeTab, setActiveTab] = useState<'home' | 'score' | 'usmarket' | 'market3d' | 'dashboard' | 'opps' | 'ddq' | 'model' | 'corr'>('home')
   const [minProb, setMinProb] = useState(0)
   const [selectedSubtypes, setSelectedSubtypes] = useState<('Development' | 'Value-Add')[]>(['Development', 'Value-Add'])
   const [selectedOppId, setSelectedOppId] = useState<string | null>(null)
@@ -456,6 +457,7 @@ ${pastDeals.slice(0, 3).map(d => `- ${d.id}: realized ${(d.realized_irr*100).toF
           { id: 'home', label: '🏠 Home / Upload', icon: HomeIcon },
           { id: 'score', label: '🎯 Deal Score', icon: Target },
           { id: 'usmarket', label: '🇺🇸 US Market', icon: BarChart3 },
+          { id: 'market3d', label: '🎮 Market Quest 3D', icon: Globe },
           { id: 'dashboard', label: '📊 Client Dashboard', icon: BarChart3 },
           { id: 'opps', label: 'Opportunities', icon: Target },
           { id: 'ddq', label: 'DDQ Intake', icon: Upload },
@@ -493,6 +495,9 @@ ${pastDeals.slice(0, 3).map(d => `- ${d.id}: realized ${(d.realized_irr*100).toF
 
         {/* US MARKET — national RE base rates + cross-correlations */}
         {activeTab === 'usmarket' && <USMarket />}
+
+        {/* 3D MARKET — navigable environment built from the repo's real datasets */}
+        {activeTab === 'market3d' && <Market3D />}
 
         {/* DASHBOARD */}
         {activeTab === 'dashboard' && (

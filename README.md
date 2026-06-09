@@ -75,6 +75,9 @@ See plan.md for detailed structure and phases.
 ## Run with Sample Data
 The app seeds realistic RE Dev/Value-Add examples derived from the internal scoping document. Upload your own CSVs or PDFs to extend.
 
+## Market Quest 3D (game + analysis environment)
+The **🎮 Market Quest 3D** tab is an exploratory game rendered entirely from the repo's real datasets: pilot a scout drone through a phyllotaxis "city" of the 150 largest metros (tower height = annualized ZHVI home-value growth, color = de-smoothed risk), scan towers up close, acquire up to 5 into a portfolio, and collect 8 data orbs hidden at landmarks computed from the series (2008 crash trough, 1981 rate peak, 2009 starts canyon…). Running diligence fires a correlated Monte Carlo (national + state factors, lognormal compounding) and scores the book vs the national ZHVI baseline — with missions, personal bests, a live portfolio preview, minimap, orb compass, and synth SFX. A **📊 Analysis Orbit** toggle restores the pure data-viz mode (hover tooltips on every object: metros, macro ring, and the ZHVI/mortgage/housing-starts ridges). Regenerate the scene data after refreshing sources with `python3 scripts/build_market3d_data.py`.
+
 ## Next / Done
 - **Real data ingest for 100+ sources**: `scripts/ingest_real_data.py --fetch-all-curated` (Zillow, FHFA, FRED, NCREIF snapshots, REITs, Census, etc.). See `data/data_sources_inventory.md` (full categorized list with direct URLs + exact MC mapping: prices_to_returns, ppy, geltner, bias_mu/sigma, n_obs for confidence, etc.).
 - Connectors + scoring now load real pulled market comps / macro (boosts n_obs, applies source-appropriate bias, macro mu_adj).
