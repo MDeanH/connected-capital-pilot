@@ -436,6 +436,13 @@ def main():
         },
         "markets": out,
     }
+    # Sanity gate: refuse to overwrite the published file with a suspiciously
+    # small result (e.g. an upstream returned garbage/empty). 4000 is well below
+    # the normal ~7300 but far above a broken run.
+    MIN_MARKETS = 4000
+    if len(out) < MIN_MARKETS:
+        raise SystemExit(f"ABORT: only {len(out)} markets (< {MIN_MARKETS}); not overwriting {OUT.name}. "
+                         f"Check upstream sources; existing file left intact.")
     OUT.write_text(json.dumps(payload, separators=(",", ":")))
     fields = {}
     for v in out.values():

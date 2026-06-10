@@ -12,11 +12,8 @@
   to = "/.netlify/functions/score"
   status = 200
 
-# Grok / AI copilot proxy
-[[redirects]]
-  from = "/api/grok/chat"
-  to = "/.netlify/functions/grok-chat"
-  status = 200
+# Grok / AI copilot proxy is a v2 function that self-routes via config.path
+# (/api/grok/chat) with native per-IP rate limiting — no redirect needed here.
 
 # Health / debug
 [[redirects]]

@@ -1,40 +1,38 @@
 // Grok / xAI proxy for the Diligence Copilot
 // IMPORTANT: Set XAI_API_KEY in Netlify site settings → Environment variables
+//
+// Netlify v2 function: native per-IP rate limiting is declared in `config`
+// below and enforced by the platform BEFORE this code runs, so abusive callers
+// never reach the paid xAI call. Routed via config.path (no netlify.toml redirect).
 
-import { Handler } from '@netlify/functions'
+import type { Config, Context } from '@netlify/functions'
 
 const XAI_API = 'https://api.x.ai/v1/chat/completions'
+const MAX_BODY_BYTES = 24_000
 
-export const handler: Handler = async (event) => {
-  if (event.httpMethod !== 'POST') {
-    return {
-      statusCode: 405,
-      body: 'Method not allowed',
-    }
-  }
+const json = (status: number, obj: unknown) =>
+  new Response(JSON.stringify(obj), { status, headers: { 'Content-Type': 'application/json' } })
 
-  // Size cap before parsing: this endpoint is public and proxies a paid LLM,
-  // so reject oversized payloads up front to limit token-cost abuse / DoS.
-  const MAX_BODY_BYTES = 24_000
-  if ((event.body || '').length > MAX_BODY_BYTES) {
-    return { statusCode: 413, body: JSON.stringify({ error: 'Request too large' }) }
-  }
+export default async (req: Request, _context: Context): Promise<Response> => {
+  if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 })
 
-  let body
+  // Size cap before parsing: public endpoint proxying a paid LLM — reject
+  // oversized payloads up front to limit token-cost abuse.
+  const raw = await req.text()
+  if (raw.length > MAX_BODY_BYTES) return json(413, { error: 'Request too large' })
+
+  let body: any
   try {
-    body = JSON.parse(event.body || '{}')
-  } catch (e) {
-    return {
-      statusCode: 400,
-      body: JSON.stringify({ error: 'Invalid JSON body' }),
-    }
+    body = JSON.parse(raw || '{}')
+  } catch {
+    return json(400, { error: 'Invalid JSON body' })
   }
 
   const { messages, context } = body
 
   // Validate shape and bound the conversation the caller can drive.
   if (!Array.isArray(messages) || messages.length === 0 || messages.length > 20) {
-    return { statusCode: 400, body: JSON.stringify({ error: 'Invalid messages' }) }
+    return json(400, { error: 'Invalid messages' })
   }
   const cappedMessages = messages.slice(-20).map((m: any) => ({
     role: m?.role === 'assistant' ? 'assistant' : 'user',
@@ -44,15 +42,11 @@ export const handler: Handler = async (event) => {
 
   const apiKey = process.env.XAI_API_KEY
   if (!apiKey) {
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ 
-        error: "XAI_API_KEY not configured. Go to Netlify site settings → Environment variables and add it." 
-      }),
-    }
+    console.error('XAI_API_KEY not configured')
+    return json(500, { error: 'AI service is not configured' })
   }
 
-  const systemPrompt = `You are an expert alternative investments due diligence analyst. 
+  const systemPrompt = `You are an expert alternative investments due diligence analyst.
 You are helping with the AI Diligence Platform for real estate development and value-add deals (and eventually other alts).
 
 Use the provided context (current filtered opportunities, model weights, scores, past deals) to give grounded, concise answers.
@@ -64,9 +58,9 @@ Be transparent about limitations.`
     messages: [
       {
         role: 'system',
-        content: systemPrompt + '\n\nCurrent context:\n' + (cappedContext || 'No additional context provided.')
+        content: systemPrompt + '\n\nCurrent context:\n' + (cappedContext || 'No additional context provided.'),
       },
-      ...cappedMessages
+      ...cappedMessages,
     ],
     temperature: 0.4,
     max_tokens: 800,
@@ -75,35 +69,30 @@ Be transparent about limitations.`
   try {
     const res = await fetch(XAI_API, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(requestBody),
     })
 
     if (!res.ok) {
       const errText = await res.text()
       console.error('xAI API error', res.status, errText)
-      return {
-        statusCode: 502,
-        body: JSON.stringify({ error: 'AI service temporarily unavailable' }),
-      }
+      return json(502, { error: 'AI service temporarily unavailable' })
     }
 
     const data = await res.json()
     const reply = data.choices?.[0]?.message?.content || 'No response from model.'
-
-    return {
-      statusCode: 200,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ reply }),
-    }
+    return json(200, { reply })
   } catch (err: any) {
     console.error('grok-chat internal error', err?.message)
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: 'AI service temporarily unavailable' }),
-    }
+    return json(500, { error: 'AI service temporarily unavailable' })
   }
+}
+
+export const config: Config = {
+  path: '/api/grok/chat',
+  rateLimit: {
+    windowSize: 60,      // seconds
+    windowLimit: 20,     // max requests per window per aggregation key
+    aggregateBy: ['ip', 'domain'],
+  },
 }

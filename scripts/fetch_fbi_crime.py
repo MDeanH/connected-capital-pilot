@@ -35,6 +35,7 @@ import re
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import os
 from pathlib import Path
 
 import requests
@@ -45,7 +46,9 @@ AGENCY_CACHE = ROOT / "data" / "fbi_agencies.json"
 OUT = ROOT / "public" / "crime-stats.json"
 
 API = "https://api.usa.gov/crime/fbi/cde"
-API_KEY = "iiHnOKfno2Mgkt5AynpvPpUQTEyxE77jo1RU8PIv"  # public key from the FBI CDE webapp bundle
+# The default is the public, read-only api.usa.gov key the FBI CDE webapp ships
+# in its own browser bundle — not a private credential. Override via env if desired.
+API_KEY = os.environ.get("FBI_CDE_API_KEY", "iiHnOKfno2Mgkt5AynpvPpUQTEyxE77jo1RU8PIv")
 YEAR = 2024
 FROM, TO = f"01-{YEAR}", f"12-{YEAR}"
 WORKERS = 12
@@ -285,6 +288,10 @@ def finalize():
 
     out = {"year": YEAR, "source": "FBI Crime Data Explorer (UCR/NIBRS)",
            "national": national, "states": states, "markets": out_markets}
+    # Sanity gate: don't overwrite the published file with a degraded result.
+    if len(out_markets) < 3000 or len(states) < 45:
+        raise SystemExit(f"ABORT: {len(out_markets)} markets / {len(states)} states is below floor; "
+                         f"not overwriting {OUT.name}. Existing file left intact.")
     OUT.parent.mkdir(exist_ok=True)
     OUT.write_text(json.dumps(out, separators=(",", ":")))
     print(f"Wrote {OUT} ({OUT.stat().st_size/1024:.0f} KB) — {len(out_markets)} markets, {len(states)} states", flush=True)
