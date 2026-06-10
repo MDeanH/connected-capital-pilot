@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import type { ReactNode } from 'react'
 import METROS from './metros-list.json'
+import CrimeStats from './CrimeStats'
+import MarketContext from './MarketContext'
 import { Info } from './Info'
 
 // Compact DDQ field list for the dropdowns (math lives server-side in lib/ddq.ts).
@@ -150,6 +152,8 @@ export default function DealScore() {
                 : <span className="ds-warn">↳ pick a metro from the list</span>
             )}
           </label>
+          <CrimeStats marketKey={baseline} />
+          <MarketContext marketKey={baseline} />
           <Range label={<>Target annual return <Info>The IRR hurdle you want this deal to clear (e.g. 20%). Every probability above is computed against this.</Info></>} v={target} min={0.05} max={0.5} step={0.01} fmt={pct0} set={setTarget} />
           <Range label="Risk-free rate" v={rf} min={0} max={0.1} step={0.005} fmt={pct} set={setRf} />
           <Range label="Holding period (yrs)" v={holding} min={1} max={10} step={1} fmt={v => String(v)} set={setHolding} />

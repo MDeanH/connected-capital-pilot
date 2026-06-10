@@ -240,6 +240,47 @@ function computeScore(opp: Opportunity, config: ModelConfig, pastDeals: PastDeal
   }
 }
 
+// What each tab does — fed to the copilot so "what does this tab do?" answers
+// reflect where the user actually is.
+const TAB_GUIDE: Record<string, { name: string; guide: string }> = {
+  home: {
+    name: 'Home / Upload',
+    guide: 'Landing page. Step 1: drag-and-drop an Excel/CSV with the client\'s past deals (realized IRRs) and current opportunities — parsed in-browser, never uploaded to a server; a downloadable template shows the expected columns. Uploaded past deals replace the sample history that de-smooths the Monte Carlo; uploaded opportunities replace the sample pipeline. Step 2 is a how-to-use-the-site guide with clickable cards for each tab.',
+  },
+  score: {
+    name: 'Deal Score',
+    guide: 'The engine-backed single-deal scorer. Pick any of 20,216 US markets (metros, counties, cities — natural language like "miami dade county florida" works), set target return, risk-free rate, holding period, idiosyncratic volatility, book size, ticket, and answer the due-diligence questionnaire. The Netlify engine runs a 20,000-path Monte Carlo on that market\'s real Zillow price history (de-smoothed to honest volatility) and returns P(hit target) with confidence intervals, expected return, P(loss), VaR/CVaR, and a fractional-Kelly suggested allocation. A Crime context card shows FBI violent/property rates per 100k vs the US average. A Market context card shows open-data context for the selected market: Zillow rents & gross yield, inventory/days-to-pending market heat, BEA income & price-to-income, FEMA hazard risk, IRS migration flows, HMDA investor share & denial rates (demand quality), Census building permits (supply pipeline), and FEMA NFIP flood claims (realized losses).',
+  },
+  usmarket: {
+    name: 'US Market',
+    guide: 'National real-estate context: US base rates built from Zillow ZHVI across 895 metros, plus cross-asset correlations and macro series (mortgage rates, Case-Shiller, housing starts). Use it to sanity-check a deal against the market backdrop.',
+  },
+  market3d: {
+    name: 'Market Quest 3D',
+    guide: 'A 3D exploration of the same market data, two modes. Market Quest (game): fly a drone (WASD, Shift boost, Space/C up/down, drag to look) through a data city where each tower is a real metro — height = home-value growth, color = de-smoothed risk; scan towers, press E to acquire up to 5 metros, press R to run a correlated 3,000-path Monte Carlo on the portfolio, with missions and collectible data orbs at historic landmarks (2008 crash trough, 1981 mortgage-rate peak). Analysis Orbit toggle: a serious orbit-camera data view of 150 metros with hover diligence stats.',
+  },
+  dashboard: {
+    name: 'Client Dashboard',
+    guide: 'Ranks every opportunity in the pipeline (sample or uploaded) by probability of hitting the target return, with expected return, P(loss), confidence, top driver, and suggested sizing. Click a row for full risk detail and the simulated return histogram. Filter by minimum probability and deal subtype.',
+  },
+  opps: {
+    name: 'Opportunities',
+    guide: 'Raw tables of the current opportunities and the historical past deals (the training signal whose realized IRRs de-smooth the Monte Carlo).',
+  },
+  ddq: {
+    name: 'DDQ Intake',
+    guide: 'Add a new opportunity through a short due-diligence questionnaire (sponsor exits, peak LTV, execution risk, qualitative notes). Saving scores it immediately and adds it to the dashboard.',
+  },
+  model: {
+    name: 'Analyst Model Studio',
+    guide: 'Live-editable feature weights (sponsor, market, structure, macro, qual). Moving a slider immediately recomputes every score on the dashboard. Shows the full model config JSON.',
+  },
+  corr: {
+    name: 'Correlations',
+    guide: 'Cross-market correlation matrices. Includes real Crime × Market correlations: FBI 2024 crime rates correlated against each market\'s Zillow return history (annualized return, volatility, 5-yr growth, max drawdown) across thousands of US cities, with a scatter of violent crime rate vs 5-yr return. Plus an illustrative cross-asset matrix.',
+  },
+}
+
 const DEFAULT_CONFIG: ModelConfig = {
   target_return_default: 0.20,
   feature_weights: { sponsor: 0.28, market: 0.22, structure: 0.18, macro: 0.20, qual: 0.12 },
@@ -346,7 +387,12 @@ export default function App() {
     setIsCopilotThinking(true)
 
     // Build rich context for the model (grounded in the live de-biased MC + analyst state)
+    const tab = TAB_GUIDE[activeTab]
     const context = `
+The user is currently looking at the "${tab?.name ?? activeTab}" tab.
+What this tab does: ${tab?.guide ?? 'n/a'}
+(If the user asks "what does this tab do", "where am I", or similar, answer from the tab description above. The other tabs are: ${Object.values(TAB_GUIDE).map(t => t.name).join(', ')}.)
+
 Current model (de-biased MC engine):
 - Target: ${(config.target_return_default * 100).toFixed(0)}%
 - Weights: ${JSON.stringify(config.feature_weights)}
@@ -401,6 +447,15 @@ ${pastDeals.slice(0, 3).map(d => `- ${d.id}: realized ${(d.realized_irr*100).toF
     [0.35, 0.40, 1.0]
   ]
   const corrLabels = ['RE_Dev', 'RE_ValueAdd', 'Private_Lending']
+
+  // Real crime × market correlations (baked by scripts/crime_correlations.py)
+  const [crimeCorr, setCrimeCorr] = useState<any>(null)
+  useEffect(() => {
+    fetch('/crime-correlations.json')
+      .then(r => (r.ok ? r.json() : null))
+      .then(setCrimeCorr)
+      .catch(() => setCrimeCorr(null))
+  }, [])
 
   return (
     <div className="app">
@@ -690,6 +745,81 @@ ${pastDeals.slice(0, 3).map(d => `- ${d.id}: realized ${(d.realized_irr*100).toF
             <pre style={{ marginTop: '1rem', background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)', padding: '1rem', borderRadius: 6, overflowX: 'auto' }}>{JSON.stringify(config, null, 2)}</pre>
           </div>
         )}
+
+        {activeTab === 'corr' && crimeCorr && (() => {
+          // "all" segment has the best joint coverage of the county-level context
+          // fields; cities/counties join sparsely to them.
+          const seg = crimeCorr.segments?.all || crimeCorr.segments?.cities
+          if (!seg) return null
+          // only show cells the analysis actually computed (low-n cells were dropped at MIN_N)
+          const metrics = Object.keys(crimeCorr.metricLabels || {}).filter(m => seg.matrix?.v?.[m] || seg.matrix?.p?.[m])
+          const z = [
+            metrics.map(m => seg.matrix?.v?.[m]?.pearson ?? null),
+            metrics.map(m => seg.matrix?.p?.[m]?.pearson ?? null),
+          ]
+          // headline = strongest link among return metrics (population excluded as a size confound)
+          const returnMetrics = ['mu_ann', 'sigma_ann', 'sharpe_like', 'growth_5y', 'max_drawdown']
+          const strongest = returnMetrics
+            .map(m => ({ m, r: seg.matrix?.v?.[m]?.pearson }))
+            .filter(x => typeof x.r === 'number')
+            .sort((a, b) => Math.abs(b.r) - Math.abs(a.r))[0]
+          return (
+            <div className="card" style={{ marginBottom: '1.5rem' }}>
+              <h2>Crime × Market Correlations (real data)</h2>
+              <p style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>
+                Pearson correlations across {seg.n.toLocaleString()} US markets — FBI {crimeCorr.year} crime rates vs each market's Zillow return history and open-data context.
+                {strongest && <> Strongest link between violent crime and a return metric: <strong>{crimeCorr.metricLabels[strongest.m]}</strong> (r={strongest.r > 0 ? '+' : ''}{strongest.r.toFixed(2)}) — weak, as expected; crime is mostly a proxy for density.</>}
+              </p>
+              <Plot
+                data={[{
+                  z,
+                  x: metrics.map(m => crimeCorr.metricLabels[m] || m),
+                  y: ['Violent rate /100k', 'Property rate /100k'],
+                  type: 'heatmap',
+                  colorscale: 'RdBu',
+                  reversescale: true,
+                  zmin: -0.6,
+                  zmax: 0.6,
+                  text: z.map(row => row.map(v => (v === null ? '' : (v > 0 ? '+' : '') + v.toFixed(2)))),
+                  texttemplate: '%{text}'
+                }]}
+                layout={{
+                  height: 260,
+                  margin: { t: 10, b: 90, l: 130, r: 10 },
+                  paper_bgcolor: 'rgba(0,0,0,0)',
+                  plot_bgcolor: 'rgba(0,0,0,0)',
+                  font: { color: '#11161f', family: 'Poppins, system-ui, sans-serif' },
+                }}
+                config={{ displayModeBar: false }}
+              />
+              {crimeCorr.scatter && (
+                <Plot
+                  data={[{
+                    x: crimeCorr.scatter.points.map((p: any) => p.x),
+                    y: crimeCorr.scatter.points.map((p: any) => p.y * 100),
+                    text: crimeCorr.scatter.points.map((p: any) => p.key),
+                    type: 'scattergl',
+                    mode: 'markers',
+                    marker: { color: '#3b5bdb', size: 5, opacity: 0.45 },
+                    hovertemplate: '%{text}<br>violent: %{x:.0f}/100k<br>5y return: %{y:.1f}%<extra></extra>'
+                  }]}
+                  layout={{
+                    height: 320,
+                    margin: { t: 30, b: 45, l: 55, r: 10 },
+                    title: { text: crimeCorr.scatter.label, font: { size: 13 } },
+                    xaxis: { title: { text: 'Violent crime rate per 100k (FBI)' } },
+                    yaxis: { title: { text: '5-yr annualized return %' } },
+                    paper_bgcolor: 'rgba(0,0,0,0)',
+                    plot_bgcolor: 'rgba(0,0,0,0)',
+                    font: { color: '#11161f', family: 'Poppins, system-ui, sans-serif' },
+                  }}
+                  config={{ displayModeBar: false }}
+                />
+              )}
+              <p className="disclaimer">Correlation ≠ causation: crime rates proxy for many co-moving factors (density, income, reporting practices). Winsorized at 1%/99%; biggest-population cities sampled for the scatter.</p>
+            </div>
+          )
+        })()}
 
         {activeTab === 'corr' && (
           <div className="card">
