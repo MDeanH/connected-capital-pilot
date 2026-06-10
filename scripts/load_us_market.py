@@ -40,9 +40,13 @@ SPEC = [
     ("CUSR0000SEHC", "CPI Owners' Equiv. Rent", "Rents", "price", "fred"),
     ("ZORI_US", "Zillow Observed Rent Index (US)", "Rents", "price", "zillow"),
     ("COMREPUSQ159N", "Commercial Real Estate Prices", "Commercial/REIT", "price", "fred"),
-    ("WILLREITIND", "Wilshire US REIT Index", "Commercial/REIT", "price", "fred"),
+    # WILLREITIND (Wilshire US REIT) was discontinued on FRED with no free
+    # no-key replacement, so the REIT slot is dropped (Commercial RE prices remain).
     ("HOUST", "Housing Starts", "Activity", "level", "fred"),
-    ("EXHOSLUSM495S", "Existing Home Sales", "Activity", "level", "fred"),
+    # EXHOSLUSM495S (existing home sales) was reset on FRED to a 14-month stub;
+    # HSN1F (new one-family home sales, monthly since 1963) is the long-history
+    # RE-activity stand-in.
+    ("HSN1F", "New One-Family Home Sales", "Activity", "level", "fred"),
     ("ACTLISCOUUS", "Active Listings", "Activity", "level", "fred"),
     ("MORTGAGE30US", "30-Yr Fixed Mortgage Rate", "Financing", "rate", "fred"),
     ("FEDFUNDS", "Fed Funds Rate", "Macro/rates", "rate", "fred"),
@@ -51,8 +55,12 @@ SPEC = [
     ("CPIAUCSL", "CPI (All Items)", "Macro/rates", "price", "fred"),
     ("GDPC1", "Real GDP", "Macro/rates", "level", "fred"),
     ("PAYEMS", "Nonfarm Payrolls", "Macro/rates", "level", "fred"),
-    ("BAMLH0A0HYM2", "High-Yield Credit Spread", "Macro/rates", "rate", "fred"),
-    ("WILL5000IND", "Wilshire 5000 (Equities)", "Macro/rates", "price", "fred"),
+    # BAMLH0A0HYM2 (ICE BofA high-yield spread): FRED's free API exposes only
+    # ~3 years (ICE licensing), too thin to correlate or to keep from dragging
+    # the common-overlap window — dropped until fuller free history is available.
+    # WILL5000IND (Wilshire 5000) discontinued on FRED; NASDAQCOM (Nasdaq
+    # Composite, daily since 1971) is the long-history equity-market series.
+    ("NASDAQCOM", "Nasdaq Composite (Equities)", "Macro/rates", "price", "fred"),
 ]
 
 
@@ -268,20 +276,22 @@ def main():
            "reCorr": re_corr, "commonQuarters": int(df.dropna().shape[0])}
     dest = os.path.join(ROOT, "src", "us-market.json")
 
-    # Non-destructive: never overwrite a good file with a worse one. This
-    # environment can lose FRED-only series (blocked CSV endpoint, empty /tmp
-    # cache), so only write when we cover at least every series the live file
-    # already has — i.e. a strict no-regression improvement.
+    # Non-destructive: never overwrite a good file by *accidentally* losing a
+    # series (blocked CSV endpoint, empty cache, transient API failure). A
+    # regression = a series still defined in SPEC that the live file has but this
+    # run failed to fetch. Series intentionally removed from SPEC are NOT a
+    # regression, so curation (dropping discontinued/thin series) is allowed.
     new_present = {m["id"] for m in meta}
+    spec_ids = {s[0] for s in SPEC}
     if os.path.exists(dest):
         try:
             old_present = {m["id"] for m in json.load(open(dest)).get("series", [])}
         except Exception:
             old_present = set()
-        if not new_present >= old_present:
-            lost = sorted(old_present - new_present)
-            print(f"SKIP write: would regress (lose {', '.join(lost)}). Live file left intact. "
-                  f"Set FRED_API_KEY or wait for FRED to unblock.")
+        regressed = (old_present & spec_ids) - new_present
+        if regressed:
+            print(f"SKIP write: would regress (lose {', '.join(sorted(regressed))}). Live file left intact. "
+                  f"Set FRED_API_KEY or wait for the source to recover.")
             return len(missing)
 
     json.dump(out, open(dest, "w"), separators=(",", ":"))
