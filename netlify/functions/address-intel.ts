@@ -78,9 +78,11 @@ async function parcelIntel(lng: number, lat: number, matchedAddress?: string) {
     folio,
     siteAddress: pa?.SiteAddress?.[0]?.Address ?? null,
     assessedYear: cur.Year ?? null,
-    totalValue: cur.TotalValue ?? null,
-    landValue: cur.LandValue ?? null,
-    buildingValue: cur.BuildingOnlyValue ?? null,
+    // 0 means "not assessed at this folio" (e.g. a condo building's parent
+    // folio — units carry their own folios) — treat as absent
+    totalValue: cur.TotalValue || null,
+    landValue: cur.LandValue || null,
+    buildingValue: cur.BuildingOnlyValue || null,
     valueYoY: cur.TotalValue && prev?.TotalValue ? Math.round((cur.TotalValue / prev.TotalValue - 1) * 1000) / 1000 : null,
     yearBuilt: info.YearBuilt ?? null,
     floors: info.FloorCount ?? null,
