@@ -6,6 +6,25 @@
 [build.environment]
   NODE_VERSION = "20"
 
+# Landing page: the how-it-works explainer serves at the root (forced — the
+# built React index.html exists at /, so this must shadow it)
+[[redirects]]
+  from = "/"
+  to = "/how-it-works.html"
+  status = 200
+  force = true
+
+# The React app lives at /app
+[[redirects]]
+  from = "/app"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/app/*"
+  to = "/index.html"
+  status = 200
+
 # Diligence scoring engine (verified Monte Carlo, TS port)
 [[redirects]]
   from = "/api/score"
