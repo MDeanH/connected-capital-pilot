@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { Upload, FileSpreadsheet, Download, CheckCircle2, AlertTriangle, Target, BarChart3, Settings, MessageSquare, ArrowRight, Gamepad2 } from 'lucide-react'
 import { parseWorkbook, downloadTemplate } from './excel'
 import type { ParseResult } from './excel'
+import DataStatus from './DataStatus'
 
 interface HomeProps {
   pastDealsCount: number
@@ -202,9 +203,9 @@ export default function Home({ pastDealsCount, oppsCount, uploadedFileName, onDa
           <div className="howto-card">
             <div className="howto-title">🚓 Crime (FBI UCR/NIBRS)</div>
             <div className="howto-body">
-              <strong>10,783 markets</strong>, 2024. Markets with no participating police agency fall back to county, then
-              statewide. 74 of ~10,975 agencies reported no usable 2024 data. NIBRS participation varies by agency —
-              treat as context, not a precise ranking.
+              <strong>~10,800 markets</strong>, latest finalized year (2025). Markets with no participating police agency
+              fall back to county, then statewide. A small share of agencies report no usable data each year. NIBRS
+              participation varies by agency — treat as context, not a precise ranking.
             </div>
           </div>
           <div className="howto-card">
@@ -224,6 +225,7 @@ export default function Home({ pastDealsCount, oppsCount, uploadedFileName, onDa
             </div>
           </div>
         </div>
+        <DataStatus />
         <p className="disclaimer" style={{ marginBottom: 0 }}>
           Sources: Zillow Research (ZHVI, ZORI, inventory), FBI Crime Data Explorer, U.S. Census (Building Permits),
           BEA (county income), FEMA (National Risk Index, NFIP flood claims), IRS (county migration), CFPB/FFIEC (HMDA).
