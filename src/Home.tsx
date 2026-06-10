@@ -47,7 +47,7 @@ const HOW_TO_STEPS = [
   },
   {
     tab: 'market3d', icon: Gamepad2, title: 'Bonus: Market Quest 3D',
-    body: 'Fly a scout drone through a 3D city built from real market data — scan metro towers, assemble a portfolio, and run a correlated Monte Carlo on it. Or flip to Analysis Orbit for a serious 3D data view.',
+    body: 'Fly a scout drone through a 3D city built from real market data — scan metro towers, assemble a portfolio, and run a correlated Monte Carlo on it. Or flip to Analysis Orbit for a serious 3D data view. Desktop recommended — the drone flies with a keyboard (WASD).',
   },
   {
     tab: 'copilot', icon: MessageSquare, title: 'Anytime: ask the Copilot',

@@ -680,6 +680,12 @@ export default function Market3D() {
           <div style={{ ...hudPanel, position: 'relative', maxWidth: 540, width: '92%', maxHeight: '90%', overflowY: 'auto', fontSize: '0.85rem' }}>
             <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#fff' }}>🎮 MARKET QUEST</div>
             <div style={{ color: '#67e8f9', marginTop: 2 }}>A diligence scout's tour of the US housing market — every object is real data.</div>
+            {(typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(pointer: coarse)').matches) && (
+              <div style={{ marginTop: 10, padding: '8px 10px', borderRadius: 8, background: 'rgba(251,191,36,0.14)', border: '1px solid rgba(251,191,36,0.5)', color: '#fbbf24', fontWeight: 600 }}>
+                ⚠️ The game needs a keyboard (WASD) — play it on a desktop for now.
+                On this device, try <strong>Analysis Orbit</strong> (top-right): touch-drag to orbit the same data.
+              </div>
+            )}
             <div style={{ marginTop: 10, opacity: 0.9 }}>{MISSION_TEXT}</div>
             <div style={{ marginTop: 10, opacity: 0.9 }}>
               The Monte Carlo is <strong>correlated</strong>: metros share national and state shocks, so true
