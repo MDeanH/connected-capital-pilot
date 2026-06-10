@@ -18,9 +18,9 @@ const SHORT: Record<string, string> = {
   CSUSHPINSA: "CS Nat'l", CSUSHPISA: "CS Nat'l SA", SPCS20RSA: 'CS 20-City', SPCS10RSA: 'CS 10-City',
   USSTHPI: 'FHFA', HPIPONM226S: 'FHFA (PO)', MSPUS: 'Median $', ZHVI_US: 'Zillow HVI',
   CUSR0000SEHA: 'CPI Rent', CUSR0000SEHC: 'CPI OER', ZORI_US: 'Zillow Rent', COMREPUSQ159N: 'CRE Price',
-  HOUST: 'Starts', EXHOSLUSM495S: 'Home Sales', ACTLISCOUUS: 'Listings', MORTGAGE30US: 'Mtg 30Y',
+  HOUST: 'Starts', HSN1F: 'New Sales', ACTLISCOUUS: 'Listings', MORTGAGE30US: 'Mtg 30Y',
   FEDFUNDS: 'Fed Funds', DGS10: '10Y UST', UNRATE: 'Unemploy.', CPIAUCSL: 'CPI', GDPC1: 'Real GDP',
-  PAYEMS: 'Payrolls', BAMLH0A0HYM2: 'HY Spread', WILL5000IND: 'Equities', WILLREITIND: 'REITs',
+  PAYEMS: 'Payrolls', NASDAQCOM: 'Nasdaq',
 }
 const short = (id: string) => SHORT[id] ?? id
 const pct = (x: number | null | undefined, d = 1) => x == null ? '—' : (x * 100).toFixed(d) + '%'
