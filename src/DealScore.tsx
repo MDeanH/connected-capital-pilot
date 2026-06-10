@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import METROS from './metros-list.json'
 import CrimeStats from './CrimeStats'
 import MarketContext from './MarketContext'
+import AddressIntel from './AddressIntel'
 import { Info } from './Info'
 
 // Compact DDQ field list for the dropdowns (math lives server-side in lib/ddq.ts).
@@ -137,6 +138,17 @@ export default function DealScore() {
         {/* CONTROLS */}
         <aside className="ds-controls">
           <h3>Deal inputs</h3>
+          <AddressIntel onResolved={(candidates) => {
+            // first candidate that is an exact market key wins; then fuzzy
+            for (const c of candidates) {
+              if (metroKeys.has(c)) { setMetroQuery(c); setBaseline(c); return c }
+            }
+            for (const c of candidates) {
+              const m = resolveMetro(c)
+              if (m) { setMetroQuery(m); setBaseline(m); return m }
+            }
+            return null
+          }} />
           <label>Market / metro history <Info>Type any of {METRO_LIST.length.toLocaleString()} U.S. markets — metros ("Miami, FL"), counties ("Miami-Dade County, FL") or cities ("Coral Gables, FL"). The engine scores the deal on <b>that market's real price history</b> — de-smoothed to recover its true volatility.</Info> <span className="ds-rv">{METRO_LIST.length.toLocaleString()} markets</span>
             <input list="ds-metros" value={metroQuery} placeholder="Metro, county or city, e.g. Miami, FL"
               onChange={e => {
