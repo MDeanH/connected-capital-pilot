@@ -5,6 +5,7 @@ import DealScore from './DealScore'
 import USMarket from './USMarket'
 import Market3D from './Market3D'
 import Home from './Home'
+import { Info } from './Info'
 import type { ParseResult } from './excel'
 
 // Types (ported from Python model)
@@ -277,7 +278,7 @@ const TAB_GUIDE: Record<string, { name: string; guide: string }> = {
   },
   corr: {
     name: 'Correlations',
-    guide: 'Cross-market correlation matrices. Includes real Crime × Market correlations: latest-year FBI crime rates correlated against each market\'s Zillow return history (annualized return, volatility, 5-yr growth, max drawdown) across thousands of US cities, with a scatter of violent crime rate vs 5-yr return. Plus an illustrative cross-asset matrix.',
+    guide: 'Answers "does crime predict returns?" with real data: latest-year FBI crime rates correlated against 10,000+ markets\' return histories and open-data context. Headline finding: crime explains only ~2% of return differences (weak negative link to 5-yr growth); its strongest links are to market size, natural-hazard risk and rent yield (risk gets priced). Shows ranked correlation bars with plain-language strength labels, a scatter of every market with a trend line, a "find your market" search that highlights where any market sits with percentile readouts, and a full matrix table for quants. Cross-asset macro correlations (the real 23×23) live on the US Market tab.',
   },
 }
 
@@ -440,16 +441,10 @@ ${pastDeals.slice(0, 3).map(d => `- ${d.id}: realized ${(d.realized_irr*100).toF
     }
   }
 
-  // Simple correlation matrix data
-  const corrData = [
-    [1.0, 0.65, 0.35],
-    [0.65, 1.0, 0.40],
-    [0.35, 0.40, 1.0]
-  ]
-  const corrLabels = ['RE_Dev', 'RE_ValueAdd', 'Private_Lending']
-
   // Real crime × market correlations (baked by scripts/crime_correlations.py)
   const [crimeCorr, setCrimeCorr] = useState<any>(null)
+  const [corrPickQuery, setCorrPickQuery] = useState('')
+  const [corrPick, setCorrPick] = useState<string | null>(null)
   useEffect(() => {
     fetch('/crime-correlations.json')
       .then(r => (r.ok ? r.json() : null))
@@ -746,123 +741,239 @@ ${pastDeals.slice(0, 3).map(d => `- ${d.id}: realized ${(d.realized_irr*100).toF
           </div>
         )}
 
+        {activeTab === 'corr' && !crimeCorr && (
+          <div className="card">Loading correlation data…</div>
+        )}
+
         {activeTab === 'corr' && crimeCorr && (() => {
-          // "all" segment has the best joint coverage of the county-level context
-          // fields; cities/counties join sparsely to them.
+          // "all" segment has the best joint coverage of the county-level context fields
           const seg = crimeCorr.segments?.all || crimeCorr.segments?.cities
           if (!seg) return null
-          // only show cells the analysis actually computed (low-n cells were dropped at MIN_N)
-          const metrics = Object.keys(crimeCorr.metricLabels || {}).filter(m => seg.matrix?.v?.[m] || seg.matrix?.p?.[m])
-          const z = [
-            metrics.map(m => seg.matrix?.v?.[m]?.pearson ?? null),
-            metrics.map(m => seg.matrix?.p?.[m]?.pearson ?? null),
-          ]
-          // headline = strongest link among return metrics (population excluded as a size confound)
-          const returnMetrics = ['mu_ann', 'sigma_ann', 'sharpe_like', 'growth_5y', 'max_drawdown']
-          const strongest = returnMetrics
-            .map(m => ({ m, r: seg.matrix?.v?.[m]?.pearson }))
-            .filter(x => typeof x.r === 'number')
-            .sort((a, b) => Math.abs(b.r) - Math.abs(a.r))[0]
+          const M = seg.matrix
+
+          // plain-language metric names + what each one means
+          const INFO: Record<string, [string, string]> = {
+            growth_5y: ['Recent 5-yr growth', 'Annualized price return over the last five years.'],
+            mu_ann: ['Long-run total return', "The market's annualized return over its full history (since 2000)."],
+            sigma_ann: ['Volatility (risk)', 'How much the market swings quarter to quarter.'],
+            sharpe_like: ['Return per unit of risk', 'Long-run return divided by volatility.'],
+            max_drawdown: ['Worst historical crash', 'Deepest peak-to-trough fall on record (more negative = worse). A negative correlation means higher-crime markets crashed harder.'],
+            pop_log: ['Market size (population)', 'Bigger, denser jurisdictions report more crime per 100k — partly density, partly reporting coverage.'],
+            grossYield: ['Rent yield', 'Annual rent ÷ home value. A positive correlation means higher-crime markets pay higher yields — the market prices the risk.'],
+            rentYoY: ['Rent growth (1 yr)', 'Change in rents over the last year.'],
+            invYoY: ['Inventory growth (1 yr)', 'Change in homes listed for sale — rising inventory cools prices.'],
+            priceToIncome: ['Price-to-income', 'Home value vs local per-capita income — affordability stretch.'],
+            incomeGrowth5y: ['Income growth (5 yr)', 'Per-capita income growth in the county.'],
+            nriScore: ['Natural-hazard risk', "FEMA's composite hazard score — hurricane, flood, wildfire and 15 more."],
+            netMigRate: ['Net migration rate', 'Households moving in minus moving out, per resident (IRS).'],
+            investorShare: ['Investor buyer share', 'Share of home purchases by investor / second-home buyers (HMDA).'],
+            denialRate: ['Mortgage denial rate', 'Share of purchase mortgage applications denied (HMDA).'],
+            permitsPer1k: ['Building permits / 1k residents', 'New housing units permitted per 1,000 residents — the supply pipeline.'],
+            permitsVs5y: ['Permit surge vs own norm', "This year's permits vs the county's own 5-year average."],
+            claimsTrend: ['Flood-claims trend', 'Flood insurance claims, recent 5 years vs the prior 5.'],
+          }
+          const strength = (r: number) => {
+            const a = Math.abs(r)
+            return a < 0.05 ? 'no link' : a < 0.15 ? 'very weak' : a < 0.3 ? 'weak' : a < 0.5 ? 'moderate' : 'strong'
+          }
+          const fmtR = (r: number) => (r > 0 ? '+' : '') + r.toFixed(2)
+
+          const bars = Object.keys(INFO)
+            .map(m => ({ m, r: M?.v?.[m]?.pearson as number | undefined, n: M?.v?.[m]?.n }))
+            .filter(b => typeof b.r === 'number')
+            .sort((a, b) => Math.abs(b.r!) - Math.abs(a.r!))
+
+          const rOf = (m: string) => M?.v?.[m]?.pearson as number | undefined
+          const r5y = rOf('growth_5y'), rPop = rOf('pop_log'), rHaz = rOf('nriScore'), rYield = rOf('grossYield')
+
+          // user-selected market on the scatter
+          const sc = crimeCorr.scatter
+          const pts: any[] = sc?.points || []
+          const sel = corrPick ? pts.find(p => p.k === corrPick) : null
+          const pctile = (get: (p: any) => number, v: number) =>
+            Math.max(1, Math.min(99, Math.round((100 * pts.filter(p => get(p) < v).length) / pts.length)))
+          const suggestions = corrPickQuery.trim().length >= 2 && !sel
+            ? pts.filter(p => p.k.toLowerCase().includes(corrPickQuery.trim().toLowerCase())).slice(0, 12)
+            : []
+          // display sample: ~3k points draw identically to 10k under overplotting,
+          // render as SVG (mobile-friendly, screenshot-able); stats use ALL points
+          const dispStep = Math.max(1, Math.ceil(pts.length / 3000))
+          const disp = pts.filter((_, i) => i % dispStep === 0)
+
           return (
-            <div className="card" style={{ marginBottom: '1.5rem' }}>
-              <h2>Crime × Market Correlations (real data)</h2>
-              <p style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>
-                Pearson correlations across {seg.n.toLocaleString()} US markets — FBI {crimeCorr.year} crime rates vs each market's Zillow return history and open-data context.
-                {strongest && <> Strongest link between violent crime and a return metric: <strong>{crimeCorr.metricLabels[strongest.m]}</strong> (r={strongest.r > 0 ? '+' : ''}{strongest.r.toFixed(2)}) — weak, as expected; crime is mostly a proxy for density.</>}
-              </p>
-              {/* heatmap keeps a readable min-width; the wrapper scrolls on phones */}
-              <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-                <div style={{ minWidth: 620 }}>
+            <>
+              <div className="card" style={{ marginBottom: '1.5rem' }}>
+                <h2>Does crime predict returns?</h2>
+                <p style={{ fontSize: '0.9rem', color: 'var(--muted)', maxWidth: 780 }}>
+                  We correlated FBI {crimeCorr.year} crime rates with the real price histories and open-data context of{' '}
+                  {seg.n.toLocaleString()} US markets. Short answer: <strong>barely</strong>. Crime describes a market's
+                  character — its size, hazard exposure, how it's priced — but says almost nothing about where returns went.
+                  That's why the Deal Score treats crime as context, not as a return signal.
+                </p>
+
+                <div className="grid-4" style={{ marginTop: '0.75rem' }}>
+                  {typeof r5y === 'number' && (
+                    <div className="card" style={{ background: 'var(--surface-2)' }}>
+                      <div className="metric-label">Crime → recent returns <Info width={250}>r = {fmtR(r5y)} between violent-crime rate and 5-yr annualized return. Squaring r gives the share of return differences crime can account for.</Info></div>
+                      <div className="metric-value">{(r5y * r5y * 100).toFixed(0)}%</div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>of return differences explained — {strength(r5y)} {r5y < 0 ? 'negative' : 'positive'} link</div>
+                    </div>
+                  )}
+                  {typeof rPop === 'number' && (
+                    <div className="card" style={{ background: 'var(--surface-2)' }}>
+                      <div className="metric-label">Strongest link: market size</div>
+                      <div className="metric-value">{fmtR(rPop)}</div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>bigger places report more crime per capita — density, not destiny</div>
+                    </div>
+                  )}
+                  {typeof rHaz === 'number' && (
+                    <div className="card" style={{ background: 'var(--surface-2)' }}>
+                      <div className="metric-label">Crime ↔ natural hazards</div>
+                      <div className="metric-value">{fmtR(rHaz)}</div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>risky places cluster — high-crime counties also carry more hazard risk</div>
+                    </div>
+                  )}
+                  {typeof rYield === 'number' && (
+                    <div className="card" style={{ background: 'var(--surface-2)' }}>
+                      <div className="metric-label">Crime ↔ rent yield</div>
+                      <div className="metric-value">{fmtR(rYield)}</div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>higher-crime markets pay higher yields — the market already prices the risk</div>
+                    </div>
+                  )}
+                </div>
+
+                <h3 style={{ marginBottom: 4 }}>What moves with violent crime <Info width={260}>Correlation runs from <b>+1</b> (rises together) through <b>0</b> (unrelated) to <b>−1</b> (moves opposite). Bars left of center are negative. Hover the ⓘ on each row for what the metric means.</Info></h3>
+                <div style={{ fontSize: '0.72rem', color: 'var(--muted)', marginBottom: 8 }}>across {seg.n.toLocaleString()} markets · sorted by strength · FBI {crimeCorr.year}</div>
+                {bars.map(b => {
+                  const r = b.r!
+                  const w = Math.min(50, (Math.abs(r) / 0.4) * 50)
+                  return (
+                    <div className="cb-row" key={b.m}>
+                      <span className="cb-name">{INFO[b.m][0]} <Info width={240} below>{INFO[b.m][1]} <i>(n={b.n.toLocaleString()} markets)</i></Info></span>
+                      <span className="cb-track">
+                        <span className="cb-zero" />
+                        <span className="cb-fill" style={{
+                          left: r < 0 ? `${50 - w}%` : '50%',
+                          width: `${w}%`,
+                          background: Math.abs(r) < 0.05 ? '#c2c8d2' : r > 0 ? '#3b5bdb' : '#c2384a',
+                        }} />
+                      </span>
+                      <span className="cb-val" style={{ color: Math.abs(r) < 0.05 ? 'var(--muted)' : r > 0 ? 'var(--accent)' : 'var(--danger)' }}>{fmtR(r)}</span>
+                      <span className="cb-strength">{strength(r)}</span>
+                    </div>
+                  )
+                })}
+                <p className="disclaimer">
+                  Correlation ≠ causation: crime co-moves with density, income and reporting practices. Rates winsorized at 1%/99%.
+                  Property-crime correlations track the violent-crime ones closely.
+                  Looking for how home prices co-move with rates, equities and the macro picture? That's the real 23×23 matrix on the <strong>US Market</strong> tab.
+                </p>
+              </div>
+
+              {sc && (
+                <div className="card" style={{ marginBottom: '1.5rem' }}>
+                  <h2>Find your market on the map of all {pts.length.toLocaleString()}</h2>
+                  <p style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>
+                    Every dot is a US market: its crime rate (across) vs its last-5-years return (up).
+                    The nearly-flat trend line is the whole story — type a market to see where it sits.
+                  </p>
+                  <div style={{ position: 'relative', maxWidth: 420 }}>
+                    <input
+                      value={corrPickQuery}
+                      onChange={e => { setCorrPickQuery(e.target.value); setCorrPick(null) }}
+                      placeholder="e.g. Miami (city), FL — or any city/county"
+                      style={{ width: '100%', padding: '0.5rem 0.6rem', border: '1px solid var(--border)', borderRadius: 6 }}
+                    />
+                    {suggestions.length > 0 && (
+                      <div className="cb-suggest">
+                        {suggestions.map(p => (
+                          <div key={p.k} onClick={() => { setCorrPick(p.k); setCorrPickQuery(p.k) }}>{p.k}</div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  {sel && (
+                    <div style={{ margin: '8px 0', fontSize: '0.85rem' }}>
+                      <strong>{sel.k}</strong>: violent crime {sel.x.toLocaleString()}/100k (higher than {pctile(p => p.x, sel.x)}% of markets) ·
+                      5-yr return {(sel.y * 100).toFixed(1)}%/yr (higher than {pctile(p => p.y, sel.y)}% of markets)
+                    </div>
+                  )}
                   <Plot
-                    data={[{
-                      z,
-                      x: metrics.map(m => crimeCorr.metricLabels[m] || m),
-                      y: ['Violent rate /100k', 'Property rate /100k'],
-                      type: 'heatmap',
-                      colorscale: 'RdBu',
-                      reversescale: true,
-                      zmin: -0.6,
-                      zmax: 0.6,
-                      text: z.map(row => row.map(v => (v === null ? '' : (v > 0 ? '+' : '') + v.toFixed(2)))),
-                      texttemplate: '%{text}'
-                    }]}
+                    data={[
+                      {
+                        x: disp.map(p => p.x),
+                        y: disp.map(p => p.y * 100),
+                        text: disp.map(p => p.k),
+                        type: 'scatter',
+                        mode: 'markers',
+                        marker: { color: '#3b5bdb', size: 4, opacity: 0.3 },
+                        hovertemplate: '%{text}<br>violent: %{x:.0f}/100k<br>5-yr return: %{y:.1f}%/yr<extra></extra>',
+                        showlegend: false,
+                      },
+                      ...(sc.trend ? [{
+                        x: [sc.trend.xMin, sc.trend.xMax],
+                        y: [(sc.trend.intercept + sc.trend.slope * sc.trend.xMin) * 100, (sc.trend.intercept + sc.trend.slope * sc.trend.xMax) * 100],
+                        type: 'scatter' as const,
+                        mode: 'lines' as const,
+                        line: { color: '#b8860b', width: 2, dash: 'dash' as const },
+                        hoverinfo: 'skip' as const,
+                        showlegend: false,
+                      }] : []),
+                      ...(sel ? [{
+                        x: [sel.x],
+                        y: [sel.y * 100],
+                        type: 'scatter' as const,
+                        mode: 'markers+text' as const,
+                        marker: { color: '#c2384a', size: 13, line: { color: '#fff', width: 2 } },
+                        text: [sel.k],
+                        textposition: 'top center' as const,
+                        textfont: { size: 12, color: '#c2384a' },
+                        hoverinfo: 'skip' as const,
+                        showlegend: false,
+                      }] : []),
+                    ]}
                     layout={{
-                      height: 260,
+                      height: 380,
                       autosize: true,
-                      margin: { t: 10, b: 90, l: 130, r: 10 },
+                      margin: { t: 16, b: 45, l: 55, r: 10 },
+                      xaxis: { title: { text: `Violent crime per 100k (FBI ${crimeCorr.year})` } },
+                      yaxis: { title: { text: '5-yr annualized return %' } },
                       paper_bgcolor: 'rgba(0,0,0,0)',
                       plot_bgcolor: 'rgba(0,0,0,0)',
                       font: { color: '#11161f', family: 'Poppins, system-ui, sans-serif' },
+                      annotations: sc.trend ? [{
+                        x: sc.trend.xMax * 0.7, y: (sc.trend.intercept + sc.trend.slope * sc.trend.xMax * 0.7) * 100,
+                        text: `trend: r² = ${(sc.trend.r2 * 100).toFixed(0)}% — crime explains ${(sc.trend.r2 * 100).toFixed(0)}% of return differences`,
+                        showarrow: true, arrowhead: 0, ax: 0, ay: -40, font: { size: 11, color: '#b8860b' },
+                      }] : [],
                     }}
                     config={{ displayModeBar: false, responsive: true }}
                     useResizeHandler
                     style={{ width: '100%' }}
                   />
+                  <details style={{ marginTop: 10 }}>
+                    <summary style={{ cursor: 'pointer', fontSize: '0.8rem', color: 'var(--muted)' }}>For the quants: full correlation matrix (violent + property × every metric)</summary>
+                    <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', marginTop: 8 }}>
+                      <table style={{ fontSize: '0.78rem' }}>
+                        <thead><tr><th>Metric</th><th>Violent r</th><th>Property r</th><th>n</th></tr></thead>
+                        <tbody>
+                          {bars.map(b => (
+                            <tr key={b.m}>
+                              <td>{INFO[b.m][0]}</td>
+                              <td>{fmtR(M?.v?.[b.m]?.pearson ?? 0)}</td>
+                              <td>{typeof M?.p?.[b.m]?.pearson === 'number' ? fmtR(M.p[b.m].pearson) : '—'}</td>
+                              <td>{b.n.toLocaleString()}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </details>
                 </div>
-              </div>
-              {crimeCorr.scatter && (
-                <Plot
-                  data={[{
-                    x: crimeCorr.scatter.points.map((p: any) => p.x),
-                    y: crimeCorr.scatter.points.map((p: any) => p.y * 100),
-                    text: crimeCorr.scatter.points.map((p: any) => p.key),
-                    type: 'scattergl',
-                    mode: 'markers',
-                    marker: { color: '#3b5bdb', size: 5, opacity: 0.45 },
-                    hovertemplate: '%{text}<br>violent: %{x:.0f}/100k<br>5y return: %{y:.1f}%<extra></extra>'
-                  }]}
-                  layout={{
-                    height: 320,
-                    autosize: true,
-                    margin: { t: 30, b: 45, l: 55, r: 10 },
-                    title: { text: crimeCorr.scatter.label, font: { size: 13 } },
-                    xaxis: { title: { text: 'Violent crime rate per 100k (FBI)' } },
-                    yaxis: { title: { text: '5-yr annualized return %' } },
-                    paper_bgcolor: 'rgba(0,0,0,0)',
-                    plot_bgcolor: 'rgba(0,0,0,0)',
-                    font: { color: '#11161f', family: 'Poppins, system-ui, sans-serif' },
-                  }}
-                  config={{ displayModeBar: false, responsive: true }}
-                  useResizeHandler
-                  style={{ width: '100%' }}
-                />
               )}
-              <p className="disclaimer">Correlation ≠ causation: crime rates proxy for many co-moving factors (density, income, reporting practices). Winsorized at 1%/99%; biggest-population cities sampled for the scatter.</p>
-            </div>
+            </>
           )
         })()}
-
-        {activeTab === 'corr' && (
-          <div className="card">
-            <h2>Cross-Market Correlations</h2>
-            <Plot
-              data={[{
-                z: corrData,
-                x: corrLabels,
-                y: corrLabels,
-                type: 'heatmap',
-                colorscale: 'RdBu',
-                reversescale: true,
-                zmin: -1,
-                zmax: 1,
-                text: corrData.map(row => row.map(v => v.toFixed(2))),
-                texttemplate: '%{text}'
-              }]}
-              layout={{
-                height: 420,
-                autosize: true,
-                paper_bgcolor: 'rgba(0,0,0,0)',
-                plot_bgcolor: 'rgba(0,0,0,0)',
-                font: { color: '#11161f', family: 'Poppins, system-ui, sans-serif' },
-                title: 'Illustrative Correlation Matrix'
-              }}
-              config={{ displayModeBar: false, responsive: true }}
-              useResizeHandler
-              style={{ width: '100%' }}
-            />
-            <p className="disclaimer">Editable matrix + full MC portfolio simulation coming in later iterations.</p>
-          </div>
-        )}
 
       </div>
 

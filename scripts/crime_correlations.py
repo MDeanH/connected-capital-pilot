@@ -170,14 +170,26 @@ def main():
                 print(f"  {label:9s} × {metric:13s} r={stats['pearson']:+.3f} "
                       f"(ρ={stats['spearman']:+.3f}, n={stats['n']}, p={stats['p']})")
 
-    # downsampled scatter for the UI: violent rate vs 5y growth (cities)
-    rows = segment_rows(markets, "cities")
-    rows = [r for r in rows if r.get("growth_5y") is not None]
-    rows.sort(key=lambda r: r.get("pop_log") or 0, reverse=True)
-    sample = rows[:600]
+    # scatter for the UI: violent rate vs 5y growth — ALL joined markets, so the
+    # frontend can highlight any user-selected market and compute percentiles
+    rows = segment_rows(markets, "all")
+    rows = [r for r in rows if r.get("growth_5y") is not None and np.isfinite(r["growth_5y"])]
+    # winsorize the crime axis like the matrix does, so one mis-reported agency
+    # can't stretch the plot
+    vvals = np.array([r["v"] for r in rows])
+    lo, hi = np.nanpercentile(vvals, [0.5, 99.5])
+    rows = [r for r in rows if lo <= r["v"] <= hi]
+    pts = [{"k": r["key"], "x": round(r["v"], 1), "y": round(r["growth_5y"], 4)} for r in rows]
+    # least-squares trend line so the UI doesn't have to fit anything
+    x = np.array([p["x"] for p in pts]); y = np.array([p["y"] for p in pts])
+    slope, intercept = np.polyfit(x, y, 1)
+    r_xy = float(np.corrcoef(x, y)[0, 1])
     result["scatter"] = {
-        "label": "Cities: violent crime rate vs 5-yr annualized return",
-        "points": [{"key": r["key"], "x": r["v"], "y": round(r["growth_5y"], 4)} for r in sample],
+        "label": "Violent crime rate vs 5-yr annualized return — every matched market",
+        "points": pts,
+        "trend": {"slope": float(slope), "intercept": float(intercept),
+                  "r": round(r_xy, 3), "r2": round(r_xy * r_xy, 4),
+                  "xMin": float(x.min()), "xMax": float(x.max())},
     }
 
     out = ROOT / "public/crime-correlations.json"
