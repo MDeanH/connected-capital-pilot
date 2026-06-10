@@ -13,6 +13,13 @@ export const handler: Handler = async (event) => {
     }
   }
 
+  // Size cap before parsing: this endpoint is public and proxies a paid LLM,
+  // so reject oversized payloads up front to limit token-cost abuse / DoS.
+  const MAX_BODY_BYTES = 24_000
+  if ((event.body || '').length > MAX_BODY_BYTES) {
+    return { statusCode: 413, body: JSON.stringify({ error: 'Request too large' }) }
+  }
+
   let body
   try {
     body = JSON.parse(event.body || '{}')
@@ -24,6 +31,16 @@ export const handler: Handler = async (event) => {
   }
 
   const { messages, context } = body
+
+  // Validate shape and bound the conversation the caller can drive.
+  if (!Array.isArray(messages) || messages.length === 0 || messages.length > 20) {
+    return { statusCode: 400, body: JSON.stringify({ error: 'Invalid messages' }) }
+  }
+  const cappedMessages = messages.slice(-20).map((m: any) => ({
+    role: m?.role === 'assistant' ? 'assistant' : 'user',
+    content: String(m?.content ?? '').slice(0, 4000),
+  }))
+  const cappedContext = String(context ?? '').slice(0, 12_000)
 
   const apiKey = process.env.XAI_API_KEY
   if (!apiKey) {
@@ -45,11 +62,11 @@ Be transparent about limitations.`
   const requestBody = {
     model: 'grok-3-mini', // or 'grok-3' depending on your access
     messages: [
-      { 
-        role: 'system', 
-        content: systemPrompt + '\n\nCurrent context:\n' + (context || 'No additional context provided.') 
+      {
+        role: 'system',
+        content: systemPrompt + '\n\nCurrent context:\n' + (cappedContext || 'No additional context provided.')
       },
-      ...messages
+      ...cappedMessages
     ],
     temperature: 0.4,
     max_tokens: 800,
@@ -67,9 +84,10 @@ Be transparent about limitations.`
 
     if (!res.ok) {
       const errText = await res.text()
+      console.error('xAI API error', res.status, errText)
       return {
         statusCode: 502,
-        body: JSON.stringify({ error: 'Grok API error', details: errText }),
+        body: JSON.stringify({ error: 'AI service temporarily unavailable' }),
       }
     }
 
@@ -82,9 +100,10 @@ Be transparent about limitations.`
       body: JSON.stringify({ reply }),
     }
   } catch (err: any) {
+    console.error('grok-chat internal error', err?.message)
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: 'Internal error calling Grok', details: err.message }),
+      body: JSON.stringify({ error: 'AI service temporarily unavailable' }),
     }
   }
 }

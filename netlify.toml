@@ -18,11 +18,6 @@
   to = "/.netlify/functions/grok-chat"
   status = 200
 
-[[redirects]]
-  from = "/api/grok/voice-token"
-  to = "/.netlify/functions/grok-voice-token"
-  status = 200
-
 # Health / debug
 [[redirects]]
   from = "/api/health"

@@ -23,8 +23,13 @@ export const DDQ_FIELDS = SCORECARD.map((f) => ({ key: f.key, question: f.questi
 
 export function computeScore(body: any) {
   const bl = BASELINES[body.baseline] || BASELINES[DEFAULT_BASELINE];
-  const target = num(body.target, 0.2), rf = num(body.rf, 0.04), holding = Math.round(num(body.holding, 5));
-  const book = num(body.book, 5_000_000), ticket = num(body.ticket, 250_000);
+  // All numeric inputs are clamped to sane ranges: they drive Monte Carlo loop
+  // sizes, so an unbounded value (e.g. holding=500000) is a CPU-exhaustion lever.
+  const target = clamp(num(body.target, 0.2), 0, 1);
+  const rf = clamp(num(body.rf, 0.04), 0, 0.5);
+  const holding = clamp(Math.round(num(body.holding, 5)), 1, 30);
+  const book = clamp(num(body.book, 5_000_000), 0, 1e12);
+  const ticket = clamp(num(body.ticket, 250_000), 0, 1e12);
   const idiosyncratic = clamp(num(body.idiosyncratic, 0.18), 0, 0.6);
   const answers: Record<string, string> = { ...DEFAULT_ANSWERS, ...(body.answers || {}) };
   const seed = Math.round(num(body.seed, 7));
