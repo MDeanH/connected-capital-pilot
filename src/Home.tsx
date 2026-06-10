@@ -183,6 +183,53 @@ export default function Home({ pastDealsCount, oppsCount, uploadedFileName, onDa
           The Copilot, when asked, sends a summary of current scores to the AI model to answer your question.
         </p>
       </div>
+
+      {/* DATA SOURCES & COVERAGE — honest accounting of what's in and what's missing */}
+      <div className="card" style={{ marginTop: '1rem' }}>
+        <h3 style={{ marginTop: 0 }}>Data sources &amp; coverage</h3>
+        <p style={{ fontSize: '0.85rem', color: 'var(--muted)', marginTop: 0 }}>
+          Every number on this site traces to a public source, baked from the official files. Coverage is honest —
+          where a source doesn't reach a market, the field is left blank rather than guessed.
+        </p>
+        <div className="howto-grid">
+          <div className="howto-card">
+            <div className="howto-title">📈 Markets &amp; returns</div>
+            <div className="howto-body">
+              <strong>20,216 markets</strong> from Zillow ZHVI (895 metros, 2,537 counties, 16,784 cities), quarterly since 2000.
+              Markets need ≥10 years of clean history; ~4,600 city/county series with short or gappy records were excluded.
+            </div>
+          </div>
+          <div className="howto-card">
+            <div className="howto-title">🚓 Crime (FBI UCR/NIBRS)</div>
+            <div className="howto-body">
+              <strong>10,783 markets</strong>, 2024. Markets with no participating police agency fall back to county, then
+              statewide. 74 of ~10,975 agencies reported no usable 2024 data. NIBRS participation varies by agency —
+              treat as context, not a precise ranking.
+            </div>
+          </div>
+          <div className="howto-card">
+            <div className="howto-title">🏘️ Market context (8 datasets)</div>
+            <div className="howto-body">
+              <strong>7,372 markets.</strong> Rents &amp; yield (Zillow ZORI) and market-heat reach metros, counties and cities;
+              <strong> income, hazard, migration, demand-quality, permits and flood data are county-level only</strong>, so a city
+              shows its parent county's figures or none.
+            </div>
+          </div>
+          <div className="howto-card">
+            <div className="howto-title">⚠️ Known gaps</div>
+            <div className="howto-body">
+              <strong>Connecticut</strong> is absent from the HMDA demand-quality layer (its 2024 planning-region codes don't map
+              to county keys). A few large counties (e.g. Maricopa, Dallas) aren't in the market list yet. Crime correlates
+              mainly with population density, not returns — so it's shown as context, not a predictor.
+            </div>
+          </div>
+        </div>
+        <p className="disclaimer" style={{ marginBottom: 0 }}>
+          Sources: Zillow Research (ZHVI, ZORI, inventory), FBI Crime Data Explorer, U.S. Census (Building Permits),
+          BEA (county income), FEMA (National Risk Index, NFIP flood claims), IRS (county migration), CFPB/FFIEC (HMDA).
+          Public data is for market context; your own deal history and DDQ inputs are the edge.
+        </p>
+      </div>
     </div>
   )
 }
