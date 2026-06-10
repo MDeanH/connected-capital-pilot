@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>How it works — AI Diligence Platform</title>
+<script>document.documentElement.classList.add("js");setTimeout(function(){var r=document.querySelectorAll(".reveal");for(var i=0;i<r.length;i++)r[i].classList.add("in")},3000);</script>
 <meta name="description" content="How the AI Diligence Platform turns public data into an honest, auditable real-estate deal score: sources, offline bake, Monte Carlo engine, and context overlays.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -49,8 +50,8 @@ section{padding:52px 0}
 .center .sect-head{margin-left:auto;margin-right:auto;text-align:center}
 
 /* reveal on scroll */
-.reveal{opacity:0;transform:translateY(22px);transition:opacity .7s ease,transform .7s ease}
-.reveal.in{opacity:1;transform:none}
+html.js .reveal{opacity:0;transform:translateY(22px);transition:opacity .7s ease,transform .7s ease}
+html.js .reveal.in{opacity:1;transform:none}
 .reveal.d1{transition-delay:.08s}.reveal.d2{transition-delay:.16s}.reveal.d3{transition-delay:.24s}.reveal.d4{transition-delay:.32s}
 
 /* ---- flow diagram ---- */
@@ -157,11 +158,11 @@ footer .wrap{display:flex;flex-direction:column;align-items:center;gap:14px;text
     real-estate deal: the probability of hitting your target return, the loss tail a smoothed index hides,
     and how much to size. This page is the whole machine, end to end.</p>
     <div class="stats" role="list">
-      <div class="stat reveal" role="listitem"><div class="stat-num" data-n="20216">0</div><div class="stat-lbl">selectable US markets — metros, counties, cities</div></div>
-      <div class="stat reveal d1" role="listitem"><div class="stat-num" data-n="20000">0</div><div class="stat-lbl">simulated paths behind every score</div></div>
-      <div class="stat reveal d2" role="listitem"><div class="stat-num" data-n="10783">0</div><div class="stat-lbl">markets with FBI crime context</div></div>
-      <div class="stat reveal d3" role="listitem"><div class="stat-num" data-n="7372">0</div><div class="stat-lbl">markets with the 8-dataset context card</div></div>
-      <div class="stat reveal d4" role="listitem"><div class="stat-num" data-n="11">0</div><div class="stat-lbl">dataset vintages tracked &amp; freshness-checked live</div></div>
+      <div class="stat reveal" role="listitem"><div class="stat-num" data-n="20216">20,216</div><div class="stat-lbl">selectable US markets — metros, counties, cities</div></div>
+      <div class="stat reveal d1" role="listitem"><div class="stat-num" data-n="20000">20,000</div><div class="stat-lbl">simulated paths behind every score</div></div>
+      <div class="stat reveal d2" role="listitem"><div class="stat-num" data-n="10801">10,783</div><div class="stat-lbl">markets with FBI crime context</div></div>
+      <div class="stat reveal d3" role="listitem"><div class="stat-num" data-n="7372">7,372</div><div class="stat-lbl">markets with the 8-dataset context card</div></div>
+      <div class="stat reveal d4" role="listitem"><div class="stat-num" data-n="11">11</div><div class="stat-lbl">dataset vintages tracked &amp; freshness-checked live</div></div>
     </div>
   </section>
 
