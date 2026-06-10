@@ -74,6 +74,79 @@ def main():
     for d in vintages["datasets"]:
         print(f"  {d['id']:10s} vintage={d['vintage']}")
 
+    update_landing_page(vintages)
+
+
+def update_landing_page(vintages: dict):
+    """Sync the landing page's baked numbers with the current data.
+
+    This is the 'connector': every rebake ends with this script, which derives
+    the live stats and patches public/how-it-works.html in place (hero
+    count-up stats anchored by their labels, plus every prose/tooltip mention
+    of the previous values). Also writes public/site-stats.json as the
+    machine-readable source of truth.
+    """
+    import re
+
+    stats: dict = {"generated": vintages["generated"]}
+    try:
+        stats["markets"] = len(json.loads((ROOT / "src/metros-list.json").read_text()))
+    except Exception:
+        stats["markets"] = None
+    try:
+        crime = json.loads((ROOT / "public/crime-stats.json").read_text())
+        stats["crimeMarkets"] = len(crime["markets"])
+        stats["crimeYear"] = crime["year"]
+    except Exception:
+        stats["crimeMarkets"] = stats["crimeYear"] = None
+    try:
+        stats["contextMarkets"] = len(json.loads((ROOT / "public/market-context.json").read_text())["markets"])
+    except Exception:
+        stats["contextMarkets"] = None
+    stats["vintagesTracked"] = len(vintages["datasets"])
+    (ROOT / "public/site-stats.json").write_text(json.dumps(stats, separators=(",", ":")))
+
+    page = ROOT / "public" / "how-it-works.html"
+    if not page.exists():
+        return
+    s = page.read_text()
+    orig = s
+
+    # hero count-up stats, anchored by their label text (order-independent)
+    anchors = [
+        ("selectable US markets", stats["markets"]),
+        ("markets with FBI crime", stats["crimeMarkets"]),
+        ("markets with the 8-dataset", stats["contextMarkets"]),
+        ("dataset vintages tracked", stats["vintagesTracked"]),
+    ]
+    old_vals: dict[str, int] = {}
+    for label, new in anchors:
+        if not new:
+            continue
+        pat = re.compile(r'data-n="(\d+)">([\d,]+)(</div>\s*<div class="stat-lbl">' + re.escape(label) + ")")
+        m = pat.search(s)
+        if m:
+            old_vals[label] = int(m.group(1))
+            s = pat.sub(f'data-n="{new}">{new:,}\\3', s, count=1)
+
+    # propagate every prose/tooltip mention of the OLD values (formatted with commas)
+    for label, new in anchors:
+        old = old_vals.get(label)
+        if new and old and old != new:
+            s = s.replace(f"{old:,}", f"{new:,}")
+
+    # crime vintage year in prose/tooltips ("UCR/NIBRS, 2025 vintage", "FBI 2025")
+    if stats["crimeYear"]:
+        y = str(stats["crimeYear"])
+        s = re.sub(r"(UCR/NIBRS, )\d{4}( vintage)", rf"\g<1>{y}\g<2>", s)
+        s = re.sub(r"(FBI )\d{4}\b", rf"\g<1>{y}", s)
+
+    if s != orig:
+        page.write_text(s)
+        print(f"Landing page synced: {[f'{l}: {old_vals.get(l)}→{n}' for l, n in anchors if old_vals.get(l) != n and n]}")
+    else:
+        print("Landing page already in sync.")
+
 
 if __name__ == "__main__":
     main()
