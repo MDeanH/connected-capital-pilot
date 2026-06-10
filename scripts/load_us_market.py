@@ -68,21 +68,128 @@ def _resolve(fid):
     return None
 
 
+_FRED_CSV_DOWN = False  # circuit breaker: once the CSV endpoint refuses the
+                        # connection this run, stop wasting 80s/series on retries.
+
+
 def _fetch(fid):
+    global _FRED_CSV_DOWN
+    if _FRED_CSV_DOWN:
+        return None
     dest = os.path.join(TMP, f"fred_{fid}.csv")
-    for _ in range(4):
-        r = subprocess.run(["curl", "-s", "--max-time", "20", "-o", dest, "-w", "%{http_code}",
+    for attempt in range(4):
+        r = subprocess.run(["curl", "-s", "--max-time", "15", "-o", dest, "-w", "%{http_code}",
                             "-A", "Mozilla/5.0 (Macintosh)", f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={fid}"],
                            capture_output=True, text=True)
-        if r.stdout.strip() == "200" and os.path.exists(dest) and os.path.getsize(dest) > 50 \
+        code = r.stdout.strip()
+        if code == "200" and os.path.exists(dest) and os.path.getsize(dest) > 50 \
                 and not open(dest, "rb").read(20).lstrip().startswith(b"<"):
             return dest
+        if code == "000":  # connection refused/timeout — the endpoint is blocked; don't hammer it
+            _FRED_CSV_DOWN = True
+            return None
+    return None
+
+
+def _fetch_fred_api(fid):
+    """Official FRED API (api.stlouisfed.org). Far less aggressively rate-limited
+    than the fredgraph.csv scrape; needs a free 32-char key in FRED_API_KEY."""
+    key = os.environ.get("FRED_API_KEY", "").strip()
+    if not key:
+        return None
+    import urllib.request
+    url = (f"https://api.stlouisfed.org/fred/series/observations?series_id={fid}"
+           f"&api_key={key}&file_type=json")
+    try:
+        with urllib.request.urlopen(url, timeout=25) as r:
+            obs = json.load(r).get("observations", [])
+    except Exception:
+        return None
+    rows = [(o["date"], o["value"]) for o in obs if o.get("value") not in (".", None, "")]
+    if len(rows) < 8:
+        return None
+    s = pd.Series({pd.to_datetime(d): float(v) for d, v in rows}).sort_index()
+    return s if len(s) >= 8 else None
+
+
+def _fetch_alt(fid):
+    """No-key primary-source fallbacks for series whose origin agency is reachable
+    even when FRED is blocked: Treasury (yields) and BLS (CPI, payrolls)."""
+    try:
+        if fid == "DGS10":
+            import io
+            import urllib.request
+            frames = []
+            for yr in range(2015, 2027):
+                url = ("https://home.treasury.gov/resource-center/data-chart-center/interest-rates/"
+                       f"daily-treasury-rates.csv/{yr}/all?type=daily_treasury_yield_curve&field_tdr_date_value={yr}&_format=csv")
+                try:
+                    with urllib.request.urlopen(url, timeout=25) as r:
+                        df = pd.read_csv(io.BytesIO(r.read()))
+                    col = next((c for c in df.columns if c.strip() in ("10 Yr", "10 YR", "10Yr")), None)
+                    if col:
+                        df["d"] = pd.to_datetime(df["Date"], errors="coerce")
+                        frames.append(df[["d", col]].rename(columns={col: "v"}))
+                except Exception:
+                    continue
+            if not frames:
+                return None
+            s = pd.concat(frames).dropna().set_index("d")["v"].sort_index()
+            return s if len(s) >= 8 else None
+
+        if fid == "FEDFUNDS":
+            import urllib.request
+            url = ("https://markets.newyorkfed.org/api/rates/unsecured/effr/search.json"
+                   "?startDate=2006-01-01&endDate=2030-12-31&type=rate")
+            try:
+                with urllib.request.urlopen(url, timeout=25) as r:
+                    refs = json.load(r).get("refRates", [])
+            except Exception:
+                return None
+            rows = {pd.to_datetime(x["effectiveDate"]): float(x["percentRate"])
+                    for x in refs if x.get("percentRate") is not None}
+            s = pd.Series(rows).sort_index()
+            return s if len(s) >= 8 else None
+
+        bls_map = {"CPIAUCSL": "CUSR0000SA0", "PAYEMS": "CES0000000001", "UNRATE": "LNS14000000"}
+        if fid in bls_map:
+            import datetime
+            import urllib.request
+            # BLS unregistered API caps at 10 years/query (and throttles bursts),
+            # so pull a single most-recent 10-year window per series — continuous,
+            # one request. ~40 quarters, deeper than the file's prior ~35q overlap.
+            cy = datetime.date.today().year
+            sid = bls_map[fid]
+            body = json.dumps({"seriesid": [sid], "startyear": str(cy - 9), "endyear": str(cy)}).encode()
+            req = urllib.request.Request("https://api.bls.gov/publicAPI/v2/timeseries/data/",
+                                         data=body, headers={"Content-Type": "application/json"})
+            try:
+                with urllib.request.urlopen(req, timeout=25) as r:
+                    data = json.load(r)
+                obs = {f'{d["year"]}-{d["period"][1:]}-01': float(d["value"])
+                       for d in data["Results"]["series"][0]["data"] if d["period"].startswith("M")}
+            except Exception:
+                return None
+            if len(obs) < 8:
+                return None
+            return pd.Series({pd.to_datetime(k): v for k, v in obs.items()}).sort_index()
+    except Exception:
+        return None
     return None
 
 
 def load_fred(fid):
-    p = _resolve(fid) or _fetch(fid)
-    if not p:
+    # cached -> official FRED API (key) -> fredgraph scrape -> no-key agency source
+    p = _resolve(fid)
+    if p is None:
+        s = _fetch_fred_api(fid)
+        if s is not None:
+            return _finish_fred(s)
+        p = _fetch(fid)
+    if p is None:
+        s = _fetch_alt(fid)
+        if s is not None:
+            return _finish_fred(s)
         return None
     try:
         if open(p, "rb").read(20).lstrip().startswith(b"<"):
@@ -98,7 +205,11 @@ def load_fred(fid):
     df["d"] = pd.to_datetime(df["d"], errors="coerce")
     df["v"] = pd.to_numeric(df["v"], errors="coerce")
     s = df.dropna().set_index("d")["v"]
-    return s if len(s) >= 8 else None
+    return _finish_fred(s)
+
+
+def _finish_fred(s):
+    return s if s is not None and len(s) >= 8 else None
 
 
 def load_zillow(kind):  # 'ZHVI' | 'ZORI' US-national row
@@ -156,10 +267,28 @@ def main():
                     "category": [next(m["category"] for m in meta if m["id"] == l) for l in labels], "matrix": mat},
            "reCorr": re_corr, "commonQuarters": int(df.dropna().shape[0])}
     dest = os.path.join(ROOT, "src", "us-market.json")
+
+    # Non-destructive: never overwrite a good file with a worse one. This
+    # environment can lose FRED-only series (blocked CSV endpoint, empty /tmp
+    # cache), so only write when we cover at least every series the live file
+    # already has — i.e. a strict no-regression improvement.
+    new_present = {m["id"] for m in meta}
+    if os.path.exists(dest):
+        try:
+            old_present = {m["id"] for m in json.load(open(dest)).get("series", [])}
+        except Exception:
+            old_present = set()
+        if not new_present >= old_present:
+            lost = sorted(old_present - new_present)
+            print(f"SKIP write: would regress (lose {', '.join(lost)}). Live file left intact. "
+                  f"Set FRED_API_KEY or wait for FRED to unblock.")
+            return len(missing)
+
     json.dump(out, open(dest, "w"), separators=(",", ":"))
     print(f"Wrote {dest}: {len(meta)} series, {out['commonQuarters']}q overlap, asof {out['asof']}.")
     if missing:
-        print(f"Missing (FRED-blocked/uncached): {', '.join(missing)}")
+        print(f"Missing: {', '.join(missing)}")
+    return len(missing)
 
 
 if __name__ == "__main__":
