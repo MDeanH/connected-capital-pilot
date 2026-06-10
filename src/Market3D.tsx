@@ -683,7 +683,13 @@ export default function Market3D() {
             {(typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(pointer: coarse)').matches) && (
               <div style={{ marginTop: 10, padding: '8px 10px', borderRadius: 8, background: 'rgba(251,191,36,0.14)', border: '1px solid rgba(251,191,36,0.5)', color: '#fbbf24', fontWeight: 600 }}>
                 ⚠️ The game needs a keyboard (WASD) — play it on a desktop for now.
-                On this device, try <strong>Analysis Orbit</strong> (top-right): touch-drag to orbit the same data.
+                On this device use <strong>Analysis Orbit</strong>: touch-drag to explore the same data.
+                <button
+                  onClick={() => setMode('orbit')}
+                  style={{ display: 'block', width: '100%', marginTop: 8, padding: '9px 0', borderRadius: 7, cursor: 'pointer', fontWeight: 800, fontSize: '0.9rem', background: '#fbbf24', color: '#1a1505', border: 'none' }}
+                >
+                  📊 Switch to Analysis Orbit
+                </button>
               </div>
             )}
             <div style={{ marginTop: 10, opacity: 0.9 }}>{MISSION_TEXT}</div>
