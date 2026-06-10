@@ -41,16 +41,18 @@ from pathlib import Path
 import requests
 
 ROOT = Path(__file__).resolve().parents[1]
-CHECKPOINT = ROOT / "data" / "fbi_crime_checkpoint.jsonl"
-AGENCY_CACHE = ROOT / "data" / "fbi_agencies.json"
 OUT = ROOT / "public" / "crime-stats.json"
+AGENCY_CACHE = ROOT / "data" / "fbi_agencies.json"
 
 API = "https://api.usa.gov/crime/fbi/cde"
 # The default is the public, read-only api.usa.gov key the FBI CDE webapp ships
 # in its own browser bundle — not a private credential. Override via env if desired.
 API_KEY = os.environ.get("FBI_CDE_API_KEY", "iiHnOKfno2Mgkt5AynpvPpUQTEyxE77jo1RU8PIv")
-YEAR = 2024
+# Latest finalized annual NIBRS year. Override with FBI_YEAR; the checkpoint is
+# year-scoped so different years don't collide and each year resumes cleanly.
+YEAR = int(os.environ.get("FBI_YEAR", "2025"))
 FROM, TO = f"01-{YEAR}", f"12-{YEAR}"
+CHECKPOINT = ROOT / "data" / f"fbi_crime_checkpoint_{YEAR}.jsonl"
 WORKERS = 12
 
 STATES = [

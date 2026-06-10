@@ -277,7 +277,7 @@ const TAB_GUIDE: Record<string, { name: string; guide: string }> = {
   },
   corr: {
     name: 'Correlations',
-    guide: 'Cross-market correlation matrices. Includes real Crime × Market correlations: FBI 2024 crime rates correlated against each market\'s Zillow return history (annualized return, volatility, 5-yr growth, max drawdown) across thousands of US cities, with a scatter of violent crime rate vs 5-yr return. Plus an illustrative cross-asset matrix.',
+    guide: 'Cross-market correlation matrices. Includes real Crime × Market correlations: latest-year FBI crime rates correlated against each market\'s Zillow return history (annualized return, volatility, 5-yr growth, max drawdown) across thousands of US cities, with a scatter of violent crime rate vs 5-yr return. Plus an illustrative cross-asset matrix.',
   },
 }
 
