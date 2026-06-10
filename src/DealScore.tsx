@@ -212,6 +212,17 @@ export default function DealScore() {
               ))}
             </div>
 
+            {(res as any).marketEdge && (
+              <div className="ds-edge">
+                <strong>Yield edge:</strong> gross yield {(((res as any).marketEdge.grossYield) * 100).toFixed(1)}% —
+                {' '}higher than {(res as any).marketEdge.statePct}% of the {(res as any).marketEdge.nState} markets in its state →
+                {' '}<b style={{ color: (res as any).marketEdge.muBias >= 0 ? 'var(--ds-good, #1a8f5a)' : '#c2384a' }}>
+                  {((res as any).marketEdge.muBias * 100) >= 0 ? '+' : ''}{((res as any).marketEdge.muBias * 100).toFixed(2)}%/yr
+                </b> return adjustment
+                <Info width={290}>In backtests on this platform's own data (2016–2022 vintages), higher-yield markets beat lower-yield ones by ~2–3%/yr in subsequent price growth — the only context signal that predicted forward returns, and it holds within state. The adjustment is deliberately modest (capped ±0.30%/yr) and shown transparently. See the correlation deep-dive for receipts.</Info>
+              </div>
+            )}
+
             <div className="ds-two">
               <div className="ds-panel">
                 <h2>Why the downside is real <span className="ds-tag">honest-risk</span> <Info width={280}>Public RE indices are <b>smoothed</b>, which hides volatility and makes deals look near-riskless. We de-smooth the market vol (Geltner) and add idiosyncratic single-asset vol. The "naïve vs honest" boxes below show how much risk the raw index conceals.</Info></h2>
@@ -354,6 +365,7 @@ const CSS = `
 .ds-chip{display:inline-block;font-size:12px;font-weight:600;padding:3px 10px;border-radius:999px;background:#eef2ff;color:#3b5bdb;border:1px solid #dbe2fb}
 .ds-verdict{font-size:13px;font-weight:700;padding:7px 14px;border-radius:10px;background:#e7f6ee;color:#157f3c;border:1px solid #bfe6cf;display:inline-block}
 .ds-metrics{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:18px}
+.ds-edge{margin:-6px 0 16px;padding:9px 12px;background:#f0fdf6;border:1px solid #b7e4c7;border-radius:9px;font-size:.82rem;color:#11161f}
 .ds-metric{background:#fff;border:1px solid #e6e9ef;border-radius:14px;padding:14px 16px}
 .ds-mlabel{font-size:11.5px;color:#5b6573;font-weight:600;margin-bottom:8px;min-height:30px}
 .ds-mval{font-size:30px;font-weight:700;letter-spacing:-.02em;line-height:1}

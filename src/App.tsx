@@ -250,7 +250,7 @@ const TAB_GUIDE: Record<string, { name: string; guide: string }> = {
   },
   score: {
     name: 'Deal Score',
-    guide: 'The engine-backed single-deal scorer. Pick any of 20,216 US markets (metros, counties, cities — natural language like "miami dade county florida" works), set target return, risk-free rate, holding period, idiosyncratic volatility, book size, ticket, and answer the due-diligence questionnaire. The Netlify engine runs a 20,000-path Monte Carlo on that market\'s real Zillow price history (de-smoothed to honest volatility) and returns P(hit target) with confidence intervals, expected return, P(loss), VaR/CVaR, and a fractional-Kelly suggested allocation. A Crime context card shows FBI violent/property rates per 100k vs the US average. A Market context card shows open-data context for the selected market: Zillow rents & gross yield, inventory/days-to-pending market heat, BEA income & price-to-income, FEMA hazard risk, IRS migration flows, HMDA investor share & denial rates (demand quality), Census building permits (supply pipeline), and FEMA NFIP flood claims (realized losses).',
+    guide: 'The engine-backed single-deal scorer. Pick any of 20,216 US markets (metros, counties, cities — natural language like "miami dade county florida" works), set target return, risk-free rate, holding period, idiosyncratic volatility, book size, ticket, and answer the due-diligence questionnaire. The Netlify engine runs a 20,000-path Monte Carlo on that market\'s real Zillow price history plus a market-level rent carry (60% of observed gross yield, expense-adjusted; 4%/yr fallback where rents aren\'t observed), de-smoothed to honest volatility, and returns P(hit target) with confidence intervals, expected return, P(loss), VaR/CVaR, and a fractional-Kelly suggested allocation. A transparent "yield edge" adjustment (max ±0.30%/yr) rewards a market\'s within-state gross-yield percentile — the one signal that predicted forward returns in this platform\'s own backtests. A Crime context card shows FBI violent/property rates per 100k vs the US average. A Market context card shows open-data context for the selected market: Zillow rents & gross yield, inventory/days-to-pending market heat, BEA income & price-to-income, FEMA hazard risk, IRS migration flows, HMDA investor share & denial rates (demand quality), Census building permits (supply pipeline), and FEMA NFIP flood claims (realized losses).',
   },
   usmarket: {
     name: 'US Market',
@@ -278,7 +278,7 @@ const TAB_GUIDE: Record<string, { name: string; guide: string }> = {
   },
   corr: {
     name: 'Correlations',
-    guide: 'Answers "does crime predict returns?" with real data: latest-year FBI crime rates correlated against 10,000+ markets\' return histories and open-data context. Headline finding: crime explains only ~2% of return differences (weak negative link to 5-yr growth); its strongest links are to market size, natural-hazard risk and rent yield (risk gets priced). Shows ranked correlation bars with plain-language strength labels, a scatter of every market with a trend line, a "find your market" search that highlights where any market sits with percentile readouts, and a full matrix table for quants. Cross-asset macro correlations (the real 23×23) live on the US Market tab.',
+    guide: 'Answers "does crime predict returns?" with real data: latest-year FBI crime rates correlated against 10,000+ markets\' return histories and open-data context. Headline findings: crime explains only ~2% of return differences, and even that mostly evaporates within a state (rank-r −0.03 after state + population controls) — the raw link reflects which STATES boomed, not crime. Its real correlates are market size (density/reporting) and rent yield (higher-crime markets pay higher yields — risk gets priced). Shows ranked correlation bars with plain-language strength labels, a scatter of every market with a trend line, a "find your market" search with percentile readouts, and a full matrix table for quants. Cross-asset macro correlations (the real 23×23) live on the US Market tab.',
   },
 }
 
@@ -784,7 +784,7 @@ ${pastDeals.slice(0, 3).map(d => `- ${d.id}: realized ${(d.realized_irr*100).toF
             .sort((a, b) => Math.abs(b.r!) - Math.abs(a.r!))
 
           const rOf = (m: string) => M?.v?.[m]?.pearson as number | undefined
-          const r5y = rOf('growth_5y'), rPop = rOf('pop_log'), rHaz = rOf('nriScore'), rYield = rOf('grossYield')
+          const r5y = rOf('growth_5y'), rPop = rOf('pop_log'), rYield = rOf('grossYield')
 
           // user-selected market on the scatter
           const sc = crimeCorr.scatter
@@ -819,18 +819,16 @@ ${pastDeals.slice(0, 3).map(d => `- ${d.id}: realized ${(d.realized_irr*100).toF
                       <div style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>of return differences explained — {strength(r5y)} {r5y < 0 ? 'negative' : 'positive'} link</div>
                     </div>
                   )}
+                  <div className="card" style={{ background: 'var(--surface-2)' }}>
+                    <div className="metric-label">…and within a state? <Info width={270}>Comparing markets only against others in the SAME state (state fixed effects + population control), the crime–growth rank correlation collapses from −0.14 to −0.03. The raw link mostly reflects which states boomed in 2020–25, not crime itself. Full analysis in the correlation deep-dive.</Info></div>
+                    <div className="metric-value">−0.03</div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>the link nearly disappears — it's mostly which <em>states</em> boomed, not crime</div>
+                  </div>
                   {typeof rPop === 'number' && (
                     <div className="card" style={{ background: 'var(--surface-2)' }}>
                       <div className="metric-label">Strongest link: market size</div>
                       <div className="metric-value">{fmtR(rPop)}</div>
                       <div style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>bigger places report more crime per capita — density, not destiny</div>
-                    </div>
-                  )}
-                  {typeof rHaz === 'number' && (
-                    <div className="card" style={{ background: 'var(--surface-2)' }}>
-                      <div className="metric-label">Crime ↔ natural hazards</div>
-                      <div className="metric-value">{fmtR(rHaz)}</div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>risky places cluster — high-crime counties also carry more hazard risk</div>
                     </div>
                   )}
                   {typeof rYield === 'number' && (
@@ -864,8 +862,10 @@ ${pastDeals.slice(0, 3).map(d => `- ${d.id}: realized ${(d.realized_irr*100).toF
                   )
                 })}
                 <p className="disclaimer">
-                  Correlation ≠ causation: crime co-moves with density, income and reporting practices. Rates winsorized at 1%/99%.
-                  Property-crime correlations track the violent-crime ones closely.
+                  Correlation ≠ causation: crime co-moves with density, income and reporting practices, and most of these raw correlations
+                  shrink sharply once you compare within a state. The natural-hazard score row is especially confounded — FEMA's NRI score is
+                  ~0.85 correlated with population, so its crime link is mostly market size. Rates winsorized at 1%/99%; property-crime
+                  correlations track the violent-crime ones closely. Full controls and backtests: the correlation deep-dive in the repo.
                   Looking for how home prices co-move with rates, equities and the macro picture? That's the real 23×23 matrix on the <strong>US Market</strong> tab.
                 </p>
               </div>

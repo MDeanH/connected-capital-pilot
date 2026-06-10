@@ -202,6 +202,24 @@ def bake_heat(levels: dict[str, float]):
 
 
 # ------------------------------------------------------------------ BEA income
+def county_zhvi_norms() -> dict[str, float]:
+    """Mean county ZHVI level over 2000-01..2002-12 — the valuation-stretch baseline."""
+    p = DATA / "zillow_zhvi_county_raw.csv"
+    if not p.exists():
+        return {}
+    df = pd.read_csv(p)
+    norm_cols = [c for c in df.columns if isinstance(c, str) and c[:4] in ("2000", "2001", "2002") and "-" in c]
+    out: dict[str, float] = {}
+    for _, row in df.iterrows():
+        key = market_key(str(row["RegionName"]), row.get("State", ""), "county")
+        if not key:
+            continue
+        vals = pd.to_numeric(row[norm_cols], errors="coerce").dropna()
+        if len(vals) >= 12:
+            out[key] = float(vals.mean())
+    return out
+
+
 def bake_income(levels: dict[str, float]):
     print("BEA county income…")
     p = cached_download("https://apps.bea.gov/regional/zip/CAINC1.zip", "bea_cainc1.zip")
@@ -213,6 +231,8 @@ def bake_income(levels: dict[str, float]):
     pci = df[df["LineCode"] == 3]
     years = [c for c in pci.columns if c.isdigit()]
     latest, prev5 = years[-1], years[-6]
+    norm_years = [y for y in ("2000", "2001", "2002") if y in pci.columns]
+    zhvi_norms = county_zhvi_norms()
     n = 0
     for _, row in pci.iterrows():
         geo = str(row["GeoName"]).strip().rstrip("*")
@@ -240,6 +260,18 @@ def bake_income(levels: dict[str, float]):
         lvl = levels.get(key)
         if lvl:
             s["priceToIncome"] = round(lvl / inc, 2)
+            # valuation stretch: today's PTI vs this county's own 2000-02 norm
+            # (regime-conditional crash signal — deep-dive §3.2: 2007-stretched
+            # counties drew down ~20pts more through the GFC)
+            zn = zhvi_norms.get(key)
+            try:
+                inc_norm = float(np.nanmean([float(row[y]) for y in norm_years]))
+            except Exception:
+                inc_norm = float("nan")
+            if zn and np.isfinite(inc_norm) and inc_norm > 0:
+                pti_norm = zn / inc_norm
+                if pti_norm > 0:
+                    s["ptiVsNorm"] = round((lvl / inc) / pti_norm, 2)
         n += 1
     print(f"  income for {n} markets")
 

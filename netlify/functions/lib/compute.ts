@@ -4,6 +4,7 @@ import { fitDistribution, geltnerUnsmooth, scoreOpportunity } from './engine.ts'
 import { applyDdq, DEFAULT_ANSWERS, SCORECARD } from './ddq.ts';
 import baselines from './baselines.json';
 import metros from './metros.json';
+import marketEdge from './market-edge.json';
 
 const MACRO = { mortgage30y: 6.48, caseShillerYoy: 0.67, asof: '2026-03-31' };
 type Baseline = { label: string; ppy: number; returns: number[] };
@@ -42,7 +43,14 @@ export function computeScore(body: any) {
   const sigmaDealTotal = Math.sqrt(fitDes.sigma ** 2 + idiosyncratic ** 2);
   const extraMult = sigmaDealTotal / fitDes.sigma;
 
-  const common = { returns, ppy, target, rf, holding, bookCorr: ddq.bookCorr, biasMu: ddq.biasMu, seed };
+  // Yield edge: gross yield's within-state percentile was the only context
+  // signal that predicted forward price growth across backtest vintages
+  // (see reference/correlation-deep-dive.md §3.1). Modest, transparent mu
+  // adjustment: linear in percentile, capped at ±0.30%/yr.
+  const edgeInfo = (marketEdge as Record<string, { gy: number; pct: number; nState: number }>)[bl.label];
+  const yieldEdgeMu = edgeInfo ? round(((edgeInfo.pct - 50) / 50) * 0.003, 5) : 0;
+
+  const common = { returns, ppy, target, rf, holding, bookCorr: ddq.bookCorr, biasMu: ddq.biasMu + yieldEdgeMu, seed };
   const honest = scoreOpportunity({ ...common, desmooth: true, sigmaMult: ddq.sigmaMult * extraMult });
   const naive = scoreOpportunity({ ...common, desmooth: false, sigmaMult: ddq.sigmaMult });
 
@@ -55,6 +63,9 @@ export function computeScore(body: any) {
       lag1: round(fitRaw.lag1, 3), smoothing: fitRaw.smoothing,
     },
     ddq: { biasMu: ddq.biasMu, sigmaMult: round(ddq.sigmaMult, 3), bookCorr: ddq.bookCorr, drivers: ddq.drivers.slice(0, 6) },
+    marketEdge: edgeInfo
+      ? { grossYield: edgeInfo.gy, statePct: edgeInfo.pct, nState: edgeInfo.nState, muBias: yieldEdgeMu }
+      : null,
     honest, naive: { pLoss: naive.pLoss, varLoss: naive.varLoss },
     macro: MACRO,
   };

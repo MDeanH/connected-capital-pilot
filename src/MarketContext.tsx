@@ -9,7 +9,7 @@ import { Info } from './Info'
 interface Ctx {
   rent?: number; rentYoY?: number; grossYield?: number
   invYoY?: number; listVsZhvi?: number; daysToPending?: number
-  income?: number; incomeGrowth5y?: number; priceToIncome?: number
+  income?: number; incomeGrowth5y?: number; priceToIncome?: number; ptiVsNorm?: number
   nriScore?: number; nriRating?: string; topHazards?: [string, number][]
   netMigHH?: number; netAGI_M?: number; inAvgAGI?: number; topOrigins?: [string, number][]
   // subtle-signal sidecars: HMDA, Census permits, NFIP claims
@@ -84,9 +84,13 @@ export default function MarketContext({ marketKey }: { marketKey: string }) {
         </Row>
       )}
       {any('income') && (
-        <Row label="Affordability" tip="BEA per-capita personal income (county). Price-to-income = Zillow home value ÷ per-capita income — compare across markets, higher = more stretched.">
+        <Row label="Affordability" tip="BEA per-capita personal income (county). Price-to-income = Zillow home value ÷ per-capita income — compare across markets, higher = more stretched. 'vs own norm' compares today's ratio to this county's own 2000–02 baseline: in 2007, counties stretched far above their own norm went on to draw down ~20 points more through the GFC. A tail-risk flag for credit-boom regimes — not a return predictor (expensive markets kept outperforming through the 2010s–20s).">
           ${(c.income! / 1000).toFixed(0)}k income
           {c.priceToIncome !== undefined && <> · <b>{c.priceToIncome!.toFixed(1)}×</b> price/income</>}
+          {c.ptiVsNorm !== undefined && (
+            <> · <b style={{ color: c.ptiVsNorm! >= 1.4 ? '#c2384a' : c.ptiVsNorm! >= 1.2 ? '#b8860b' : 'inherit' }}>
+              {c.ptiVsNorm!.toFixed(2)}×</b> own norm{c.ptiVsNorm! >= 1.4 ? ' (stretched)' : ''}</>
+          )}
           {c.incomeGrowth5y !== undefined && <> · {pctS(c.incomeGrowth5y)} 5y</>}
         </Row>
       )}
@@ -111,10 +115,14 @@ export default function MarketContext({ marketKey }: { marketKey: string }) {
         </Row>
       )}
       {any('permitsPer1k', 'permitsVs5y') && (
-        <Row label="Supply pipeline" tip="Census Building Permits Survey: housing units permitted in the latest year per 1,000 residents, and vs the county's own 5-year norm. A surge above norm means future supply pressure on rents and prices.">
+        <Row label="Supply pipeline" tip="Census Building Permits Survey: housing units permitted in the latest year per 1,000 residents, and vs the county's own 5-year norm. In this platform's backtest, top-quintile-permitting counties saw rents grow ~2.5%/yr SLOWER over the following four years (price impact was ≈ nil) — heavy supply is a rent-growth headwind.">
           {c.permitsPer1k !== undefined && <><b>{c.permitsPer1k.toFixed(1)}</b> units/1k residents</>}
           {c.permitsVs5y !== undefined && <> · {c.permitsVs5y.toFixed(2)}× 5-yr norm</>}
           {c.sfShare !== undefined && <> · {(c.sfShare * 100).toFixed(0)}% single-family</>}
+          {/* 5.1 = top-quintile threshold across counties (p80 of permitsPer1k, 2025 bake) */}
+          {c.permitsPer1k !== undefined && c.permitsPer1k >= 5.1 && (
+            <> · <b style={{ color: '#b8860b' }}>rent-growth headwind</b></>
+          )}
         </Row>
       )}
       {any('claims10y') && (
