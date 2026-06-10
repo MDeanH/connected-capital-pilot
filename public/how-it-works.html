@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How it works — AI Diligence Platform</title>
+<meta name="description" content="How the AI Diligence Platform turns public data into an honest, auditable real-estate deal score: sources, offline bake, Monte Carlo engine, and context overlays.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@600;700;800&family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f3f5f8; --surface:#fff; --accent:#3b5bdb; --accent-soft:#eef2ff;
+  --text:#11161f; --muted:#5b6573; --border:#e2e7f0;
+  --good:#157f3c; --bad:#c2384a; --warn:#b8860b;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--text);font-family:'Poppins',system-ui,-apple-system,sans-serif;font-size:15px;line-height:1.65;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'Manrope',system-ui,sans-serif;letter-spacing:-.02em;line-height:1.15}
+a{color:var(--accent)}
+.skip{position:absolute;left:-999px;top:0;background:var(--accent);color:#fff;padding:8px 14px;border-radius:0 0 8px 0;z-index:99}
+.skip:focus{left:0}
+.wrap{max-width:1100px;margin:0 auto;padding:0 22px}
+
+/* top bar */
+.topbar{background:var(--surface);border-bottom:1px solid var(--border)}
+.topbar .wrap{display:flex;align-items:center;justify-content:space-between;height:58px}
+.brand{font-family:'Manrope',sans-serif;font-weight:800;font-size:15px;letter-spacing:.01em}
+.brand span{color:var(--accent)}
+.backlink{display:inline-flex;align-items:center;gap:7px;font-size:13.5px;font-weight:600;text-decoration:none;color:var(--accent);background:var(--accent-soft);border:1px solid #dbe2fb;padding:7px 14px;border-radius:999px;transition:background .15s}
+.backlink:hover{background:#e2e9ff}
+
+/* hero */
+.hero{padding:58px 0 30px;text-align:center}
+.eyebrow{font-size:12px;font-weight:600;letter-spacing:.16em;color:var(--accent);text-transform:uppercase}
+.hero h1{font-size:clamp(28px,4.6vw,44px);margin:12px auto 14px;max-width:760px;font-weight:800}
+.lede{max-width:680px;margin:0 auto;color:var(--muted);font-size:16px}
+.stats{display:flex;flex-wrap:wrap;justify-content:center;gap:14px;margin:34px auto 0;max-width:980px}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px 22px;min-width:168px;flex:1 1 168px;max-width:215px}
+.stat-num{font-family:'Manrope',sans-serif;font-weight:800;font-size:27px;color:var(--accent);font-variant-numeric:tabular-nums}
+.stat-lbl{font-size:12px;color:var(--muted);margin-top:2px;line-height:1.45}
+
+/* sections */
+section{padding:52px 0}
+.sect-head{max-width:680px;margin:0 0 28px}
+.sect-head h2{font-size:clamp(22px,3vw,30px);margin:0 0 10px;font-weight:800}
+.sect-head p{color:var(--muted);margin:0}
+.center .sect-head{margin-left:auto;margin-right:auto;text-align:center}
+
+/* reveal on scroll */
+.reveal{opacity:0;transform:translateY(22px);transition:opacity .7s ease,transform .7s ease}
+.reveal.in{opacity:1;transform:none}
+.reveal.d1{transition-delay:.08s}.reveal.d2{transition-delay:.16s}.reveal.d3{transition-delay:.24s}.reveal.d4{transition-delay:.32s}
+
+/* ---- flow diagram ---- */
+.diagram-card{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:14px 6px 10px}
+.diagram-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.diagram-inner{position:relative;min-width:980px;max-width:1120px;margin:0 auto}
+.diagram-inner svg{display:block;width:100%;height:auto}
+svg text{font-family:'Poppins',system-ui,sans-serif}
+.coltitle{font-size:11px;font-weight:600;letter-spacing:.14em;fill:var(--muted)}
+.nname{font-size:12.5px;font-weight:600;fill:var(--text)}
+.nsub{font-size:10px;fill:var(--muted)}
+.elabel{font-size:10px;fill:#8a93a5;font-weight:500}
+.chiptxt{font-size:10.5px;font-weight:500;fill:var(--text)}
+.node{cursor:default;outline:none}
+.node rect{transition:stroke .15s, filter .15s}
+.node:hover>rect,.node:focus>rect,.node:focus-visible>rect{stroke:var(--accent);stroke-width:1.6;filter:drop-shadow(0 2px 6px rgba(59,91,219,.18))}
+.node:focus-visible>rect{stroke-dasharray:none}
+.edge{fill:none;stroke:#d8deeb;stroke-width:1.5}
+.flowline{fill:none;stroke:var(--accent);stroke-opacity:.62;stroke-width:3.4;stroke-linecap:round;stroke-dasharray:.1 11;animation:flowdash 1.15s linear infinite}
+.flowline.slow{animation-duration:1.5s}
+.flowline.green{stroke:var(--good)}
+@keyframes flowdash{to{stroke-dashoffset:-11.1}}
+.tip{position:absolute;z-index:5;max-width:280px;background:#11161f;color:#f3f5f8;font-size:12px;line-height:1.55;padding:10px 13px;border-radius:10px;pointer-events:none;box-shadow:0 8px 24px rgba(17,22,31,.25);transform:translate(-50%,calc(-100% - 10px))}
+.tip strong{display:block;font-family:'Manrope',sans-serif;font-size:12.5px;margin-bottom:3px;color:#fff}
+.tip[hidden]{display:none}
+.tip::after{content:"";position:absolute;left:50%;bottom:-5px;width:10px;height:10px;background:#11161f;transform:translateX(-50%) rotate(45deg)}
+.diagram-legend{display:flex;flex-wrap:wrap;gap:18px;justify-content:center;padding:10px 14px 8px;font-size:12px;color:var(--muted)}
+.diagram-legend i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:baseline}
+
+/* ---- journey ---- */
+.steps{display:grid;gap:16px}
+.step{display:grid;grid-template-columns:96px 1fr;gap:20px;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:22px 24px;align-items:start}
+.step-vis{display:flex;flex-direction:column;align-items:center;gap:8px}
+.step-num{font-family:'Manrope',sans-serif;font-weight:800;font-size:12px;color:var(--accent);background:var(--accent-soft);border:1px solid #dbe2fb;border-radius:999px;padding:2px 11px}
+.step h3{margin:0 0 6px;font-size:17.5px}
+.step p{margin:0;color:var(--muted);font-size:14px}
+.step svg{width:62px;height:62px}
+@media(max-width:620px){.step{grid-template-columns:1fr}.step-vis{flex-direction:row}}
+
+/* ---- honest risk ---- */
+.honest-grid{display:grid;grid-template-columns:1fr 1.15fr;gap:26px;align-items:center}
+@media(max-width:840px){.honest-grid{grid-template-columns:1fr}}
+.honest-copy h3{font-size:16px;margin:18px 0 6px}
+.honest-copy p{color:var(--muted);font-size:14px;margin:0 0 10px}
+.honest-copy .k{color:var(--text);font-weight:600}
+.curves-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px 16px 10px}
+.curves-card figcaption{font-size:11.5px;color:var(--muted);text-align:center;padding:6px 8px 8px}
+#curve-naive,#curve-honest{fill:none;stroke-width:2.4}
+#curve-naive{stroke:#9aa3b5}
+#curve-honest{stroke:var(--accent)}
+#tail-honest{fill:rgba(194,56,74,.18);stroke:none;opacity:0;transition:opacity .9s ease .9s}
+.drawable{transition:stroke-dashoffset 1.3s ease .15s}
+.curves-in #tail-honest{opacity:1}
+.sigma-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:20px 24px;margin-top:26px}
+.sigma-card h3{margin:0 0 4px;font-size:16px}
+.sigma-card .sub{font-size:12.5px;color:var(--muted);margin:0 0 16px}
+.sigrow{margin:11px 0}
+.sigrow .lab{display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:4px}
+.sigrow .lab b{font-variant-numeric:tabular-nums}
+.sigtrack{height:13px;background:#eef0f4;border-radius:7px;overflow:hidden}
+.sigbar{height:100%;border-radius:7px;width:0;transition:width 1s cubic-bezier(.2,.7,.2,1)}
+.sigma-in .sigbar{width:var(--w)}
+.s-raw{background:#c7cede}.s-des{background:#7c8aa5}.s-tot{background:linear-gradient(90deg,#7c8aa5 0 52%,var(--bad) 52%)}
+.sigfoot{font-size:11.5px;color:var(--muted);margin-top:12px}
+
+/* ---- footnotes ---- */
+.notes-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:14px}
+.note{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 20px}
+.note h3{margin:0 0 6px;font-size:14.5px}
+.note p{margin:0;font-size:13px;color:var(--muted)}
+
+/* footer */
+footer{border-top:1px solid var(--border);background:var(--surface);padding:34px 0 40px;margin-top:20px}
+footer .wrap{display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center}
+.foot-disc{font-size:12px;color:var(--muted);max-width:640px}
+
+@media (prefers-reduced-motion: reduce){
+  html{scroll-behavior:auto}
+  .flowline{animation:none}
+  .reveal{opacity:1;transform:none;transition:none}
+  .drawable{transition:none;stroke-dashoffset:0 !important;stroke-dasharray:none !important}
+  #tail-honest{transition:none;opacity:1}
+  .sigbar{transition:none;width:var(--w)}
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="topbar">
+  <div class="wrap">
+    <div class="brand">AI <span>Diligence</span> Platform</div>
+    <a class="backlink" href="/">&#8592; Back to the platform</a>
+  </div>
+</header>
+
+<main id="main">
+
+  <!-- HERO -->
+  <section class="hero wrap" aria-labelledby="hero-h">
+    <div class="eyebrow">How it works</div>
+    <h1 id="hero-h">From public data to an honest deal score</h1>
+    <p class="lede">The platform turns a dozen public datasets into a quantified, auditable read on any US
+    real-estate deal: the probability of hitting your target return, the loss tail a smoothed index hides,
+    and how much to size. This page is the whole machine, end to end.</p>
+    <div class="stats" role="list">
+      <div class="stat reveal" role="listitem"><div class="stat-num" data-n="20216">0</div><div class="stat-lbl">selectable US markets — metros, counties, cities</div></div>
+      <div class="stat reveal d1" role="listitem"><div class="stat-num" data-n="20000">0</div><div class="stat-lbl">simulated paths behind every score</div></div>
+      <div class="stat reveal d2" role="listitem"><div class="stat-num" data-n="10783">0</div><div class="stat-lbl">markets with FBI crime context</div></div>
+      <div class="stat reveal d3" role="listitem"><div class="stat-num" data-n="7372">0</div><div class="stat-lbl">markets with the 8-dataset context card</div></div>
+      <div class="stat reveal d4" role="listitem"><div class="stat-num" data-n="11">0</div><div class="stat-lbl">dataset vintages tracked &amp; freshness-checked live</div></div>
+    </div>
+  </section>
+
+  <!-- FLOW DIAGRAM -->
+  <section class="center" aria-labelledby="flow-h">
+    <div class="wrap">
+      <div class="sect-head reveal">
+        <h2 id="flow-h">The pipeline: sources &#8594; bake &#8594; engine &#8594; you</h2>
+        <p>Every number on the site traces to a public source. Hover over — or tab to — any node for what it does.</p>
+      </div>
+      <div class="diagram-card reveal">
+        <div class="diagram-scroll">
+          <div class="diagram-inner" id="diagram-wrap">
+            <svg viewBox="0 0 1120 600" role="group" aria-label="Data-flow diagram: eight public sources feed offline Python ingest scripts, which bake static JSON; the JSON feeds Netlify serverless functions and the browser; your Excel stays in the browser.">
+              <defs>
+                <marker id="arr" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path d="M0 0L8 4L0 8z" fill="#b9c3d8"/>
+                </marker>
+              </defs>
+
+              <!-- column titles -->
+              <text class="coltitle" x="20" y="34">PUBLIC SOURCES</text>
+              <text class="coltitle" x="315" y="34">OFFLINE BAKE</text>
+              <text class="coltitle" x="600" y="34">NETLIFY SERVERLESS</text>
+              <text class="coltitle" x="880" y="34">YOUR BROWSER</text>
+
+              <!-- edges: sources -> ingest -->
+              <g>
+                <path class="edge" d="M250 79 C 285 79, 280 154, 315 154"/>
+                <path class="edge" d="M250 139 C 285 139, 280 162, 315 162"/>
+                <path class="edge" d="M250 199 C 285 199, 280 170, 315 170"/>
+                <path class="edge" d="M250 259 C 285 259, 280 178, 315 178"/>
+                <path class="edge" d="M250 319 C 285 319, 280 186, 315 186"/>
+                <path class="edge" d="M250 379 C 285 379, 280 194, 315 194"/>
+                <path class="edge" d="M250 439 C 285 439, 280 202, 315 202"/>
+                <path class="edge" d="M250 499 C 285 499, 280 210, 315 210"/>
+                <path class="flowline slow" style="animation-delay:0s"   d="M250 79 C 285 79, 280 154, 315 154"/>
+                <path class="flowline slow" style="animation-delay:-.2s" d="M250 139 C 285 139, 280 162, 315 162"/>
+                <path class="flowline slow" style="animation-delay:-.4s" d="M250 199 C 285 199, 280 170, 315 170"/>
+                <path class="flowline slow" style="animation-delay:-.6s" d="M250 259 C 285 259, 280 178, 315 178"/>
+                <path class="flowline slow" style="animation-delay:-.8s" d="M250 319 C 285 319, 280 186, 315 186"/>
+                <path class="flowline slow" style="animation-delay:-1s"  d="M250 379 C 285 379, 280 194, 315 194"/>
+                <path class="flowline slow" style="animation-delay:-1.2s" d="M250 439 C 285 439, 280 202, 315 202"/>
+                <path class="flowline slow" style="animation-delay:-1.4s" d="M250 499 C 285 499, 280 210, 315 210"/>
+              </g>
+              <text class="elabel" x="258" y="62">official files</text>
+
+              <!-- ingest -> baked json -->
+              <path class="edge" marker-end="url(#arr)" d="M415 214 L415 296"/>
+              <path class="flowline" d="M415 214 L415 296"/>
+              <text class="elabel" x="426" y="259">clean &#183; join &#183; bake</text>
+
+              <!-- baked json -> score engine -->
+              <path class="edge" marker-end="url(#arr)" d="M515 322 C 560 322, 555 123, 596 123"/>
+              <path class="flowline" d="M515 322 C 560 322, 555 123, 596 123"/>
+              <text class="elabel" x="528" y="240" transform="rotate(-74 528 240)">quarterly return histories</text>
+
+              <!-- baked json -> browser (static overlays) -->
+              <path class="edge" marker-end="url(#arr)" d="M515 368 C 620 368, 660 460, 876 460"/>
+              <path class="flowline" d="M515 368 C 620 368, 660 460, 876 460"/>
+              <text class="elabel" x="640" y="448">static JSON overlays (CDN)</text>
+
+              <!-- functions -> browser -->
+              <path class="edge" marker-end="url(#arr)" d="M818 123 C 848 123, 850 123, 876 123"/>
+              <path class="edge" marker-end="url(#arr)" d="M818 189 C 848 189, 850 189, 876 189"/>
+              <path class="edge" marker-end="url(#arr)" d="M818 255 C 848 255, 850 255, 876 255"/>
+              <path class="edge" marker-end="url(#arr)" d="M818 321 C 848 321, 850 321, 876 321"/>
+              <path class="flowline" style="animation-delay:-.1s" d="M818 123 L876 123"/>
+              <path class="flowline" style="animation-delay:-.4s" d="M818 189 L876 189"/>
+              <path class="flowline" style="animation-delay:-.7s" d="M818 255 L876 255"/>
+              <path class="flowline" style="animation-delay:-1s" d="M818 321 L876 321"/>
+              <text class="elabel" x="847" y="226" transform="rotate(-90 847 226)" text-anchor="middle">HTTPS &#183; JSON</text>
+
+              <!-- excel -> browser (green: private) -->
+              <path class="edge" marker-end="url(#arr)" d="M818 498 C 848 498, 852 492, 876 492"/>
+              <path class="flowline green" d="M818 498 C 848 498, 852 492, 876 492"/>
+
+              <!-- SOURCE NODES -->
+              <g class="node" tabindex="0" role="img" aria-label="Zillow Research: ZHVI home values, ZORI rents and for-sale inventory. The 20,216-market return engine is built from quarterly ZHVI history reaching back to 2000." data-name="Zillow Research" data-tip="ZHVI home values, ZORI rents and for-sale inventory. The 20,216-market return engine is built from quarterly ZHVI history reaching back to 2000.">
+                <rect x="20" y="56" width="230" height="46" rx="10" fill="#fff" stroke="#e2e7f0"/>
+                <text class="nname" x="34" y="75">Zillow Research</text>
+                <text class="nsub" x="34" y="92">ZHVI &#183; ZORI &#183; inventory &amp; list prices</text>
+              </g>
+              <g class="node" tabindex="0" role="img" aria-label="FBI Crime Data Explorer: violent and property crime rates per 100,000 (UCR/NIBRS, 2025 vintage), joined to 10,801 markets with county and state fallbacks." data-name="FBI Crime Data Explorer" data-tip="Violent &amp; property crime rates per 100k (UCR/NIBRS, 2025 vintage), joined to 10,801 markets — with county, then statewide fallbacks where no agency reports.">
+                <rect x="20" y="116" width="230" height="46" rx="10" fill="#fff" stroke="#e2e7f0"/>
+                <text class="nname" x="34" y="135">FBI Crime Data Explorer</text>
+                <text class="nsub" x="34" y="152">violent &amp; property rates per 100k</text>
+              </g>
+              <g class="node" tabindex="0" role="img" aria-label="BEA: county per-capita income, used for income growth and price-to-income ratios." data-name="BEA county income" data-tip="County per-capita income (CAINC1): income growth and price-to-income ratios, including each county's own 20-year norm.">
+                <rect x="20" y="176" width="230" height="46" rx="10" fill="#fff" stroke="#e2e7f0"/>
+                <text class="nname" x="34" y="195">BEA</text>
+                <text class="nsub" x="34" y="212">county per-capita income (CAINC1)</text>
+              </g>
+              <g class="node" tabindex="0" role="img" aria-label="FEMA: National Risk Index hazard scores plus NFIP flood-claim history." data-name="FEMA" data-tip="National Risk Index hazard scores and top hazards per county, plus NFIP flood-claim history: claims, paid losses, trend.">
+                <rect x="20" y="236" width="230" height="46" rx="10" fill="#fff" stroke="#e2e7f0"/>
+                <text class="nname" x="34" y="255">FEMA</text>
+                <text class="nsub" x="34" y="272">NRI hazard + NFIP flood claims</text>
+              </g>
+              <g class="node" tabindex="0" role="img" aria-label="IRS SOI: county-to-county migration flows — net households, net adjusted gross income, top feeder counties." data-name="IRS migration" data-tip="County-to-county migration flows (2022&#8594;23): net households, net AGI in $M, average income of in-migrants, top feeder counties.">
+                <rect x="20" y="296" width="230" height="46" rx="10" fill="#fff" stroke="#e2e7f0"/>
+                <text class="nname" x="34" y="315">IRS SOI</text>
+                <text class="nsub" x="34" y="332">county migration flows</text>
+              </g>
+              <g class="node" tabindex="0" role="img" aria-label="HMDA, via CFPB and FFIEC: mortgage-application data — investor share and denial rates as a demand-quality signal." data-name="HMDA (CFPB / FFIEC)" data-tip="Mortgage-application data: investor share and denial rates per county — a demand-quality signal for each market.">
+                <rect x="20" y="356" width="230" height="46" rx="10" fill="#fff" stroke="#e2e7f0"/>
+                <text class="nname" x="34" y="375">HMDA (CFPB / FFIEC)</text>
+                <text class="nsub" x="34" y="392">investor share &#183; denial rates</text>
+              </g>
+              <g class="node" tabindex="0" role="img" aria-label="Census Building Permits Survey: the supply pipeline — permits per 1,000 households and single-family share." data-name="Census permits" data-tip="Building Permits Survey: the supply pipeline — permits, permits per 1k households, single-family share, vs the 5-year norm.">
+                <rect x="20" y="416" width="230" height="46" rx="10" fill="#fff" stroke="#e2e7f0"/>
+                <text class="nname" x="34" y="435">Census BPS</text>
+                <text class="nsub" x="34" y="452">building permits (supply pipeline)</text>
+              </g>
+              <g class="node" tabindex="0" role="img" aria-label="FRED: macro series — 30-year mortgage rate, Case-Shiller index, housing starts." data-name="FRED macro" data-tip="The live macro backdrop: 30-yr mortgage rate, Case-Shiller, housing starts and related national series.">
+                <rect x="20" y="476" width="230" height="46" rx="10" fill="#fff" stroke="#e2e7f0"/>
+                <text class="nname" x="34" y="495">FRED</text>
+                <text class="nsub" x="34" y="512">macro: rates &#183; Case-Shiller &#183; starts</text>
+              </g>
+
+              <!-- BAKE NODES -->
+              <g class="node" tabindex="0" role="img" aria-label="Python ingest scripts: offline scripts download the official files, clean them, and join everything to one market-key system. Failures degrade gracefully and raw downloads are cached." data-name="Python ingest scripts" data-tip="Offline scripts (scripts/) download the official files, clean them, and join everything to one market-key system (&#8220;Miami, FL&#8221;, &#8220;Miami-Dade County, FL&#8221;, &#8230;). Failures degrade gracefully; raw downloads are cached.">
+                <rect x="315" y="150" width="200" height="64" rx="12" fill="#fff" stroke="#e2e7f0"/>
+                <text class="nname" x="331" y="176">Python ingest scripts</text>
+                <text class="nsub" x="331" y="194">offline &#183; cached &#183; re-baked</text>
+              </g>
+              <g class="node" tabindex="0" role="img" aria-label="Baked static JSON: 20,216 quarterly return histories for the score engine, plus crime stats, market context, crime-by-market correlations and data vintages served straight to the browser." data-name="Baked static JSON" data-tip="20,216 quarterly return histories feed the score engine; crime-stats, market-context, crime&#215;market correlations and data-vintages files are served straight to your browser from the CDN.">
+                <rect x="315" y="300" width="200" height="84" rx="12" fill="#fff" stroke="#e2e7f0"/>
+                <text class="nname" x="331" y="326">Baked static JSON</text>
+                <text class="nsub" x="331" y="344">20,216 return histories (engine)</text>
+                <text class="nsub" x="331" y="360">crime &#183; context &#183; correlations</text>
+              </g>
+
+              <!-- NETLIFY GROUP -->
+              <rect x="600" y="60" width="230" height="300" rx="16" fill="#fbfcfe" stroke="#e2e7f0"/>
+              <text class="nsub" x="616" y="84" style="letter-spacing:.1em">SERVERLESS FUNCTIONS</text>
+              <g class="node" tabindex="0" role="img" aria-label="/api/score: the verified Monte Carlo engine. Geltner de-smoothing, 20,000 bootstrap paths, a 200-draw parameter bootstrap for 90% confidence intervals, DDQ adjustments and fractional-Kelly sizing. Parity-checked against the Python reference." data-name="/api/score" data-tip="The verified Monte Carlo engine (TypeScript port, parity-checked against the Python reference). Geltner de-smoothing, 20,000 bootstrap paths, a 200-draw parameter bootstrap &#8594; 90% CIs, documented DDQ adjustments, fractional-Kelly sizing.">
+                <rect x="612" y="96" width="206" height="54" rx="11" fill="#fff" stroke="#e2e7f0"/>
+                <text class="nname" x="628" y="118">/api/score</text>
+                <text class="nsub" x="628" y="136">20,000-path Monte Carlo engine</text>
+              </g>
+              <g class="node" tabindex="0" role="img" aria-label="/api/address-intel: the US Census geocoder resolves any street address to its market. Miami-Dade addresses also get parcel data, the FEMA flood zone, and City-of-Miami crime incidents within 800 meters over 180 days." data-name="/api/address-intel" data-tip="US Census geocoder resolves any street address to its market. Miami-Dade adds parcel values (Property Appraiser), the FEMA flood zone at the point, and City-of-Miami NIBRS incidents within 800 m / 180 days.">
+                <rect x="612" y="162" width="206" height="54" rx="11" fill="#fff" stroke="#e2e7f0"/>
+                <text class="nname" x="628" y="184">/api/address-intel</text>
+                <text class="nsub" x="628" y="202">geocode + Miami-Dade parcel intel</text>
+              </g>
+              <g class="node" tabindex="0" role="img" aria-label="/api/grok/chat: server-side proxy to xAI's Grok for the copilot. The API key stays on the server; requests are size-capped and rate-limited. The copilot is sent the current tab and a summary of live scores." data-name="/api/grok/chat" data-tip="Server-side proxy to xAI&#8217;s Grok for the copilot. The API key never reaches the browser; requests are size-capped and rate-limited. The model is sent the current tab plus a summary of your live scores — not your spreadsheet.">
+                <rect x="612" y="228" width="206" height="54" rx="11" fill="#fff" stroke="#e2e7f0"/>
+                <text class="nname" x="628" y="250">/api/grok/chat</text>
+                <text class="nsub" x="628" y="268">AI copilot proxy (key server-side)</text>
+              </g>
+              <g class="node" tabindex="0" role="img" aria-label="/api/data-status: compares each baked dataset's vintage against the source's latest published marker — green when current, red when newer data exists." data-name="/api/data-status" data-tip="Live freshness check: compares each baked dataset&#8217;s vintage against the source&#8217;s latest published marker — green when current, red when a newer file exists, gray when the probe fails.">
+                <rect x="612" y="294" width="206" height="54" rx="11" fill="#fff" stroke="#e2e7f0"/>
+                <text class="nname" x="628" y="316">/api/data-status</text>
+                <text class="nsub" x="628" y="334">dataset vintage freshness probes</text>
+              </g>
+
+              <!-- BROWSER GROUP -->
+              <g class="node" tabindex="0" role="img" aria-label="Your browser: the React app. A copilot bar on every tab, plus Home/Upload, Deal Score, US Market, Market Quest 3D, Client Dashboard, Opportunities, DDQ Intake, Model Studio and Correlations." data-name="Your browser — React app" data-tip="The React app (Vite). The copilot bar sits on every tab; static overlays load from the CDN; scores come from the serverless engine; your uploaded spreadsheet is parsed locally and never leaves this box.">
+                <rect x="880" y="60" width="220" height="450" rx="16" fill="#fbfcfe" stroke="#e2e7f0"/>
+                <text class="nsub" x="896" y="84" style="letter-spacing:.1em">REACT APP</text>
+                <rect x="894" y="98" width="192" height="32" rx="9" fill="#eef2ff" stroke="#dbe2fb"/>
+                <text class="chiptxt" x="906" y="118" style="fill:#3b5bdb;font-weight:600">Copilot (Grok) — every tab</text>
+                <rect x="894" y="144" width="192" height="26" rx="8" fill="#fff" stroke="#e2e7f0"/><text class="chiptxt" x="906" y="161">Home / Upload</text>
+                <rect x="894" y="180" width="192" height="26" rx="8" fill="#fff" stroke="#e2e7f0"/><text class="chiptxt" x="906" y="197">Deal Score</text>
+                <rect x="894" y="216" width="192" height="26" rx="8" fill="#fff" stroke="#e2e7f0"/><text class="chiptxt" x="906" y="233">US Market</text>
+                <rect x="894" y="252" width="192" height="26" rx="8" fill="#fff" stroke="#e2e7f0"/><text class="chiptxt" x="906" y="269">Market Quest 3D</text>
+                <rect x="894" y="288" width="192" height="26" rx="8" fill="#fff" stroke="#e2e7f0"/><text class="chiptxt" x="906" y="305">Client Dashboard</text>
+                <rect x="894" y="324" width="192" height="26" rx="8" fill="#fff" stroke="#e2e7f0"/><text class="chiptxt" x="906" y="341">Opportunities</text>
+                <rect x="894" y="360" width="192" height="26" rx="8" fill="#fff" stroke="#e2e7f0"/><text class="chiptxt" x="906" y="377">DDQ Intake</text>
+                <rect x="894" y="396" width="192" height="26" rx="8" fill="#fff" stroke="#e2e7f0"/><text class="chiptxt" x="906" y="413">Model Studio</text>
+                <rect x="894" y="432" width="192" height="26" rx="8" fill="#fff" stroke="#e2e7f0"/><text class="chiptxt" x="906" y="449">Correlations</text>
+              </g>
+
+              <!-- EXCEL NODE -->
+              <g class="node" tabindex="0" role="img" aria-label="Your Excel deal history: parsed entirely in the browser, never uploaded. Your realized IRRs de-smooth the dashboard model — that is the client edge." data-name="Your Excel deal history" data-tip="Past deals &amp; pipeline are parsed entirely in the browser — the file is never uploaded. Your realized IRRs de-smooth the dashboard model: public data is context, your track record is the edge.">
+                <rect x="612" y="470" width="206" height="56" rx="11" fill="#f1f8f3" stroke="#bfe6cf"/>
+                <text class="nname" x="628" y="492" style="fill:#157f3c">Your Excel deal history</text>
+                <text class="nsub" x="628" y="510">parsed locally &#183; never uploaded</text>
+              </g>
+            </svg>
+            <div class="tip" id="tip" hidden aria-hidden="true"></div>
+          </div>
+        </div>
+        <div class="diagram-legend">
+          <span><i style="background:var(--accent)"></i>public data flow</span>
+          <span><i style="background:var(--good)"></i>your private data — stays in the browser</span>
+          <span>Overlays come straight from the CDN; scores run server-side; nothing you upload leaves the page.</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- JOURNEY -->
+  <section aria-labelledby="journey-h">
+    <div class="wrap">
+      <div class="sect-head reveal">
+        <h2 id="journey-h">How you use it</h2>
+        <p>Five steps from a market name to a sized, explained decision.</p>
+      </div>
+      <div class="steps">
+        <div class="step reveal">
+          <div class="step-vis" aria-hidden="true">
+            <svg viewBox="0 0 64 64" fill="none"><circle cx="27" cy="25" r="13" stroke="#3b5bdb" stroke-width="2.6"/><path d="M37 35 L49 47" stroke="#3b5bdb" stroke-width="2.6" stroke-linecap="round"/><path d="M27 19 c-3.4 0-6 2.6-6 5.8 0 4 6 9.2 6 9.2 s6-5.2 6-9.2 c0-3.2-2.6-5.8-6-5.8z" fill="#eef2ff" stroke="#5b6573" stroke-width="1.8"/><circle cx="27" cy="25" r="2" fill="#3b5bdb"/></svg>
+            <span class="step-num">Step 1</span>
+          </div>
+          <div>
+            <h3>Pick a market — or paste an address</h3>
+            <p>Type any of <strong>20,216 US markets</strong> — metros, counties or cities; natural language like
+            &#8220;miami dade county florida&#8221; resolves. Or paste a street address: the US Census geocoder maps it to its
+            market, and <strong>Miami-Dade addresses</strong> additionally get parcel values, the FEMA flood zone, and
+            nearby-crime intel at the address level.</p>
+          </div>
+        </div>
+        <div class="step reveal d1">
+          <div class="step-vis" aria-hidden="true">
+            <svg viewBox="0 0 64 64" fill="none"><rect x="10" y="10" width="44" height="44" rx="8" stroke="#5b6573" stroke-width="2"/><line x1="18" y1="22" x2="46" y2="22" stroke="#cfd4dd" stroke-width="2.6" stroke-linecap="round"/><circle cx="38" cy="22" r="4" fill="#3b5bdb"/><line x1="18" y1="32" x2="46" y2="32" stroke="#cfd4dd" stroke-width="2.6" stroke-linecap="round"/><circle cx="24" cy="32" r="4" fill="#3b5bdb"/><line x1="18" y1="42" x2="46" y2="42" stroke="#cfd4dd" stroke-width="2.6" stroke-linecap="round"/><circle cx="42" cy="42" r="4" fill="#3b5bdb"/></svg>
+            <span class="step-num">Step 2</span>
+          </div>
+          <div>
+            <h3>Describe the deal</h3>
+            <p>Set the target IRR, holding period, risk-free rate, ticket and book size, and the single-asset volatility —
+            then answer a <strong>9-question due-diligence questionnaire</strong> (sponsor record, business plan, leverage,
+            downside protection&#8230;). Each answer applies a small, <strong>documented and capped</strong> shift to expected
+            return or volatility, so qualitative judgment enters the math transparently.</p>
+          </div>
+        </div>
+        <div class="step reveal d2">
+          <div class="step-vis" aria-hidden="true">
+            <svg viewBox="0 0 64 64" fill="none"><rect x="12" y="36" width="6" height="14" rx="1.5" fill="#c2384a"/><rect x="20" y="28" width="6" height="22" rx="1.5" fill="#c7cede"/><rect x="28" y="18" width="6" height="32" rx="1.5" fill="#c7cede"/><rect x="36" y="24" width="6" height="26" rx="1.5" fill="#3b5bdb"/><rect x="44" y="32" width="6" height="18" rx="1.5" fill="#3b5bdb"/><line x1="40" y1="12" x2="40" y2="52" stroke="#11161f" stroke-width="1.8" stroke-dasharray="4 3"/><line x1="10" y1="52" x2="54" y2="52" stroke="#5b6573" stroke-width="2"/></svg>
+            <span class="step-num">Step 3</span>
+          </div>
+          <div>
+            <h3>Read the honest score</h3>
+            <p>The engine bootstraps <strong>20,000 paths from that market&#8217;s real quarterly price history</strong>,
+            de-smoothed to honest volatility. You get P(hit target) with a 90% confidence interval, expected and median
+            return, probability of loss, VaR/CVaR tail losses, and a <strong>fractional-Kelly</strong> suggested allocation —
+            shown beside the na&#239;ve raw-index numbers so the contrast is explicit.</p>
+          </div>
+        </div>
+        <div class="step reveal d3">
+          <div class="step-vis" aria-hidden="true">
+            <svg viewBox="0 0 64 64" fill="none"><rect x="20" y="10" width="32" height="24" rx="5" fill="#eef2ff" stroke="#3b5bdb" stroke-width="2"/><rect x="14" y="20" width="32" height="24" rx="5" fill="#fff" stroke="#5b6573" stroke-width="2"/><rect x="8" y="30" width="32" height="24" rx="5" fill="#fff" stroke="#5b6573" stroke-width="2"/><line x1="14" y1="40" x2="30" y2="40" stroke="#c7cede" stroke-width="2.4" stroke-linecap="round"/><line x1="14" y1="46" x2="34" y2="46" stroke="#c7cede" stroke-width="2.4" stroke-linecap="round"/></svg>
+            <span class="step-num">Step 4</span>
+          </div>
+          <div>
+            <h3>Weigh the context</h3>
+            <p>Every market carries open-data overlays: <strong>FBI crime</strong> vs the US average, <strong>rents &amp; gross
+            yield</strong>, market heat (inventory, days-to-pending), <strong>price-to-income</strong>, FEMA hazard,
+            IRS migration, HMDA investor share &amp; denial rates, building permits and NFIP flood claims — plus the live
+            macro backdrop (30-yr mortgage, Case-Shiller).</p>
+          </div>
+        </div>
+        <div class="step reveal d4">
+          <div class="step-vis" aria-hidden="true">
+            <svg viewBox="0 0 64 64" fill="none"><rect x="8" y="12" width="30" height="36" rx="4" stroke="#5b6573" stroke-width="2"/><line x1="8" y1="22" x2="38" y2="22" stroke="#5b6573" stroke-width="1.6"/><line x1="18" y1="12" x2="18" y2="48" stroke="#cfd4dd" stroke-width="1.6"/><line x1="28" y1="12" x2="28" y2="48" stroke="#cfd4dd" stroke-width="1.6"/><rect x="34" y="32" width="14" height="12" rx="3" fill="#f1f8f3" stroke="#157f3c" stroke-width="2"/><path d="M37 32 v-3 a4 4 0 0 1 8 0 v3" stroke="#157f3c" stroke-width="2"/><path d="M44 14 h12 a4 4 0 0 1 4 4 v6 a4 4 0 0 1 -4 4 h-3 l-4 5 v-5 h-5 a4 4 0 0 1 -4 -4 v-6 a4 4 0 0 1 4 -4z" fill="#eef2ff" stroke="#3b5bdb" stroke-width="1.8"/></svg>
+            <span class="step-num">Step 5</span>
+          </div>
+          <div>
+            <h3>Bring your history — then ask why</h3>
+            <p>Upload your deal spreadsheet on Home: it&#8217;s <strong>parsed in your browser and never uploaded</strong>, and
+            your realized IRRs de-smooth the dashboard model. Ask the <strong>Grok-powered copilot</strong> anything — it sees
+            the live scores and the tab you&#8217;re on. Then explore further: US Market base rates, Crime&#215;Market
+            correlations across 10,801 markets, or <strong>Market Quest 3D</strong> — the same data as an explorable game.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- HONEST RISK -->
+  <section aria-labelledby="honest-h">
+    <div class="wrap">
+      <div class="sect-head reveal">
+        <h2 id="honest-h">The idea that runs through it: honest risk</h2>
+        <p>Smoothed indexes make real estate look near-riskless. The engine un-smooths them — and shows you both numbers.</p>
+      </div>
+      <div class="honest-grid">
+        <div class="honest-copy reveal">
+          <h3>Why the raw index lies</h3>
+          <p>Public real-estate indexes are built from appraisals and repeat sales, so each printed value
+          <span class="k">averages over time and the series glides</span>. Volatility — the input every risk number
+          depends on — comes out understated, and a single levered deal looks safer than it is.</p>
+          <h3>What the engine does about it</h3>
+          <p><span class="k">1. Geltner unsmoothing.</span> The lag-1 autocorrelation that smoothing leaves in the
+          market series is measured and removed, recovering the volatility the index hid. The lift is capped
+          (autocorrelation capped at 0.6) so de-smoothing stays a sane roughly-2&#215; correction, never an explosion.</p>
+          <p><span class="k">2. Idiosyncratic volatility.</span> One property is not a diversified index, so an explicit
+          single-asset &#963; is added in quadrature: &#963;<sub>deal</sub> = &#8730;(&#963;<sub>market</sub>&#178; +
+          &#963;<sub>idio</sub>&#178;). You control the dial, in the open.</p>
+          <p><span class="k">3. Side-by-side honesty.</span> Every score shows the na&#239;ve raw-index risk next to the
+          honest model&#8217;s, so you can see exactly how much loss probability the smoothed series concealed.</p>
+        </div>
+        <figure class="curves-card reveal d1" id="curves-fig">
+          <svg id="curves" viewBox="0 0 560 300" role="img" aria-label="Two return distributions over the same axis. The naive smoothed-index curve is tall and narrow with almost no mass below zero. The honest de-smoothed curve is much wider, with a clearly visible shaded loss tail below zero.">
+            <line x1="30" y1="260" x2="546" y2="260" stroke="#cfd4dd" stroke-width="1.5"/>
+            <line x1="230.7" y1="36" x2="230.7" y2="260" stroke="#11161f" stroke-width="1.2" stroke-dasharray="4 4" opacity=".55"/>
+            <line x1="345.3" y1="58" x2="345.3" y2="260" stroke="#b8860b" stroke-width="1.2" stroke-dasharray="4 4" opacity=".7"/>
+            <text x="116" y="278" font-size="10.5" text-anchor="middle" fill="#5b6573">&#8722;20%</text>
+            <text x="230.7" y="278" font-size="10.5" text-anchor="middle" fill="#5b6573">0%</text>
+            <text x="345.3" y="278" font-size="10.5" text-anchor="middle" fill="#5b6573">+20%</text>
+            <text x="460" y="278" font-size="10.5" text-anchor="middle" fill="#5b6573">+40%</text>
+            <text x="234" y="32" font-size="10" fill="#5b6573">break-even</text>
+            <text x="349" y="54" font-size="10" fill="#b8860b">target</text>
+            <path id="tail-honest" d=""/>
+            <path id="curve-honest" class="drawable" d=""/>
+            <path id="curve-naive" class="drawable" d=""/>
+            <text x="293" y="46" font-size="11" font-weight="600" fill="#5b6573">Smoothed index (na&#239;ve)</text>
+            <text x="293" y="60" font-size="10" fill="#8a93a5">P(loss) &#8776; 2% — looks riskless</text>
+            <text x="398" y="142" font-size="11" font-weight="600" fill="#3b5bdb">Honest model</text>
+            <text x="398" y="156" font-size="10" fill="#8a93a5">de-smoothed + single-asset &#963;</text>
+            <text x="118" y="222" font-size="10.5" font-weight="600" fill="#c2384a">the loss tail smoothing hides</text>
+            <text x="124" y="236" font-size="10" fill="#c2384a" opacity=".8">P(loss) &#8776; 23%</text>
+          </svg>
+          <figcaption>Illustrative shapes with equal probability mass — the real curves are computed per market from its
+          own price history, and shown on every Deal Score.</figcaption>
+        </figure>
+      </div>
+
+      <div class="sigma-card reveal" id="sigma-card">
+        <h3>The volatility build-up behind every score</h3>
+        <p class="sub">Illustrative magnitudes for a typical metro — the Deal Score page shows the actual build-up for your market.</p>
+        <div class="sigrow"><div class="lab"><span>Raw smoothed index &#963;</span><b>&#8776; 6%</b></div>
+          <div class="sigtrack"><div class="sigbar s-raw" style="--w:28.5%"></div></div></div>
+        <div class="sigrow"><div class="lab"><span>De-smoothed market &#963; (Geltner)</span><b>&#8776; 11%</b></div>
+          <div class="sigtrack"><div class="sigbar s-des" style="--w:52.4%"></div></div></div>
+        <div class="sigrow"><div class="lab"><span>Deal &#963; = &#8730;(market&#178; + idiosyncratic&#178;)</span><b>&#8776; 21%</b></div>
+          <div class="sigtrack"><div class="sigbar s-tot" style="--w:100%"></div></div></div>
+        <p class="sigfoot">Sizing is computed on the honest &#963;: fractional Kelly (half-Kelly), shrunk for correlation
+        with your existing book, and hard-capped at 25% of book. If the edge doesn&#8217;t beat the risk-free rate, the
+        verdict is PASS — the model is allowed to say no.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTNOTES -->
+  <section aria-labelledby="notes-h">
+    <div class="wrap">
+      <div class="sect-head reveal">
+        <h2 id="notes-h">Honest footnotes</h2>
+        <p>The fine print, stated plainly — read this before you trust any number.</p>
+      </div>
+      <div class="notes-grid">
+        <div class="note reveal"><h3>Decision support, not investment advice</h3>
+          <p>The platform sizes positions advisorily and never commits capital. Probabilities are conditional on public
+          market history and your inputs; they are estimates with confidence intervals, not guarantees.</p></div>
+        <div class="note reveal d1"><h3>Public data is context; your history is the edge</h3>
+          <p>Crime, rents, hazard and migration describe the market, not your deal. Your realized IRRs and your DDQ
+          judgment are what differentiate the model — which is why the upload stays in your browser.</p></div>
+        <div class="note reveal d2"><h3>Coverage is honest</h3>
+          <p>Where a source doesn&#8217;t reach a market, the field is blank — not guessed. Crime joins 10,801 of 20,216
+          markets; the 8-dataset context reaches 7,372. Income, hazard, migration, permits and flood data are
+          county-level, so a city shows its parent county&#8217;s figures.</p></div>
+        <div class="note reveal"><h3>Crime is context, not a predictor</h3>
+          <p>Across 10,801 markets, crime rates correlate mostly with density and only weakly with returns. The
+          Correlations tab shows that result honestly instead of pretending crime predicts performance.</p></div>
+        <div class="note reveal d1"><h3>Your spreadsheet never leaves the browser</h3>
+          <p>Deal history is parsed locally. The copilot — only when you ask it something — is sent a short text summary
+          of the current scores and model settings, not your file.</p></div>
+        <div class="note reveal d2"><h3>Verified engine, live freshness</h3>
+          <p>The TypeScript engine is parity-checked against a Python golden reference with a seeded RNG. A status panel
+          compares all 11 baked dataset vintages against their sources, so stale data is flagged, not hidden.</p></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <a class="backlink" href="/">&#8592; Back to the platform</a>
+    <div class="foot-disc">AI Diligence Platform &#183; diligence.mdeanproductions.com — decision support for real-estate
+    diligence. Sources: Zillow Research, FBI Crime Data Explorer, BEA, FEMA, IRS, CFPB/FFIEC (HMDA), US Census, FRED.
+    Not investment advice.</div>
+  </div>
+</footer>
+
+<noscript><div style="text-align:center;padding:12px;color:#5b6573;font-size:13px">JavaScript is off — the page still reads fine, but the animated figures stay static.</div></noscript>
+
+<script>
+(function () {
+  'use strict';
+  var reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ---- distribution curves (generated so the math is exact) ---- */
+  function buildCurves() {
+    var naive = document.getElementById('curve-naive');
+    var honest = document.getElementById('curve-honest');
+    var tail = document.getElementById('tail-honest');
+    if (!naive || !honest || !tail) return;
+    var W = 560, H = 300, padL = 30, padR = 14, padT = 18, padB = 40;
+    var x0 = -0.35, x1 = 0.55;
+    var NA_MU = 0.085, NA_S = 0.04, HO_MU = 0.09, HO_S = 0.12;
+    function X(v) { return padL + (v - x0) / (x1 - x0) * (W - padL - padR); }
+    function gauss(v, mu, s) { return Math.exp(-0.5 * Math.pow((v - mu) / s, 2)) / (s * Math.sqrt(2 * Math.PI)); }
+    var peak = gauss(NA_MU, NA_MU, NA_S);
+    function Y(d) { return H - padB - (d / peak) * (H - padT - padB); }
+    function pathFor(mu, s) {
+      var pts = [], N = 140, i, v;
+      for (i = 0; i <= N; i++) {
+        v = x0 + (x1 - x0) * i / N;
+        pts.push((i ? 'L' : 'M') + X(v).toFixed(1) + ' ' + Y(gauss(v, mu, s)).toFixed(1));
+      }
+      return pts.join(' ');
+    }
+    function areaFor(mu, s, from, to) {
+      var pts = ['M' + X(from).toFixed(1) + ' ' + (H - padB)], N = 60, i, v;
+      for (i = 0; i <= N; i++) {
+        v = from + (to - from) * i / N;
+        pts.push('L' + X(v).toFixed(1) + ' ' + Y(gauss(v, mu, s)).toFixed(1));
+      }
+      pts.push('L' + X(to).toFixed(1) + ' ' + (H - padB) + ' Z');
+      return pts.join(' ');
+    }
+    naive.setAttribute('d', pathFor(NA_MU, NA_S));
+    honest.setAttribute('d', pathFor(HO_MU, HO_S));
+    tail.setAttribute('d', areaFor(HO_MU, HO_S, x0, 0));
+    if (!reduced) {
+      [naive, honest].forEach(function (p) {
+        var len = Math.ceil(p.getTotalLength());
+        p.style.strokeDasharray = String(len);
+        p.style.strokeDashoffset = String(len);
+      });
+    }
+  }
+  buildCurves();
+
+  /* ---- reveal on scroll + figure triggers + counters ---- */
+  function countUp(el) {
+    var target = parseInt(el.getAttribute('data-n'), 10) || 0;
+    if (reduced || !window.requestAnimationFrame) { el.textContent = target.toLocaleString('en-US'); return; }
+    var t0 = null, DUR = 950;
+    function tick(ts) {
+      if (t0 === null) t0 = ts;
+      var k = Math.min(1, (ts - t0) / DUR);
+      var eased = 1 - Math.pow(1 - k, 3);
+      el.textContent = Math.round(target * eased).toLocaleString('en-US');
+      if (k < 1) requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  }
+
+  var counted = false;
+  function onReveal(el) {
+    el.classList.add('in');
+    if (!counted && el.querySelector && el.querySelector('.stat-num')) {
+      /* counters live inside the stat cards; fire all once any is visible */
+      counted = true;
+      document.querySelectorAll('.stat-num').forEach(countUp);
+    }
+    if (el.id === 'curves-fig') {
+      el.classList.add('curves-in');
+      ['curve-naive', 'curve-honest'].forEach(function (id) {
+        var p = document.getElementById(id);
+        if (p) p.style.strokeDashoffset = '0';
+      });
+    }
+    if (el.id === 'sigma-card') el.classList.add('sigma-in');
+  }
+
+  var revealEls = document.querySelectorAll('.reveal');
+  if (reduced || !('IntersectionObserver' in window)) {
+    revealEls.forEach(onReveal);
+  } else {
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) {
+        if (en.isIntersecting) { onReveal(en.target); io.unobserve(en.target); }
+      });
+    }, { threshold: 0.15, rootMargin: '0px 0px -8% 0px' });
+    revealEls.forEach(function (el) { io.observe(el); });
+  }
+
+  /* ---- diagram tooltips (hover + keyboard focus) ---- */
+  var tip = document.getElementById('tip');
+  var wrapEl = document.getElementById('diagram-wrap');
+  if (tip && wrapEl) {
+    var hideT = null;
+    function showTip(node) {
+      if (hideT) { clearTimeout(hideT); hideT = null; }
+      var name = node.getAttribute('data-name') || '';
+      var text = node.getAttribute('data-tip') || '';
+      tip.innerHTML = '<strong></strong>';
+      tip.firstChild.textContent = name;
+      tip.appendChild(document.createTextNode(text));
+      tip.hidden = false;
+      var nb = node.getBoundingClientRect();
+      var wb = wrapEl.getBoundingClientRect();
+      var x = nb.left - wb.left + nb.width / 2;
+      var y = nb.top - wb.top;
+      /* clamp horizontally so the tooltip stays inside the diagram */
+      var half = Math.min(140, tip.offsetWidth / 2 || 140);
+      x = Math.max(half + 4, Math.min(wb.width - half - 4, x));
+      tip.style.left = x + 'px';
+      /* if the node is near the top, flip the tooltip below it */
+      if (y < 120) {
+        tip.style.top = (nb.bottom - wb.top + 10) + 'px';
+        tip.style.transform = 'translate(-50%, 0)';
+      } else {
+        tip.style.top = y + 'px';
+        tip.style.transform = '';
+      }
+    }
+    function hideTip() {
+      hideT = setTimeout(function () { tip.hidden = true; }, 60);
+    }
+    document.querySelectorAll('.node').forEach(function (n) {
+      n.addEventListener('mouseenter', function () { showTip(n); });
+      n.addEventListener('mouseleave', hideTip);
+      n.addEventListener('focus', function () { showTip(n); });
+      n.addEventListener('blur', hideTip);
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') tip.hidden = true;
+    });
+    window.addEventListener('scroll', function () { if (!tip.hidden) tip.hidden = true; }, { passive: true });
+  }
+})();
+</script>
+</body>
+</html>

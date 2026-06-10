@@ -162,7 +162,12 @@ export default function Home({ pastDealsCount, oppsCount, uploadedFileName, onDa
 
       {/* STEP 2 — HOW TO USE */}
       <div className="card" style={{ marginTop: '1rem' }}>
-        <h3 style={{ marginTop: 0 }}>Step 2 — How to use the site</h3>
+        <h3 style={{ marginTop: 0 }}>
+          Step 2 — How to use the site
+          <a href="/how-it-works.html" style={{ marginLeft: 12, fontSize: '0.78rem', fontWeight: 600, color: 'var(--accent)' }}>
+            Visual explainer: how the whole machine works →
+          </a>
+        </h3>
         <div className="howto-grid">
           {HOW_TO_STEPS.map(s => {
             const Icon = s.icon
