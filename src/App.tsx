@@ -770,28 +770,36 @@ ${pastDeals.slice(0, 3).map(d => `- ${d.id}: realized ${(d.realized_irr*100).toF
                 Pearson correlations across {seg.n.toLocaleString()} US markets — FBI {crimeCorr.year} crime rates vs each market's Zillow return history and open-data context.
                 {strongest && <> Strongest link between violent crime and a return metric: <strong>{crimeCorr.metricLabels[strongest.m]}</strong> (r={strongest.r > 0 ? '+' : ''}{strongest.r.toFixed(2)}) — weak, as expected; crime is mostly a proxy for density.</>}
               </p>
-              <Plot
-                data={[{
-                  z,
-                  x: metrics.map(m => crimeCorr.metricLabels[m] || m),
-                  y: ['Violent rate /100k', 'Property rate /100k'],
-                  type: 'heatmap',
-                  colorscale: 'RdBu',
-                  reversescale: true,
-                  zmin: -0.6,
-                  zmax: 0.6,
-                  text: z.map(row => row.map(v => (v === null ? '' : (v > 0 ? '+' : '') + v.toFixed(2)))),
-                  texttemplate: '%{text}'
-                }]}
-                layout={{
-                  height: 260,
-                  margin: { t: 10, b: 90, l: 130, r: 10 },
-                  paper_bgcolor: 'rgba(0,0,0,0)',
-                  plot_bgcolor: 'rgba(0,0,0,0)',
-                  font: { color: '#11161f', family: 'Poppins, system-ui, sans-serif' },
-                }}
-                config={{ displayModeBar: false }}
-              />
+              {/* heatmap keeps a readable min-width; the wrapper scrolls on phones */}
+              <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                <div style={{ minWidth: 620 }}>
+                  <Plot
+                    data={[{
+                      z,
+                      x: metrics.map(m => crimeCorr.metricLabels[m] || m),
+                      y: ['Violent rate /100k', 'Property rate /100k'],
+                      type: 'heatmap',
+                      colorscale: 'RdBu',
+                      reversescale: true,
+                      zmin: -0.6,
+                      zmax: 0.6,
+                      text: z.map(row => row.map(v => (v === null ? '' : (v > 0 ? '+' : '') + v.toFixed(2)))),
+                      texttemplate: '%{text}'
+                    }]}
+                    layout={{
+                      height: 260,
+                      autosize: true,
+                      margin: { t: 10, b: 90, l: 130, r: 10 },
+                      paper_bgcolor: 'rgba(0,0,0,0)',
+                      plot_bgcolor: 'rgba(0,0,0,0)',
+                      font: { color: '#11161f', family: 'Poppins, system-ui, sans-serif' },
+                    }}
+                    config={{ displayModeBar: false, responsive: true }}
+                    useResizeHandler
+                    style={{ width: '100%' }}
+                  />
+                </div>
+              </div>
               {crimeCorr.scatter && (
                 <Plot
                   data={[{
@@ -805,6 +813,7 @@ ${pastDeals.slice(0, 3).map(d => `- ${d.id}: realized ${(d.realized_irr*100).toF
                   }]}
                   layout={{
                     height: 320,
+                    autosize: true,
                     margin: { t: 30, b: 45, l: 55, r: 10 },
                     title: { text: crimeCorr.scatter.label, font: { size: 13 } },
                     xaxis: { title: { text: 'Violent crime rate per 100k (FBI)' } },
@@ -813,7 +822,9 @@ ${pastDeals.slice(0, 3).map(d => `- ${d.id}: realized ${(d.realized_irr*100).toF
                     plot_bgcolor: 'rgba(0,0,0,0)',
                     font: { color: '#11161f', family: 'Poppins, system-ui, sans-serif' },
                   }}
-                  config={{ displayModeBar: false }}
+                  config={{ displayModeBar: false, responsive: true }}
+                  useResizeHandler
+                  style={{ width: '100%' }}
                 />
               )}
               <p className="disclaimer">Correlation ≠ causation: crime rates proxy for many co-moving factors (density, income, reporting practices). Winsorized at 1%/99%; biggest-population cities sampled for the scatter.</p>
@@ -839,11 +850,15 @@ ${pastDeals.slice(0, 3).map(d => `- ${d.id}: realized ${(d.realized_irr*100).toF
               }]}
               layout={{
                 height: 420,
+                autosize: true,
                 paper_bgcolor: 'rgba(0,0,0,0)',
                 plot_bgcolor: 'rgba(0,0,0,0)',
                 font: { color: '#11161f', family: 'Poppins, system-ui, sans-serif' },
                 title: 'Illustrative Correlation Matrix'
               }}
+              config={{ displayModeBar: false, responsive: true }}
+              useResizeHandler
+              style={{ width: '100%' }}
             />
             <p className="disclaimer">Editable matrix + full MC portfolio simulation coming in later iterations.</p>
           </div>

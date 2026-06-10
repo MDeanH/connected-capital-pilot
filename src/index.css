@@ -173,6 +173,41 @@ tr:hover td {
   }
 }
 
+/* ---- Mobile ---- */
+@media (max-width: 700px) {
+  /* hidden-but-laid-out absolutes (tooltips) can't widen the page; real wide
+     content scrolls inside its own container (tables, heatmaps, plots) */
+  html, body { overflow-x: hidden; }
+
+  header { padding: 0.75rem; }
+  .main { padding: 1rem 0.75rem; }
+
+  /* tabs: one swipeable row instead of a 3-row wrap */
+  .tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding: 0 0.5rem;
+  }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab { white-space: nowrap; padding: 0.7rem 0.65rem; font-size: 0.85rem; flex-shrink: 0; }
+
+  /* wide tables scroll sideways instead of stretching the page */
+  table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* 16px floor stops iOS Safari zooming the page on input focus */
+  input, select, textarea, .copilot-bar input { font-size: 16px; }
+
+  .copilot-bar { flex-wrap: wrap; }
+  .copilot-bar input { flex-basis: 100%; order: 3; }
+  .copilot-label { display: none; }
+}
+
 label {
   color: var(--text);
 }
