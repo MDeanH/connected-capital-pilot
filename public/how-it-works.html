@@ -242,7 +242,7 @@ footer .wrap{display:flex;flex-direction:column;align-items:center;gap:14px;text
               <path class="flowline green" d="M818 498 C 848 498, 852 492, 876 492"/>
 
               <!-- SOURCE NODES -->
-              <g class="node" tabindex="0" role="img" aria-label="Zillow Research: ZHVI home values, ZORI rents and for-sale inventory. The 20,216-market return engine is built from quarterly ZHVI history reaching back to 2000." data-name="Zillow Research" data-tip="ZHVI home values, ZORI rents and for-sale inventory. The 20,216-market return engine is built from quarterly ZHVI history reaching back to 2000.">
+              <g class="node" tabindex="0" role="img" aria-label="Zillow Research: ZHVI home values, ZORI rents and for-sale inventory. The 20,216-market return engine is built from quarterly ZHVI history reaching back to 2000, plus each market&#8217;s own rent carry where ZORI observes rents." data-name="Zillow Research" data-tip="ZHVI home values, ZORI rents and for-sale inventory. The 20,216-market return engine is built from quarterly ZHVI history reaching back to 2000, plus each market&#8217;s own rent carry where ZORI observes rents.">
                 <rect x="20" y="56" width="230" height="46" rx="10" fill="#fff" stroke="#e2e7f0"/>
                 <text class="nname" x="34" y="75">Zillow Research</text>
                 <text class="nsub" x="34" y="92">ZHVI &#183; ZORI &#183; inventory &amp; list prices</text>
@@ -455,6 +455,11 @@ footer .wrap{display:flex;flex-direction:column;align-items:center;gap:14px;text
           &#963;<sub>idio</sub>&#178;). You control the dial, in the open.</p>
           <p><span class="k">3. Side-by-side honesty.</span> Every score shows the na&#239;ve raw-index risk next to the
           honest model&#8217;s, so you can see exactly how much loss probability the smoothed series concealed.</p>
+          <p><span class="k">4. Honest income, too.</span> Each market&#8217;s return series carries its <em>own</em> rent
+          income (60% of observed gross yield, expense-adjusted; a flat 4%/yr only where rents aren&#8217;t observed) —
+          so high-yield markets get credit for their carry instead of being penalized by a one-size assumption. On top,
+          a transparent <em>yield edge</em> (capped &#177;0.30%/yr) rewards a market&#8217;s within-state yield percentile —
+          the one signal that predicted forward returns in this platform&#8217;s own backtests.</p>
         </div>
         <figure class="curves-card reveal d1" id="curves-fig">
           <svg id="curves" viewBox="0 0 560 300" role="img" aria-label="Two return distributions over the same axis. The naive smoothed-index curve is tall and narrow with almost no mass below zero. The honest de-smoothed curve is much wider, with a clearly visible shaded loss tail below zero.">
@@ -517,8 +522,10 @@ footer .wrap{display:flex;flex-direction:column;align-items:center;gap:14px;text
           markets; the 8-dataset context reaches 7,372. Income, hazard, migration, permits and flood data are
           county-level, so a city shows its parent county&#8217;s figures.</p></div>
         <div class="note reveal"><h3>Crime is context, not a predictor</h3>
-          <p>Across 10,801 markets, crime rates correlate mostly with density and only weakly with returns. The
-          Correlations tab shows that result honestly instead of pretending crime predicts performance.</p></div>
+          <p>Across 10,801 markets, crime rates correlate mostly with density and only weakly with returns — and even
+          that weak link nearly disappears when markets are compared within their own state (rank&#8209;r &#8722;0.03):
+          it mostly reflects which <em>states</em> boomed. The Correlations tab shows this honestly instead of
+          pretending crime predicts performance.</p></div>
         <div class="note reveal d1"><h3>Your spreadsheet never leaves the browser</h3>
           <p>Deal history is parsed locally. The copilot — only when you ask it something — is sent a short text summary
           of the current scores and model settings, not your file.</p></div>
