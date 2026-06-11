@@ -4,6 +4,8 @@ import { Settings, BarChart3, MessageSquare, Upload, Target, Home as HomeIcon, S
 import DealScore from './DealScore'
 import USMarket from './USMarket'
 import Market3D from './Market3D'
+import Underwrite from './Underwrite'
+import RiskModel from './RiskModel'
 import Home from './Home'
 import { Info } from './Info'
 import type { ParseResult } from './excel'
@@ -252,6 +254,14 @@ const TAB_GUIDE: Record<string, { name: string; guide: string }> = {
     name: 'Deal Score',
     guide: 'The engine-backed single-deal scorer. Pick any of 20,216 US markets (metros, counties, cities — natural language like "miami dade county florida" works), set target return, risk-free rate, holding period, idiosyncratic volatility, book size, ticket, and answer the due-diligence questionnaire. The Netlify engine runs a 20,000-path Monte Carlo on that market\'s real Zillow price history plus a market-level rent carry (60% of observed gross yield, expense-adjusted; 4%/yr fallback where rents aren\'t observed), de-smoothed to honest volatility, and returns P(hit target) with confidence intervals, expected return, P(loss), VaR/CVaR, and a fractional-Kelly suggested allocation. A transparent "yield edge" adjustment (max ±0.30%/yr) rewards a market\'s within-state gross-yield percentile — the one signal that predicted forward returns in this platform\'s own backtests. A Crime context card shows FBI violent/property rates per 100k vs the US average. A Market context card shows open-data context for the selected market: Zillow rents & gross yield, inventory/days-to-pending market heat, BEA income & price-to-income, FEMA hazard risk, IRS migration flows, HMDA investor share & denial rates (demand quality), Census building permits (supply pipeline), and FEMA NFIP flood claims (realized losses).',
   },
+  underwrite: {
+    name: 'Underwrite',
+    guide: 'Deal-gates underwriter, liabilities first. Tier 1 survival gates: DSCR (<1.20 fail, <1.25 flag), exit-cap discipline (exit cap must be ≥ going-in cap — deals priced on cap compression are rejected), leverage LTC, breakeven occupancy cushion, loan-maturity-vs-hold refi dependence, debt yield (NOI÷loan, lenders want ≥10%), and a +200bps rate stress for floating debt. Tier 2 return quality: going-in unlevered yield (Y1 NOI ÷ total cost, the margin-of-safety number), cash-on-cash, levered IRR and equity multiple from the stated exit cap. Live SOFR / Fed Funds / 10Y Treasury / Mortgage-30Y overlay from the platform\'s FRED refresh — cap-rate spread to Treasuries computed live. No single metric decides; a Tier-1 failure means the deal can die before the upside matters.',
+  },
+  riskmodel: {
+    name: 'Risk Model',
+    guide: 'The pilot\'s 9-category sponsor/deal risk scorecard (Risk Model v2): Operational, Credit, Funding, Cash Flow, Liquidity, Regulatory, Market, Competition — each scored −3…+3 across Historical / YTD / Forward (forward weighted 50%), with editable category weights, intake-variable checklists (realistic ranges + edge cases), notes, and a weighted Capital-Risk composite mapped to High / Mid / Low grade bands calibrated to the three completed DDQ exemplars. Red-flags any category at ≤−2. Scores persist locally and export to JSON.',
+  },
   usmarket: {
     name: 'US Market',
     guide: 'National real-estate context: US base rates built from Zillow ZHVI across 895 metros, plus cross-asset correlations and macro series (mortgage rates, Case-Shiller, housing starts). Use it to sanity-check a deal against the market backdrop.',
@@ -294,7 +304,7 @@ export default function App() {
   const [opportunities, setOpportunities] = useState<Opportunity[]>(INITIAL_OPPORTUNITIES)
   const [pastDeals, setPastDeals] = useState<PastDeal[]>(SAMPLE_PAST_DEALS)
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<'home' | 'score' | 'usmarket' | 'market3d' | 'dashboard' | 'opps' | 'ddq' | 'model' | 'corr'>('home')
+  const [activeTab, setActiveTab] = useState<'home' | 'score' | 'underwrite' | 'riskmodel' | 'usmarket' | 'market3d' | 'dashboard' | 'opps' | 'ddq' | 'model' | 'corr'>('home')
   const [minProb, setMinProb] = useState(0)
   const [selectedSubtypes, setSelectedSubtypes] = useState<('Development' | 'Value-Add')[]>(['Development', 'Value-Add'])
   const [selectedOppId, setSelectedOppId] = useState<string | null>(null)
@@ -457,7 +467,7 @@ ${pastDeals.slice(0, 3).map(d => `- ${d.id}: realized ${(d.realized_irr*100).toF
       <header>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <h1>AI Diligence Platform</h1>
+            <h1>AI Diligence Platform <span style={{ fontSize: '0.65rem', fontWeight: 700, verticalAlign: 'middle', background: '#fdf2f4', color: '#c2384a', border: '1px solid #f5c2c7', borderRadius: 6, padding: '2px 8px', letterSpacing: '0.06em' }}>INSTITUTIONAL PILOT · CONFIDENTIAL</span></h1>
             <div style={{ fontSize: '0.8rem', color: '#64748b' }}>Probability of hitting target return • Risk quantification • Transparent drivers</div>
           </div>
           <div style={{ fontSize: '0.75rem', color: '#64748b', textAlign: 'right' }}>
@@ -506,6 +516,8 @@ ${pastDeals.slice(0, 3).map(d => `- ${d.id}: realized ${(d.realized_irr*100).toF
         {[
           { id: 'home', label: '🏠 Home / Upload', icon: HomeIcon },
           { id: 'score', label: '🎯 Deal Score', icon: Target },
+          { id: 'underwrite', label: '🏦 Underwrite', icon: Target },
+          { id: 'riskmodel', label: '⚖️ Risk Model', icon: Settings },
           { id: 'usmarket', label: '🇺🇸 US Market', icon: BarChart3 },
           { id: 'market3d', label: '🎮 Market Quest 3D', icon: Globe },
           { id: 'dashboard', label: '📊 Client Dashboard', icon: BarChart3 },
@@ -542,6 +554,16 @@ ${pastDeals.slice(0, 3).map(d => `- ${d.id}: realized ${(d.realized_irr*100).toF
 
         {/* DEAL SCORE — engine-backed (Netlify /api/score) */}
         {activeTab === 'score' && <DealScore />}
+
+        {/* PILOT: deal-gates underwriter (liabilities first) */}
+        {activeTab === 'underwrite' && (
+          <div className="card"><h2>Deal Underwriting — survival gates first</h2><Underwrite /></div>
+        )}
+
+        {/* PILOT: Risk Model v2 sponsor scorecard */}
+        {activeTab === 'riskmodel' && (
+          <div className="card"><h2>Risk Model v2 — sponsor &amp; deal scorecard</h2><RiskModel /></div>
+        )}
 
         {/* US MARKET — national RE base rates + cross-correlations */}
         {activeTab === 'usmarket' && <USMarket />}
