@@ -1,4 +1,14 @@
-import * as XLSX from 'xlsx'
+// xlsx is loaded on demand (dynamic import) so it stays out of the entry
+// bundle — it's only needed when the user uploads a file or grabs the template.
+// A fetch failure here is a network/deploy problem, not a bad spreadsheet —
+// say so instead of letting "Failed to fetch module" blame the user's file.
+async function loadXlsx() {
+  try {
+    return await import('xlsx')
+  } catch {
+    throw new Error('the spreadsheet library could not be downloaded — check your connection and try again (reloading the page may help).')
+  }
+}
 
 // Shapes match the App's Opportunity / PastDeal interfaces (structural typing).
 export interface UploadedPastDeal {
@@ -106,7 +116,8 @@ function sheetKind(name: string, headers: string[]): 'past' | 'opps' | 'unknown'
   return 'unknown'
 }
 
-export function parseWorkbook(data: ArrayBuffer): ParseResult {
+export async function parseWorkbook(data: ArrayBuffer): Promise<ParseResult> {
+  const XLSX = await loadXlsx()
   const wb = XLSX.read(data, { type: 'array' })
   const result: ParseResult = { pastDeals: [], opportunities: [], warnings: [], sheetsRead: [] }
 
@@ -175,7 +186,8 @@ export function parseWorkbook(data: ArrayBuffer): ParseResult {
   return result
 }
 
-export function downloadTemplate() {
+export async function downloadTemplate() {
+  const XLSX = await loadXlsx()
   const wb = XLSX.utils.book_new()
   const past = XLSX.utils.aoa_to_sheet([
     ['id', 'sub_type', 'sponsor_exits', 'ltv', 'execution_risk', 'realized_irr', 'outcome_label'],

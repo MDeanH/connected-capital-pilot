@@ -1,12 +1,23 @@
-import { useState, useMemo, useEffect, useRef } from 'react'
-import Plot from 'react-plotly.js'
+import { useState, useMemo, useEffect, useRef, lazy, Suspense, useTransition } from 'react'
 import { Settings, BarChart3, MessageSquare, Upload, Target, Home as HomeIcon, Send, ClipboardList } from 'lucide-react'
-import DealScore from './DealScore'
-import USMarket from './USMarket'
-import Underwrite from './Underwrite'
-import RiskModel from './RiskModel'
-import DDQ from './DDQ'
+import Plot from './LazyPlot'
 import Home from './Home'
+import ErrorBoundary from './ErrorBoundary'
+
+// Each tab pane is its own async chunk — the entry bundle ships only the shell
+// and Home, and a tab's code downloads the first time it's opened.
+const PANE_LOADERS = {
+  score: () => import('./DealScore'),
+  usmarket: () => import('./USMarket'),
+  underwrite: () => import('./Underwrite'),
+  riskmodel: () => import('./RiskModel'),
+  ddqx: () => import('./DDQ'),
+}
+const DealScore = lazy(PANE_LOADERS.score)
+const USMarket = lazy(PANE_LOADERS.usmarket)
+const Underwrite = lazy(PANE_LOADERS.underwrite)
+const RiskModel = lazy(PANE_LOADERS.riskmodel)
+const DDQ = lazy(PANE_LOADERS.ddqx)
 import { Info } from './Info'
 import type { ParseResult } from './excel'
 
@@ -305,6 +316,9 @@ export default function App() {
   const [pastDeals, setPastDeals] = useState<PastDeal[]>(SAMPLE_PAST_DEALS)
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<'home' | 'score' | 'underwrite' | 'riskmodel' | 'ddqx' | 'usmarket' | 'dashboard' | 'opps' | 'ddq' | 'model' | 'corr'>('home')
+  // Transition keeps the current pane visible while a lazy tab's chunk loads
+  // (no "Loading…" flash); tabPending dims the pane as feedback meanwhile.
+  const [tabPending, startTabSwitch] = useTransition()
   const [minProb, setMinProb] = useState(0)
   const [selectedSubtypes, setSelectedSubtypes] = useState<('Development' | 'Value-Add')[]>(['Development', 'Value-Add'])
   const [selectedOppId, setSelectedOppId] = useState<string | null>(null)
@@ -386,6 +400,15 @@ export default function App() {
     const el = copilotMessagesRef.current
     if (el) el.scrollTop = el.scrollHeight
   }, [chatHistory, isCopilotThinking])
+
+  // Warm the lazy tab chunks after first paint so the first click on any tab
+  // is usually instant; failures are ignored (the tab retries on click).
+  useEffect(() => {
+    const t = setTimeout(() => {
+      Object.values(PANE_LOADERS).forEach(load => { load().catch(() => {}) })
+    }, 2000)
+    return () => clearTimeout(t)
+  }, [])
 
   const sendChat = async () => {
     const trimmed = chatInput.trim()
@@ -531,7 +554,8 @@ ${pastDeals.slice(0, 3).map(d => `- ${d.id}: realized ${(d.realized_irr*100).toF
             <button
               key={t.id}
               className={`tab ${activeTab === t.id ? 'active' : ''}`}
-              onClick={() => setActiveTab(t.id as any)}
+              style={tabPending ? { opacity: 0.7 } : undefined}
+              onClick={() => startTabSwitch(() => setActiveTab(t.id as any))}
             >
               <Icon size={16} style={{ marginRight: 4, verticalAlign: 'middle' }} />
               {t.label}
@@ -540,7 +564,9 @@ ${pastDeals.slice(0, 3).map(d => `- ${d.id}: realized ${(d.realized_irr*100).toF
         })}
       </div>
 
-      <div className="main">
+      <div className="main" style={tabPending ? { opacity: 0.6, transition: 'opacity 0.15s' } : undefined}>
+       <ErrorBoundary>
+       <Suspense fallback={<div className="card" style={{ color: 'var(--muted)' }}>Loading…</div>}>
         {/* HOME — client data upload + how-to guide */}
         {activeTab === 'home' && (
           <Home
@@ -999,6 +1025,8 @@ ${pastDeals.slice(0, 3).map(d => `- ${d.id}: realized ${(d.realized_irr*100).toF
           )
         })()}
 
+       </Suspense>
+       </ErrorBoundary>
       </div>
 
       <div className="disclaimer" style={{ padding: '0 1.5rem 2rem' }}>

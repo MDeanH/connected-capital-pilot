@@ -63,7 +63,7 @@ export default function Home({ pastDealsCount, oppsCount, uploadedFileName, onDa
   const handleFile = async (file: File) => {
     try {
       const buf = await file.arrayBuffer()
-      const result = parseWorkbook(buf)
+      const result = await parseWorkbook(buf)
       setStatus({
         fileName: file.name,
         pastDeals: result.pastDeals.length,
@@ -121,7 +121,11 @@ export default function Home({ pastDealsCount, oppsCount, uploadedFileName, onDa
         </div>
 
         <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', marginTop: '0.75rem', flexWrap: 'wrap' }}>
-          <button className="secondary" onClick={downloadTemplate}>
+          <button
+            className="secondary"
+            onClick={() => downloadTemplate().catch((err: Error) =>
+              setStatus({ fileName: 'template', pastDeals: 0, opportunities: 0, warnings: [], error: `Template download failed: ${err.message}` }))}
+          >
             <Download size={14} style={{ verticalAlign: 'text-bottom', marginRight: 4 }} />Download Excel template
           </button>
           <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>
