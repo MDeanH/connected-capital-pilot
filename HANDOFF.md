@@ -1,9 +1,21 @@
 # Team handoff — Connected Capital pilot
 
-You're on the `pilot` branch: the gated client build. `main` is the public
-site. Pushing to either branch auto-deploys (pilot →
-https://pilot--ai-diligence-platform.netlify.app, main → production), so
-treat pushes as releases.
+This repo IS the pilot: the gated client build, split out of the parent
+platform repo so the team works on exactly this and nothing else. Pushing
+`main` auto-deploys the gated site, so treat merges to `main` as releases —
+do day-to-day work on feature branches and open PRs.
+
+## Pulling engine/data updates from the parent platform
+
+The Monte Carlo engine, data pipeline and dataset rebakes continue to evolve
+in the parent repo (`MDeanH/ai-diligence-platform`). To pull those
+improvements in:
+
+```
+git remote add upstream https://github.com/MDeanH/ai-diligence-platform.git   # once
+git fetch upstream
+git merge upstream/pilot     # review, run the parity check below, then push
+```
 
 ## Run it locally
 
