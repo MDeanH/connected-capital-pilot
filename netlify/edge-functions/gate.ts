@@ -22,9 +22,9 @@ export default async (request: Request, context: Context) => {
       if (suppliedPassword === password) return context.next();
     } catch { /* malformed header — fall through to the 401 */ }
   }
-  return new Response("Password required — Connected Capital pilot. Enter the pilot password (any username).", {
+  return new Response("Password required - Connected Capital pilot. Enter the pilot password (any username).", {
     status: 401,
-    headers: { "WWW-Authenticate": 'Basic realm="Connected Capital Pilot — any username, pilot password", charset="UTF-8"' },
+    headers: { "WWW-Authenticate": 'Basic realm="Connected Capital Pilot - any username, pilot password", charset="UTF-8"' },
   });
 };
 
