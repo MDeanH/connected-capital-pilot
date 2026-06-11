@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "parity": "tsx netlify/functions/lib/parity.ts",
+    "build": "npm run parity && tsc -b && vite build",
     "preview": "vite preview",
     "deploy": "bash scripts/deploy-netlify.sh"
   },
@@ -25,6 +26,7 @@
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",
+    "tsx": "^4.22.4",
     "typescript": "^5.5.3",
     "vite": "^5.4.0"
   }
