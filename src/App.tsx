@@ -1,11 +1,12 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import Plot from 'react-plotly.js'
-import { Settings, BarChart3, MessageSquare, Upload, Target, Home as HomeIcon, Send, Globe } from 'lucide-react'
+import { Settings, BarChart3, MessageSquare, Upload, Target, Home as HomeIcon, Send, Globe, ClipboardList } from 'lucide-react'
 import DealScore from './DealScore'
 import USMarket from './USMarket'
 import Market3D from './Market3D'
 import Underwrite from './Underwrite'
 import RiskModel from './RiskModel'
+import DDQ from './DDQ'
 import Home from './Home'
 import { Info } from './Info'
 import type { ParseResult } from './excel'
@@ -262,6 +263,10 @@ const TAB_GUIDE: Record<string, { name: string; guide: string }> = {
     name: 'Risk Model',
     guide: 'The pilot\'s 9-category sponsor/deal risk scorecard (Risk Model v2): Operational, Credit, Funding, Cash Flow, Liquidity, Regulatory, Market, Competition — each scored −3…+3 across Historical / YTD / Forward (forward weighted 50%), with editable category weights, intake-variable checklists (realistic ranges + edge cases), notes, and a weighted Capital-Risk composite mapped to High / Mid / Low grade bands calibrated to the three completed DDQ exemplars. Red-flags any category at ≤−2. Scores persist locally and export to JSON.',
   },
+  ddqx: {
+    name: 'Institutional DDQ',
+    guide: 'The full ILPA DDQ 2.0-aligned institutional due-diligence questionnaire as a digital intake with grading. Sections A (Firm & Organizational Overview) and B (Fund Terms & Structure) in full, plus the Real Estate Development and RE Acquisition modules — 116 questions, 46 of them objective fields that auto-score 1–5 against calibration values extracted from three completed sample DDQs (Evercrest high-grade, Marston Bridge mid, Halcyon Peak low/distressed). The analyst adds a subjective 1–5 per risk category against exemplar-anchored rubrics; category weights come from the Risk Model v2 workbook (Manager & Team 20%, Investment Strategy 15%, Track Record 15%, etc., editable). Weighted composite maps to HIGH (≥4.0) / MID (≥2.75) / LOW grade bands, with hard-fail overrides (active regulatory enforcement, suspended LP distributions, undisclosed litigation) that cap the grade at LOW regardless of score, plus a red-flag list of every field graded 1/5. Section-by-section progress, autosave to this browser, JSON export/import — nothing uploads anywhere. Different from the quick "DDQ Intake" tab, which is a lightweight 9-question form that feeds the dashboard.',
+  },
   usmarket: {
     name: 'US Market',
     guide: 'National real-estate context: US base rates built from Zillow ZHVI across 895 metros, plus cross-asset correlations and macro series (mortgage rates, Case-Shiller, housing starts). Use it to sanity-check a deal against the market backdrop.',
@@ -304,7 +309,7 @@ export default function App() {
   const [opportunities, setOpportunities] = useState<Opportunity[]>(INITIAL_OPPORTUNITIES)
   const [pastDeals, setPastDeals] = useState<PastDeal[]>(SAMPLE_PAST_DEALS)
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<'home' | 'score' | 'underwrite' | 'riskmodel' | 'usmarket' | 'market3d' | 'dashboard' | 'opps' | 'ddq' | 'model' | 'corr'>('home')
+  const [activeTab, setActiveTab] = useState<'home' | 'score' | 'underwrite' | 'riskmodel' | 'ddqx' | 'usmarket' | 'market3d' | 'dashboard' | 'opps' | 'ddq' | 'model' | 'corr'>('home')
   const [minProb, setMinProb] = useState(0)
   const [selectedSubtypes, setSelectedSubtypes] = useState<('Development' | 'Value-Add')[]>(['Development', 'Value-Add'])
   const [selectedOppId, setSelectedOppId] = useState<string | null>(null)
@@ -518,6 +523,7 @@ ${pastDeals.slice(0, 3).map(d => `- ${d.id}: realized ${(d.realized_irr*100).toF
           { id: 'score', label: '🎯 Deal Score', icon: Target },
           { id: 'underwrite', label: '🏦 Underwrite', icon: Target },
           { id: 'riskmodel', label: '⚖️ Risk Model', icon: Settings },
+          { id: 'ddqx', label: '📋 Institutional DDQ', icon: ClipboardList },
           { id: 'usmarket', label: '🇺🇸 US Market', icon: BarChart3 },
           { id: 'market3d', label: '🎮 Market Quest 3D', icon: Globe },
           { id: 'dashboard', label: '📊 Client Dashboard', icon: BarChart3 },
@@ -563,6 +569,11 @@ ${pastDeals.slice(0, 3).map(d => `- ${d.id}: realized ${(d.realized_irr*100).toF
         {/* PILOT: Risk Model v2 sponsor scorecard */}
         {activeTab === 'riskmodel' && (
           <div className="card"><h2>Risk Model v2 — sponsor &amp; deal scorecard</h2><RiskModel /></div>
+        )}
+
+        {/* PILOT: full institutional DDQ — digital intake with exemplar-calibrated grading */}
+        {activeTab === 'ddqx' && (
+          <div className="card"><h2>Institutional DDQ — ILPA-aligned intake &amp; grading</h2><DDQ /></div>
         )}
 
         {/* US MARKET — national RE base rates + cross-correlations */}
