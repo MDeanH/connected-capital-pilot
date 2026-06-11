@@ -1,9 +1,8 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import Plot from 'react-plotly.js'
-import { Settings, BarChart3, MessageSquare, Upload, Target, Home as HomeIcon, Send, Globe, ClipboardList } from 'lucide-react'
+import { Settings, BarChart3, MessageSquare, Upload, Target, Home as HomeIcon, Send, ClipboardList } from 'lucide-react'
 import DealScore from './DealScore'
 import USMarket from './USMarket'
-import Market3D from './Market3D'
 import Underwrite from './Underwrite'
 import RiskModel from './RiskModel'
 import DDQ from './DDQ'
@@ -271,10 +270,6 @@ const TAB_GUIDE: Record<string, { name: string; guide: string }> = {
     name: 'US Market',
     guide: 'National real-estate context: US base rates built from Zillow ZHVI across 895 metros, plus cross-asset correlations and macro series (mortgage rates, Case-Shiller, housing starts). Use it to sanity-check a deal against the market backdrop.',
   },
-  market3d: {
-    name: 'Market Quest 3D',
-    guide: 'A 3D exploration of the same market data, two modes. Market Quest (game): fly a drone (WASD, Shift boost, Space/C up/down, drag to look) through a data city where each tower is a real metro — height = home-value growth, color = de-smoothed risk; scan towers, press E to acquire up to 5 metros, press R to run a correlated 3,000-path Monte Carlo on the portfolio, with missions and collectible data orbs at historic landmarks (2008 crash trough, 1981 mortgage-rate peak). Analysis Orbit toggle: a serious orbit-camera data view of 150 metros with hover diligence stats.',
-  },
   dashboard: {
     name: 'Client Dashboard',
     guide: 'Ranks every opportunity in the pipeline (sample or uploaded) by probability of hitting the target return, with expected return, P(loss), confidence, top driver, and suggested sizing. Click a row for full risk detail and the simulated return histogram. Filter by minimum probability and deal subtype.',
@@ -309,7 +304,7 @@ export default function App() {
   const [opportunities, setOpportunities] = useState<Opportunity[]>(INITIAL_OPPORTUNITIES)
   const [pastDeals, setPastDeals] = useState<PastDeal[]>(SAMPLE_PAST_DEALS)
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<'home' | 'score' | 'underwrite' | 'riskmodel' | 'ddqx' | 'usmarket' | 'market3d' | 'dashboard' | 'opps' | 'ddq' | 'model' | 'corr'>('home')
+  const [activeTab, setActiveTab] = useState<'home' | 'score' | 'underwrite' | 'riskmodel' | 'ddqx' | 'usmarket' | 'dashboard' | 'opps' | 'ddq' | 'model' | 'corr'>('home')
   const [minProb, setMinProb] = useState(0)
   const [selectedSubtypes, setSelectedSubtypes] = useState<('Development' | 'Value-Add')[]>(['Development', 'Value-Add'])
   const [selectedOppId, setSelectedOppId] = useState<string | null>(null)
@@ -525,7 +520,6 @@ ${pastDeals.slice(0, 3).map(d => `- ${d.id}: realized ${(d.realized_irr*100).toF
           { id: 'riskmodel', label: '⚖️ Risk Model', icon: Settings },
           { id: 'ddqx', label: '📋 Institutional DDQ', icon: ClipboardList },
           { id: 'usmarket', label: '🇺🇸 US Market', icon: BarChart3 },
-          { id: 'market3d', label: '🎮 Market Quest 3D', icon: Globe },
           { id: 'dashboard', label: '📊 Client Dashboard', icon: BarChart3 },
           { id: 'opps', label: 'Opportunities', icon: Target },
           { id: 'ddq', label: 'DDQ Intake', icon: Upload },
@@ -578,9 +572,6 @@ ${pastDeals.slice(0, 3).map(d => `- ${d.id}: realized ${(d.realized_irr*100).toF
 
         {/* US MARKET — national RE base rates + cross-correlations */}
         {activeTab === 'usmarket' && <USMarket />}
-
-        {/* 3D MARKET — navigable environment built from the repo's real datasets */}
-        {activeTab === 'market3d' && <Market3D />}
 
         {/* DASHBOARD */}
         {activeTab === 'dashboard' && (

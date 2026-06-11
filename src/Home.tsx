@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { Upload, FileSpreadsheet, Download, CheckCircle2, AlertTriangle, Target, BarChart3, Settings, MessageSquare, ArrowRight, Gamepad2 } from 'lucide-react'
+import { Upload, FileSpreadsheet, Download, CheckCircle2, AlertTriangle, Target, BarChart3, Settings, MessageSquare, ArrowRight, ClipboardList } from 'lucide-react'
 import { parseWorkbook, downloadTemplate } from './excel'
 import type { ParseResult } from './excel'
 import DataStatus from './DataStatus'
@@ -46,8 +46,8 @@ const HOW_TO_STEPS = [
     body: 'Analyst Model Studio exposes the feature weights (sponsor, market, structure, macro, qual). Move a slider and every score recomputes live.',
   },
   {
-    tab: 'market3d', icon: Gamepad2, title: 'Bonus: Market Quest 3D',
-    body: 'Fly a scout drone through a 3D city built from real market data — scan metro towers, assemble a portfolio, and run a correlated Monte Carlo on it. Or flip to Analysis Orbit for a serious 3D data view. Desktop recommended — the drone flies with a keyboard (WASD).',
+    tab: 'underwrite', icon: ClipboardList, title: '7. Institutional toolkit',
+    body: 'Underwrite runs a deal through the Tier-1 survival gates (DSCR, exit-cap discipline, debt yield, rate stress) with live SOFR and Treasury rates. Risk Model scores the eight-category Capital-Risk scorecard, and Institutional DDQ grades a full ILPA-aligned questionnaire.',
   },
   {
     tab: 'copilot', icon: MessageSquare, title: 'Anytime: ask the Copilot',
