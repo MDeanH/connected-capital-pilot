@@ -126,7 +126,7 @@ export default function DealScore() {
     { label: 'Probability of loss', val: pct(H.pLoss.median), ci: `90% CI ${pct(H.pLoss.ci[0])} – ${pct(H.pLoss.ci[1])}`, cls: H.pLoss.median > 0.15 ? 'bad' : 'warn',
       tip: <>Share of scenarios ending <b>below breakeven</b> over the hold. This is the number a smoothed index hides — see the volatility build-up below.</> },
     { label: '5% tail loss (VaR)', val: (H.varLoss.median > 0 ? '−' : '') + pct(Math.abs(H.varLoss.median)), ci: `worst-5% avg ${pct(Math.abs(H.cvarLoss.median))}`, cls: H.varLoss.median > 0 ? 'bad' : 'good',
-      tip: <>Value-at-Risk: the loss at the 5th-percentile outcome; "worst-5% avg" (CVaR) is the average across that whole tail. A <b>−</b> value means even the 5%-worst case still gains.</> },
+      tip: <>Value-at-Risk: the loss at the 5th-percentile outcome; "worst-5% avg" (CVaR) is the average across that whole tail. A <b>−</b> value means the 5%-worst outcome is a loss; a positive value means even the 5%-worst case still gains.</> },
     { label: 'Suggested allocation', val: H.position.toFixed(0) + '%', ci: usd(res.deal.book * H.position / 100) + ' of book', cls: '',
       tip: <>Risk-budgeted position size — <b>fractional Kelly</b>, capped at 25%, shrunk for correlation with your existing book. Advisory only; the tool never commits capital.</> },
   ] : []

@@ -101,9 +101,11 @@ const CATEGORIES: Category[] = [
 
 const TF = ['hist', 'ytd', 'fwd'] as const
 const TF_LABEL = { hist: 'Historical', ytd: 'YTD', fwd: 'Forward' } as const
-type Scores = Record<string, { hist: number; ytd: number; fwd: number; notes: string }>
+export type Scores = Record<string, { hist: number; ytd: number; fwd: number; notes: string }>
 
-const STORAGE = 'riskmodel-v2'
+export const RM_STORAGE = 'riskmodel-v2'
+export const RM_WEIGHTS_STORAGE = 'riskmodel-v2-weights'
+const STORAGE = RM_STORAGE
 const emptyScores = (): Scores => Object.fromEntries(CATEGORIES.map(c => [c.id, { hist: 0, ytd: 0, fwd: 0, notes: '' }]))
 
 // Fictional demo scorecard — same invented sponsor as the DDQ sample, so the
@@ -120,8 +122,29 @@ const SAMPLE_SCORES: Scores = {
   competition: { hist: 0, ytd: 1, fwd: 0, notes: `${SAMPLE_MARKER} — differentiated sourcing through local operator JVs.` },
 }
 
+// Composite from the Risk Model v2 weights — the forward-weighted (25/25/50)
+// category means rolled up. Pass the user's edited weights (persisted under
+// RM_WEIGHTS_STORAGE) to match what the Risk Model tab displays; defaults
+// otherwise. Used by the Combined Verdict tab.
+export function rmComposite(scores: Scores, weights?: Record<string, number>): number {
+  const w = (id: string, d: number) => (weights && Number.isFinite(weights[id]) ? weights[id] : d)
+  const wSum = CATEGORIES.reduce((s, c) => s + w(c.id, c.weight), 0) || 1
+  return CATEGORIES.reduce((s, c) => {
+    const sc = scores[c.id]
+    if (!sc) return s
+    return s + (sc.hist * 0.25 + sc.ytd * 0.25 + sc.fwd * 0.5) * w(c.id, c.weight) / wSum
+  }, 0)
+}
+
+export function loadRmWeights(): Record<string, number> | undefined {
+  try {
+    const raw = JSON.parse(localStorage.getItem(RM_WEIGHTS_STORAGE) || 'null')
+    return raw && typeof raw === 'object' ? raw : undefined
+  } catch { return undefined }
+}
+
 // grade bands calibrated to the three DDQ exemplars
-function grade(composite: number) {
+export function grade(composite: number) {
   if (composite >= 1.0) return { band: 'HIGH GRADE', color: '#157f3c', desc: 'Top-tier profile: clean record, conservative leverage, stable team, strong alignment — calibrates to the Evercrest exemplar.' }
   if (composite >= -0.5) return { band: 'MID GRADE', color: '#b8860b', desc: 'Credible but carries real risk: second-quartile record, market-standard alignment, resolved issues — deeper diligence required (Marston Bridge exemplar).' }
   return { band: 'LOW GRADE', color: '#c2384a', desc: 'Distressed profile: in most institutional programs this fails diligence outright (Halcyon Peak exemplar). Multiple items here are individually disqualifying.' }
@@ -131,9 +154,13 @@ export default function RiskModel({ dealName }: { dealName?: string }) {
   const [scores, setScores] = useState<Scores>(() => {
     try { return { ...emptyScores(), ...JSON.parse(localStorage.getItem(STORAGE) || '{}') } } catch { return emptyScores() }
   })
-  const [weights, setWeights] = useState<Record<string, number>>(() => Object.fromEntries(CATEGORIES.map(c => [c.id, c.weight])))
+  const [weights, setWeights] = useState<Record<string, number>>(() => ({
+    ...Object.fromEntries(CATEGORIES.map(c => [c.id, c.weight])),
+    ...(loadRmWeights() || {}),
+  }))
 
   useEffect(() => { try { localStorage.setItem(STORAGE, JSON.stringify(scores)) } catch { /* private mode */ } }, [scores])
+  useEffect(() => { try { localStorage.setItem(RM_WEIGHTS_STORAGE, JSON.stringify(weights)) } catch { /* private mode */ } }, [weights])
 
   const set = (id: string, tf: typeof TF[number], v: number) =>
     setScores(s => ({ ...s, [id]: { ...s[id], [tf]: v } }))

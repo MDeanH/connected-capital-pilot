@@ -13,9 +13,11 @@ const PANE_LOADERS = {
   underwrite: () => import('./Underwrite'),
   riskmodel: () => import('./RiskModel'),
   ddqx: () => import('./DDQ'),
+  combined: () => import('./CombinedVerdict'),
 }
 const EngineExplainer = lazy(PANE_LOADERS.engine)
 const DealScore = lazy(PANE_LOADERS.score)
+const CombinedVerdict = lazy(PANE_LOADERS.combined)
 const USMarket = lazy(PANE_LOADERS.usmarket)
 const Underwrite = lazy(PANE_LOADERS.underwrite)
 const RiskModel = lazy(PANE_LOADERS.riskmodel)
@@ -267,6 +269,10 @@ const TAB_GUIDE: Record<string, { name: string; guide: string }> = {
     name: 'Deal Score',
     guide: 'The engine-backed single-deal scorer. Pick any of 20,216 US markets (metros, counties, cities — natural language like "miami dade county florida" works), set target return, risk-free rate, holding period, idiosyncratic volatility, book size, ticket, and answer the due-diligence questionnaire. The Netlify engine runs a 20,000-path Monte Carlo on that market\'s real Zillow price history plus a market-level rent carry (60% of observed gross yield, expense-adjusted; 4%/yr fallback where rents aren\'t observed), de-smoothed to honest volatility, and returns P(hit target) with confidence intervals, expected return, P(loss), VaR/CVaR, and a fractional-Kelly suggested allocation. A transparent "yield edge" adjustment (max ±0.30%/yr) rewards a market\'s within-state gross-yield percentile — the one signal that predicted forward returns in this platform\'s own backtests. A Crime context card shows FBI violent/property rates per 100k vs the US average. A Market context card shows open-data context for the selected market: Zillow rents & gross yield, inventory/days-to-pending market heat, BEA income & price-to-income, FEMA hazard risk, IRS migration flows, HMDA investor share & denial rates (demand quality), Census building permits (supply pipeline), and FEMA NFIP flood claims (realized losses).',
   },
+  combined: {
+    name: 'Combined Verdict',
+    guide: 'The bridge between the two sides of the platform: Connected Capital\'s own methodology (Underwrite gates, Risk Model v2 composite, Institutional DDQ grade) combined with the market-evidence Monte Carlo into one blended probability. The Tier-1 underwriting gates act as hard filters — any gate failure marks the deal rejected regardless of the modeled probability. The Risk Model composite (−3…+3) and the DDQ grade (1–5, explicitly down-weighted 50% until genuinely distinct mid/low calibration exemplars are provided) map through disclosed linear formulas to a bounded return tilt (±2.5%/yr max combined) and risk multiplier (0.75–1.4×), which the scoring engine applies ON TOP of its own de-smoothed market history for the selected market — the formulas and every intermediate number are shown on the tab. The combination weights are transparent assumptions, not fitted statistics: they await calibration against the client\'s realized track record. Reads the deal from the Underwrite tab (localStorage), the scorecard from the Risk Model tab, and the DDQ from the Institutional DDQ tab — score those first or load their fictional samples.',
+  },
   engine: {
     name: 'How It Works',
     guide: 'A six-step, plain-language walkthrough of the scoring engine, written so anyone — an analyst, a client, or someone learning the method for the first time — can follow the how AND the why of each step: (1) start from the market\'s real quarterly history plus rent carry, (2) Geltner de-smoothing to recover hidden volatility (echo capped at 0.6, roughly doubles measured risk on smoothed series), (3) due-diligence answers become two bounded dials — a return tilt capped at ±10%/yr and a risk multiplier bounded 0.6×–2.5× — that recenter/rescale but never replace the evidence, (4) bootstrap simulation of thousands of hold-period lifetimes drawing real quarters with replacement (no bell-curve assumption, real crash quarters stay in the tail), (5) read P(hit target), median IRR, P(loss) and VaR/CVaR straight off the simulated outcomes, with bootstrap confidence intervals in production, (6) half-Kelly position sizing capped at 25% with a correlation haircut, allowed to say PASS. The page is interactive: the step-3 dials run a live 2,000-path miniature of the production engine in the browser, and the step-4 path fan, step-5 histogram/stats and step-6 sizing bar all recompute as the dials move. Production uses 20,000 paths, seeded RNG for reproducibility, and 16 golden parity tests against the reference implementation.',
@@ -321,7 +327,7 @@ export default function App() {
   const [opportunities, setOpportunities] = useState<Opportunity[]>(INITIAL_OPPORTUNITIES)
   const [pastDeals, setPastDeals] = useState<PastDeal[]>(SAMPLE_PAST_DEALS)
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<'home' | 'score' | 'engine' | 'underwrite' | 'riskmodel' | 'ddqx' | 'usmarket' | 'dashboard' | 'opps' | 'ddq' | 'model' | 'corr'>('home')
+  const [activeTab, setActiveTab] = useState<'home' | 'score' | 'engine' | 'underwrite' | 'riskmodel' | 'ddqx' | 'combined' | 'usmarket' | 'dashboard' | 'opps' | 'ddq' | 'model' | 'corr'>('home')
   // Transition keeps the current pane visible while a lazy tab's chunk loads
   // (no "Loading…" flash); tabPending dims the pane as feedback meanwhile.
   const [tabPending, startTabSwitch] = useTransition()
@@ -543,32 +549,48 @@ ${pastDeals.slice(0, 3).map(d => `- ${d.id}: realized ${(d.realized_irr*100).toF
 
       <div className="tabs">
         {[
-          { id: 'home', label: '🏠 Home / Upload', icon: HomeIcon },
-          { id: 'score', label: '🎯 Deal Score', icon: Target },
-          { id: 'engine', label: '📖 How It Works', icon: BookOpen },
-          { id: 'underwrite', label: '🏦 Underwrite', icon: Target },
-          { id: 'riskmodel', label: '⚖️ Risk Model', icon: Settings },
-          { id: 'ddqx', label: '📋 Institutional DDQ', icon: ClipboardList },
-          { id: 'usmarket', label: '🇺🇸 US Market', icon: BarChart3 },
-          { id: 'dashboard', label: '📊 Client Dashboard', icon: BarChart3 },
-          { id: 'opps', label: 'Opportunities', icon: Target },
-          { id: 'ddq', label: 'DDQ Intake', icon: Upload },
-          { id: 'model', label: 'Analyst Model Studio', icon: Settings },
-          { id: 'corr', label: 'Correlations', icon: BarChart3 },
-        ].map(t => {
-          const Icon = t.icon;
-          return (
-            <button
-              key={t.id}
-              className={`tab ${activeTab === t.id ? 'active' : ''}`}
-              style={tabPending ? { opacity: 0.7 } : undefined}
-              onClick={() => startTabSwitch(() => setActiveTab(t.id as any))}
-            >
-              <Icon size={16} style={{ marginRight: 4, verticalAlign: 'middle' }} />
-              {t.label}
-            </button>
-          );
-        })}
+          { label: null, items: [
+            { id: 'home', label: '🏠 Home / Upload', icon: HomeIcon },
+          ]},
+          { label: 'YOUR METHODOLOGY', items: [
+            { id: 'underwrite', label: '🏦 Underwrite', icon: Target },
+            { id: 'riskmodel', label: '⚖️ Risk Model', icon: Settings },
+            { id: 'ddqx', label: '📋 Institutional DDQ', icon: ClipboardList },
+          ]},
+          { label: 'MARKET EVIDENCE', items: [
+            { id: 'score', label: '🎯 Deal Score', icon: Target },
+            { id: 'usmarket', label: '🇺🇸 US Market', icon: BarChart3 },
+            { id: 'corr', label: 'Correlations', icon: BarChart3 },
+            { id: 'engine', label: '📖 How It Works', icon: BookOpen },
+          ]},
+          { label: 'TOGETHER', items: [
+            { id: 'combined', label: '⚡ Combined Verdict', icon: Target },
+          ]},
+          { label: 'PIPELINE', items: [
+            { id: 'dashboard', label: '📊 Client Dashboard', icon: BarChart3 },
+            { id: 'opps', label: 'Opportunities', icon: Target },
+            { id: 'ddq', label: 'DDQ Intake', icon: Upload },
+            { id: 'model', label: 'Analyst Model Studio', icon: Settings },
+          ]},
+        ].map((grp, gi) => (
+          <div className="tabgroup" key={gi}>
+            {grp.label && <span className="tabgroup-label">{grp.label}</span>}
+            {grp.items.map(t => {
+              const Icon = t.icon;
+              return (
+                <button
+                  key={t.id}
+                  className={`tab ${activeTab === t.id ? 'active' : ''}`}
+                  style={tabPending ? { opacity: 0.7 } : undefined}
+                  onClick={() => startTabSwitch(() => setActiveTab(t.id as any))}
+                >
+                  <Icon size={16} style={{ marginRight: 4, verticalAlign: 'middle' }} />
+                  {t.label}
+                </button>
+              );
+            })}
+          </div>
+        ))}
       </div>
 
       <div className="main" style={tabPending ? { opacity: 0.6, transition: 'opacity 0.15s' } : undefined}>
@@ -590,6 +612,9 @@ ${pastDeals.slice(0, 3).map(d => `- ${d.id}: realized ${(d.realized_irr*100).toF
 
         {/* HOW IT WORKS — live step-by-step walkthrough of the engine */}
         {activeTab === 'engine' && <EngineExplainer />}
+
+        {/* COMBINED VERDICT — client methodology × market evidence */}
+        {activeTab === 'combined' && <CombinedVerdict />}
 
         {/* PILOT: deal-gates underwriter (liabilities first) */}
         {activeTab === 'underwrite' && (

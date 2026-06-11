@@ -3,7 +3,7 @@ import { Info } from './Info'
 import Provenance from './Provenance'
 import {
   DDQ_SECTIONS, RISK_CATEGORIES, RUBRICS, GRADED_QUESTIONS, ALL_QUESTIONS,
-  autoScore, hardFailOf, isAnswered, computeGrading,
+  autoScore, hardFailOf, isAnswered, computeGrading, DDQ_STORAGE,
   type AnswerValue, type CategoryId, type DDQQuestion,
 } from './ddq-schema'
 import { SAMPLE_ANSWERS, SAMPLE_SUBJECTIVE } from './ddq-sample'
@@ -16,7 +16,7 @@ import { SAMPLE_ANSWERS, SAMPLE_SUBJECTIVE } from './ddq-sample'
 // from the Risk Model v2 workbook. Everything stays in this browser —
 // autosaved to localStorage, exportable as JSON. Nothing uploads anywhere.
 
-const STORAGE = 'ddqx-intake-v1'
+const STORAGE = DDQ_STORAGE
 
 interface Persisted {
   answers: Record<string, AnswerValue>

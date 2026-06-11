@@ -60,6 +60,38 @@ h1 {
   background: var(--surface);
 }
 
+/* Two-sided structure: tabs cluster into labeled groups (client methodology
+   vs market evidence vs the combined layer). */
+.tabgroup {
+  display: flex;
+  align-items: stretch;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  position: relative;
+  padding-top: 14px;
+}
+.tabgroup + .tabgroup {
+  margin-left: 0.6rem;
+  padding-left: 0.85rem;
+  border-left: 1px solid var(--border);
+}
+.tabgroup-label {
+  position: absolute;
+  top: 2px;
+  left: 0.1rem;
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  color: var(--muted);
+  white-space: nowrap;
+  pointer-events: none;
+}
+.tabgroup + .tabgroup .tabgroup-label { left: 0.95rem; }
+@media (max-width: 900px) {
+  .tabgroup { padding-top: 12px; }
+  .tabgroup + .tabgroup { margin-left: 0.3rem; padding-left: 0.55rem; }
+}
+
 .tab {
   padding: 0.75rem 1rem;
   background: none;

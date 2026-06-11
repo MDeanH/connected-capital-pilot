@@ -23,6 +23,10 @@
 // testable without React. Nothing uploads anywhere.
 // ============================================================================
 
+// localStorage key for the DDQ tab's persisted intake — lives here (pure
+// module) so other tabs can read the saved DDQ without importing the tab UI.
+export const DDQ_STORAGE = 'ddqx-intake-v1'
+
 export type AnswerType = 'text' | 'longtext' | 'number' | 'percent' | 'select' | 'boolean' | 'table'
 
 export type AnswerValue = string | number | boolean | string[][] | null

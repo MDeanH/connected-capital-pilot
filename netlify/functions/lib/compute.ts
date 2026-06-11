@@ -35,7 +35,20 @@ export function computeScore(body: any) {
   const answers: Record<string, string> = { ...DEFAULT_ANSWERS, ...(body.answers || {}) };
   const seed = Math.round(num(body.seed, 7));
 
-  const ddq = applyDdq(answers);
+  // Optional external tilt from the client-methodology layer (Combined Verdict):
+  // Risk Model composite + DDQ grade map to bounded mu/sigma adjustments client-side
+  // and arrive here as explicit, auditable parameters. Defaults are a no-op, and the
+  // caps sit well inside the DDQ layer's own bounds (±10%/yr, 0.6–2.5×).
+  const extBiasMu = clamp(num(body.extBiasMu, 0), -0.03, 0.03);
+  const extSigmaMult = clamp(num(body.extSigmaMult, 1), 0.7, 1.6);
+
+  // neutralDdq=true switches the engine's own questionnaire layer off entirely
+  // (true zeros, NOT DEFAULT_ANSWERS — those describe a typical value-add deal,
+  // ~+5%/yr mu and ~1.38x sigma, which is anything but neutral). Used by the
+  // Combined Verdict tab so the client-methodology tilt is the only judgment layer.
+  const ddq = body.neutralDdq === true
+    ? { biasMu: 0, sigmaMult: 1, bookCorr: 0, drivers: [] as ReturnType<typeof applyDdq>['drivers'] }
+    : applyDdq(answers);
   const returns = bl.returns, ppy = bl.ppy;
 
   const fitRaw = fitDistribution(returns, ppy);
@@ -50,9 +63,9 @@ export function computeScore(body: any) {
   const edgeInfo = (marketEdge as Record<string, { gy: number; pct: number; nState: number }>)[bl.label];
   const yieldEdgeMu = edgeInfo ? round(((edgeInfo.pct - 50) / 50) * 0.003, 5) : 0;
 
-  const common = { returns, ppy, target, rf, holding, bookCorr: ddq.bookCorr, biasMu: ddq.biasMu + yieldEdgeMu, seed };
-  const honest = scoreOpportunity({ ...common, desmooth: true, sigmaMult: ddq.sigmaMult * extraMult });
-  const naive = scoreOpportunity({ ...common, desmooth: false, sigmaMult: ddq.sigmaMult });
+  const common = { returns, ppy, target, rf, holding, bookCorr: ddq.bookCorr, biasMu: ddq.biasMu + yieldEdgeMu + extBiasMu, seed };
+  const honest = scoreOpportunity({ ...common, desmooth: true, sigmaMult: ddq.sigmaMult * extraMult * extSigmaMult });
+  const naive = scoreOpportunity({ ...common, desmooth: false, sigmaMult: ddq.sigmaMult * extSigmaMult });
 
   return {
     deal: { name: body.name || 'New value-add opportunity', strategy: 'RE value-add', ticket, book, holding, target, rf },
@@ -63,6 +76,7 @@ export function computeScore(body: any) {
       lag1: round(fitRaw.lag1, 3), smoothing: fitRaw.smoothing,
     },
     ddq: { biasMu: ddq.biasMu, sigmaMult: round(ddq.sigmaMult, 3), bookCorr: ddq.bookCorr, drivers: ddq.drivers.slice(0, 6) },
+    external: extBiasMu !== 0 || extSigmaMult !== 1 ? { biasMu: extBiasMu, sigmaMult: round(extSigmaMult, 3) } : null,
     marketEdge: edgeInfo
       ? { grossYield: edgeInfo.gy, statePct: edgeInfo.pct, nState: edgeInfo.nState, muBias: yieldEdgeMu }
       : null,
