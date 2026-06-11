@@ -50,6 +50,7 @@ SPEC = [
     ("ACTLISCOUUS", "Active Listings", "Activity", "level", "fred"),
     ("MORTGAGE30US", "30-Yr Fixed Mortgage Rate", "Financing", "rate", "fred"),
     ("FEDFUNDS", "Fed Funds Rate", "Macro/rates", "rate", "fred"),
+    ("SOFR", "SOFR (Secured Overnight Rate)", "Financing", "rate", "fred"),
     ("DGS10", "10-Yr Treasury Yield", "Macro/rates", "rate", "fred"),
     ("UNRATE", "Unemployment Rate", "Macro/rates", "rate", "fred"),
     ("CPIAUCSL", "CPI (All Items)", "Macro/rates", "price", "fred"),

@@ -18,7 +18,7 @@ const SHORT: Record<string, string> = {
   CSUSHPINSA: "CS Nat'l", CSUSHPISA: "CS Nat'l SA", SPCS20RSA: 'CS 20-City', SPCS10RSA: 'CS 10-City',
   USSTHPI: 'FHFA', HPIPONM226S: 'FHFA (PO)', MSPUS: 'Median $', ZHVI_US: 'Zillow HVI',
   CUSR0000SEHA: 'CPI Rent', CUSR0000SEHC: 'CPI OER', ZORI_US: 'Zillow Rent', COMREPUSQ159N: 'CRE Price',
-  HOUST: 'Starts', HSN1F: 'New Sales', ACTLISCOUUS: 'Listings', MORTGAGE30US: 'Mtg 30Y',
+  HOUST: 'Starts', HSN1F: 'New Sales', ACTLISCOUUS: 'Listings', MORTGAGE30US: 'Mtg 30Y', SOFR: 'SOFR',
   FEDFUNDS: 'Fed Funds', DGS10: '10Y UST', UNRATE: 'Unemploy.', CPIAUCSL: 'CPI', GDPC1: 'Real GDP',
   PAYEMS: 'Payrolls', NASDAQCOM: 'Nasdaq',
 }
