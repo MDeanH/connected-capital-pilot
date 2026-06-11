@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef, lazy, Suspense, useTransition } from 'react'
-import { Settings, BarChart3, MessageSquare, Upload, Target, Home as HomeIcon, Send, ClipboardList } from 'lucide-react'
+import { Settings, BarChart3, MessageSquare, Upload, Target, Home as HomeIcon, Send, ClipboardList, BookOpen } from 'lucide-react'
 import Plot from './LazyPlot'
 import Home from './Home'
 import ErrorBoundary from './ErrorBoundary'
@@ -8,11 +8,13 @@ import ErrorBoundary from './ErrorBoundary'
 // and Home, and a tab's code downloads the first time it's opened.
 const PANE_LOADERS = {
   score: () => import('./DealScore'),
+  engine: () => import('./EngineExplainer'),
   usmarket: () => import('./USMarket'),
   underwrite: () => import('./Underwrite'),
   riskmodel: () => import('./RiskModel'),
   ddqx: () => import('./DDQ'),
 }
+const EngineExplainer = lazy(PANE_LOADERS.engine)
 const DealScore = lazy(PANE_LOADERS.score)
 const USMarket = lazy(PANE_LOADERS.usmarket)
 const Underwrite = lazy(PANE_LOADERS.underwrite)
@@ -265,6 +267,10 @@ const TAB_GUIDE: Record<string, { name: string; guide: string }> = {
     name: 'Deal Score',
     guide: 'The engine-backed single-deal scorer. Pick any of 20,216 US markets (metros, counties, cities — natural language like "miami dade county florida" works), set target return, risk-free rate, holding period, idiosyncratic volatility, book size, ticket, and answer the due-diligence questionnaire. The Netlify engine runs a 20,000-path Monte Carlo on that market\'s real Zillow price history plus a market-level rent carry (60% of observed gross yield, expense-adjusted; 4%/yr fallback where rents aren\'t observed), de-smoothed to honest volatility, and returns P(hit target) with confidence intervals, expected return, P(loss), VaR/CVaR, and a fractional-Kelly suggested allocation. A transparent "yield edge" adjustment (max ±0.30%/yr) rewards a market\'s within-state gross-yield percentile — the one signal that predicted forward returns in this platform\'s own backtests. A Crime context card shows FBI violent/property rates per 100k vs the US average. A Market context card shows open-data context for the selected market: Zillow rents & gross yield, inventory/days-to-pending market heat, BEA income & price-to-income, FEMA hazard risk, IRS migration flows, HMDA investor share & denial rates (demand quality), Census building permits (supply pipeline), and FEMA NFIP flood claims (realized losses).',
   },
+  engine: {
+    name: 'How It Works',
+    guide: 'A six-step, plain-language walkthrough of the scoring engine, written so anyone — an analyst, a client, or someone learning the method for the first time — can follow the how AND the why of each step: (1) start from the market\'s real quarterly history plus rent carry, (2) Geltner de-smoothing to recover hidden volatility (echo capped at 0.6, roughly doubles measured risk on smoothed series), (3) due-diligence answers become two bounded dials — a return tilt capped at ±10%/yr and a risk multiplier bounded 0.6×–2.5× — that recenter/rescale but never replace the evidence, (4) bootstrap simulation of thousands of hold-period lifetimes drawing real quarters with replacement (no bell-curve assumption, real crash quarters stay in the tail), (5) read P(hit target), median IRR, P(loss) and VaR/CVaR straight off the simulated outcomes, with bootstrap confidence intervals in production, (6) half-Kelly position sizing capped at 25% with a correlation haircut, allowed to say PASS. The page is interactive: the step-3 dials run a live 2,000-path miniature of the production engine in the browser, and the step-4 path fan, step-5 histogram/stats and step-6 sizing bar all recompute as the dials move. Production uses 20,000 paths, seeded RNG for reproducibility, and 16 golden parity tests against the reference implementation.',
+  },
   underwrite: {
     name: 'Underwrite',
     guide: 'Deal-gates underwriter, liabilities first. Tier 1 survival gates: DSCR (<1.20 fail, <1.25 flag), exit-cap discipline (exit cap must be ≥ going-in cap — deals priced on cap compression are rejected), leverage LTC, breakeven occupancy cushion, loan-maturity-vs-hold refi dependence, debt yield (NOI÷loan, lenders want ≥10%), and a +200bps rate stress for floating debt. Tier 2 return quality: going-in unlevered yield (Y1 NOI ÷ total cost, the margin-of-safety number), cash-on-cash, levered IRR and equity multiple from the stated exit cap. Live SOFR / Fed Funds / 10Y Treasury / Mortgage-30Y overlay from the platform\'s FRED refresh — cap-rate spread to Treasuries computed live. No single metric decides; a Tier-1 failure means the deal can die before the upside matters.',
@@ -315,7 +321,7 @@ export default function App() {
   const [opportunities, setOpportunities] = useState<Opportunity[]>(INITIAL_OPPORTUNITIES)
   const [pastDeals, setPastDeals] = useState<PastDeal[]>(SAMPLE_PAST_DEALS)
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<'home' | 'score' | 'underwrite' | 'riskmodel' | 'ddqx' | 'usmarket' | 'dashboard' | 'opps' | 'ddq' | 'model' | 'corr'>('home')
+  const [activeTab, setActiveTab] = useState<'home' | 'score' | 'engine' | 'underwrite' | 'riskmodel' | 'ddqx' | 'usmarket' | 'dashboard' | 'opps' | 'ddq' | 'model' | 'corr'>('home')
   // Transition keeps the current pane visible while a lazy tab's chunk loads
   // (no "Loading…" flash); tabPending dims the pane as feedback meanwhile.
   const [tabPending, startTabSwitch] = useTransition()
@@ -539,6 +545,7 @@ ${pastDeals.slice(0, 3).map(d => `- ${d.id}: realized ${(d.realized_irr*100).toF
         {[
           { id: 'home', label: '🏠 Home / Upload', icon: HomeIcon },
           { id: 'score', label: '🎯 Deal Score', icon: Target },
+          { id: 'engine', label: '📖 How It Works', icon: BookOpen },
           { id: 'underwrite', label: '🏦 Underwrite', icon: Target },
           { id: 'riskmodel', label: '⚖️ Risk Model', icon: Settings },
           { id: 'ddqx', label: '📋 Institutional DDQ', icon: ClipboardList },
@@ -580,6 +587,9 @@ ${pastDeals.slice(0, 3).map(d => `- ${d.id}: realized ${(d.realized_irr*100).toF
 
         {/* DEAL SCORE — engine-backed (Netlify /api/score) */}
         {activeTab === 'score' && <DealScore />}
+
+        {/* HOW IT WORKS — live step-by-step walkthrough of the engine */}
+        {activeTab === 'engine' && <EngineExplainer />}
 
         {/* PILOT: deal-gates underwriter (liabilities first) */}
         {activeTab === 'underwrite' && (
