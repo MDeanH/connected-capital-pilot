@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Info } from './Info'
+import Provenance from './Provenance'
 import {
-  DDQ_SECTIONS, RISK_CATEGORIES, RUBRICS, GRADED_QUESTIONS,
+  DDQ_SECTIONS, RISK_CATEGORIES, RUBRICS, GRADED_QUESTIONS, ALL_QUESTIONS,
   autoScore, hardFailOf, isAnswered, computeGrading,
   type AnswerValue, type CategoryId, type DDQQuestion,
 } from './ddq-schema'
+import { SAMPLE_ANSWERS, SAMPLE_SUBJECTIVE } from './ddq-sample'
 
 // Institutional DDQ — ILPA DDQ 2.0-aligned digital intake with grading.
 // Sections A (Firm) and B (Fund Terms) in full + RE Development and RE
@@ -126,6 +128,16 @@ export default function DDQ() {
     }
   }
 
+  // The pre-loadable demo profile is detected by its clearly-fictional firm name.
+  const sampleLoaded = typeof state.answers['a1_name'] === 'string'
+    && (state.answers['a1_name'] as string).includes('(Fictional Sample)')
+
+  const loadSample = () => {
+    const hasContent = ALL_QUESTIONS.some(q => isAnswered(q, state.answers[q.id]))
+    if (hasContent && !sampleLoaded && !confirm('Replace the current DDQ contents with the fictional sample profile?')) return
+    setState({ answers: { ...SAMPLE_ANSWERS }, subjective: { ...SAMPLE_SUBJECTIVE }, weights: defaultWeights() })
+  }
+
   const section = DDQ_SECTIONS.find(s => s.id === activeSection) || DDQ_SECTIONS[0]
   const compositeStr = grading.composite !== null ? grading.composite.toFixed(2) : '—'
   const wTotal = RISK_CATEGORIES.reduce((s, c) => s + (state.weights[c.id] ?? c.weight), 0)
@@ -133,6 +145,13 @@ export default function DDQ() {
   return (
     <div className="ddq-root">
       <style>{CSS}</style>
+
+      {sampleLoaded && (
+        <Provenance kind="sample">
+          Every answer below is fictional — a demonstration profile so the grading is visible.
+          Load your real DDQ or clear the form anytime.
+        </Provenance>
+      )}
 
       {/* ===== Verdict / grading summary ===== */}
       <div className="ddq-verdict" style={{ borderColor: grading.band ? BAND_COLOR[grading.band] : 'var(--border)' }}>
@@ -172,6 +191,7 @@ export default function DDQ() {
         <div className="ddq-actions">
           <button onClick={exportJson}>Export JSON</button>
           <button className="secondary" onClick={() => fileRef.current?.click()}>Import JSON</button>
+          <button className="secondary" onClick={loadSample}>Load fictional sample</button>
           <input ref={fileRef} type="file" accept="application/json,.json" style={{ display: 'none' }}
             onChange={e => { const f = e.target.files?.[0]; if (f) importJson(f); e.target.value = '' }} />
           <button className="secondary" onClick={() => setShowGrading(v => !v)}>{showGrading ? 'Hide' : 'Show'} grading panel</button>

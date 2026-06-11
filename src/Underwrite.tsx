@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Info } from './Info'
+import Provenance from './Provenance'
 import US from './us-market.json'
 
 // Deal underwriting gates — "liabilities first, then asset returns".
@@ -61,7 +62,7 @@ export default function Underwrite() {
   const [io, setIo] = useState(true)
   const [termY, setTermY] = useState('5')
   const [holdY, setHoldY] = useState('5')
-  const [exitCap, setExitCap] = useState('6.0')
+  const [exitCap, setExitCap] = useState('7.5')
   const [noiG, setNoiG] = useState('2.5')
 
   const sofr = liveRate('SOFR'), ff = liveRate('FEDFUNDS'), t10 = liveRate('DGS10'), mtg = liveRate('MORTGAGE30US')
@@ -173,6 +174,12 @@ export default function Underwrite() {
   return (
     <div className="uw-root">
       <style>{CSS}</style>
+      <Provenance kind="sample">
+        Pre-filled with a <b>fictional deal</b> — &ldquo;Palmetto Court Apartments&rdquo;, a $5M Sun Belt value-add
+        (Beacon Harbor Real Estate Partners, the same fictional sponsor as the DDQ sample) — so the gates have
+        something to evaluate. Every number is yours to change; try dropping the exit cap below the going-in cap
+        to watch the discipline gate reject the deal.
+      </Provenance>
       <div className="uw-rates">
         <span className="uw-rlabel">Live rate overlay <Info width={250}>Pulled from the platform's FRED refresh — the macro context every deal is gated against, not a static input. As-of dates shown per series.</Info></span>
         {sofr && <span className="uw-chip">SOFR <b>{(sofr.v * 100).toFixed(2)}%</b></span>}

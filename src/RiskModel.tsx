@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Info } from './Info'
+import Provenance from './Provenance'
 
 // Risk Model v2 — the pilot's 9-category sponsor/deal risk scorecard.
 // Each category is scored −3…+3 across three timeframes (Historical, YTD,
@@ -105,6 +106,20 @@ type Scores = Record<string, { hist: number; ytd: number; fwd: number; notes: st
 const STORAGE = 'riskmodel-v2'
 const emptyScores = (): Scores => Object.fromEntries(CATEGORIES.map(c => [c.id, { hist: 0, ytd: 0, fwd: 0, notes: '' }]))
 
+// Fictional demo scorecard — same invented sponsor as the DDQ sample, so the
+// story is consistent across tabs. Lands a MID composite (~+0.48).
+const SAMPLE_MARKER = 'SAMPLE (fictional)'
+const SAMPLE_SCORES: Scores = {
+  operational: { hist: 1, ytd: 1, fwd: 1, notes: `${SAMPLE_MARKER} — Beacon Harbor Real Estate Partners: 12-person ops team, documented SOPs, third-party fund admin; two key-person dependencies.` },
+  credit: { hist: 1, ytd: 1, fwd: 0, notes: `${SAMPLE_MARKER} — modest corporate leverage; one covenant waiver in 2020 (Houston asset), resolved without loss.` },
+  funding: { hist: 0, ytd: 1, fwd: 1, notes: `${SAMPLE_MARKER} — consistent buy box: Sun Belt value-add multifamily, $20–60M total cost.` },
+  cashflow: { hist: 1, ytd: 0, fwd: 0, notes: `${SAMPLE_MARKER} — distributions on schedule since inception; one quarter delayed in 2020.` },
+  liquidity: { hist: 0, ytd: 0, fwd: -1, notes: `${SAMPLE_MARKER} — quarterly redemptions with 90-day notice; untested at scale.` },
+  regulatory: { hist: 1, ytd: 1, fwd: 1, notes: `${SAMPLE_MARKER} — clean SEC exam history, no enforcement actions.` },
+  market: { hist: 0, ytd: 0, fwd: -1, notes: `${SAMPLE_MARKER} — concentrated in FL/TX; exit assumptions sensitive to rates.` },
+  competition: { hist: 0, ytd: 1, fwd: 0, notes: `${SAMPLE_MARKER} — differentiated sourcing through local operator JVs.` },
+}
+
 // grade bands calibrated to the three DDQ exemplars
 function grade(composite: number) {
   if (composite >= 1.0) return { band: 'HIGH GRADE', color: '#157f3c', desc: 'Top-tier profile: clean record, conservative leverage, stable team, strong alignment — calibrates to the Evercrest exemplar.' }
@@ -148,9 +163,19 @@ export default function RiskModel({ dealName }: { dealName?: string }) {
     a.click()
   }
 
+  const sampleLoaded = Object.values(scores).some(s => s.notes.startsWith(SAMPLE_MARKER))
+
   return (
     <div className="rm-root">
       <style>{CSS}</style>
+
+      {sampleLoaded && (
+        <Provenance kind="sample">
+          These scores describe a <b>fictional manager</b> — Beacon Harbor Real Estate Partners, the same invented
+          sponsor as the DDQ sample — loaded so the composite and grade bands are visible. Score a real sponsor by
+          editing any cell, or hit Reset to start clean.
+        </Provenance>
+      )}
 
       <div className="rm-verdict" style={{ borderColor: R.grade.color }}>
         <div>
@@ -163,6 +188,7 @@ export default function RiskModel({ dealName }: { dealName?: string }) {
         )}
         <div className="rm-actions">
           <button onClick={exportJson}>Export JSON</button>
+          <button className="secondary" onClick={() => setScores(SAMPLE_SCORES)}>Load fictional sample</button>
           <button className="secondary" onClick={() => setScores(emptyScores())}>Reset</button>
         </div>
       </div>
