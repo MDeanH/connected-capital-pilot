@@ -5,6 +5,11 @@
 import type { Context, Config } from "@netlify/edge-functions";
 
 export default async (request: Request, context: Context) => {
+  // The landing page is shareable without credentials (per client request);
+  // the app, APIs and everything else stay behind the gate.
+  const { pathname } = new URL(request.url);
+  if (pathname === "/" || pathname === "/how-it-works.html") return context.next();
+
   const password = Netlify.env.get("PILOT_PASSWORD") || "";
   if (!password) {
     return new Response("Gate misconfigured: PILOT_PASSWORD not set", { status: 503 });
