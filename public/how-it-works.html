@@ -321,20 +321,20 @@ footer .wrap{display:flex;flex-direction:column;align-items:center;gap:14px;text
               </g>
 
               <!-- BROWSER GROUP -->
-              <g class="node" tabindex="0" role="img" aria-label="Your browser: the React app. A copilot bar on every tab, plus Home/Upload, Deal Score, Underwrite, Risk Model, Institutional DDQ, US Market, Client Dashboard, Opportunities, DDQ Intake, Model Studio and Correlations." data-name="Your browser — React app" data-tip="The React app (Vite). The copilot bar sits on every tab; static overlays load from the CDN; scores come from the serverless engine; your uploaded spreadsheet is parsed locally and never leaves this box.">
+              <g class="node" tabindex="0" role="img" aria-label="Your browser: the React app. A copilot bar on every tab, plus Home/Upload; the methodology tools Underwrite, Risk Model and Institutional DDQ; the market-evidence tools Deal Score, US Market, Correlations and How It Works; the Combined Verdict joining both sides; and the pipeline tools Client Dashboard, Opportunities, DDQ Intake and Model Studio." data-name="Your browser — React app" data-tip="The React app (Vite). The copilot bar sits on every tab; static overlays load from the CDN; scores come from the serverless engine; your uploaded spreadsheet is parsed locally and never leaves this box.">
                 <rect x="880" y="60" width="220" height="450" rx="16" fill="#fbfcfe" stroke="#e2e7f0"/>
                 <text class="nsub" x="896" y="84" style="letter-spacing:.1em">REACT APP</text>
                 <rect x="894" y="98" width="192" height="32" rx="9" fill="#eef2ff" stroke="#dbe2fb"/>
                 <text class="chiptxt" x="906" y="118" style="fill:#3b5bdb;font-weight:600">Copilot (Grok) — every tab</text>
                 <rect x="894" y="144" width="192" height="26" rx="8" fill="#fff" stroke="#e2e7f0"/><text class="chiptxt" x="906" y="161">Home / Upload</text>
-                <rect x="894" y="180" width="192" height="26" rx="8" fill="#fff" stroke="#e2e7f0"/><text class="chiptxt" x="906" y="197">Deal Score</text>
-                <rect x="894" y="216" width="192" height="26" rx="8" fill="#fff" stroke="#e2e7f0"/><text class="chiptxt" x="906" y="233">US Market</text>
-                <rect x="894" y="252" width="192" height="26" rx="8" fill="#fff" stroke="#e2e7f0"/><text class="chiptxt" x="906" y="269">Underwrite · Risk Model · DDQ</text>
-                <rect x="894" y="288" width="192" height="26" rx="8" fill="#fff" stroke="#e2e7f0"/><text class="chiptxt" x="906" y="305">Client Dashboard</text>
-                <rect x="894" y="324" width="192" height="26" rx="8" fill="#fff" stroke="#e2e7f0"/><text class="chiptxt" x="906" y="341">Opportunities</text>
-                <rect x="894" y="360" width="192" height="26" rx="8" fill="#fff" stroke="#e2e7f0"/><text class="chiptxt" x="906" y="377">DDQ Intake</text>
-                <rect x="894" y="396" width="192" height="26" rx="8" fill="#fff" stroke="#e2e7f0"/><text class="chiptxt" x="906" y="413">Model Studio</text>
-                <rect x="894" y="432" width="192" height="26" rx="8" fill="#fff" stroke="#e2e7f0"/><text class="chiptxt" x="906" y="449">Correlations</text>
+                <rect x="894" y="180" width="192" height="26" rx="8" fill="#fff" stroke="#e2e7f0"/><text class="chiptxt" x="906" y="197">Underwrite · Risk Model · DDQ</text>
+                <rect x="894" y="216" width="192" height="26" rx="8" fill="#fff" stroke="#e2e7f0"/><text class="chiptxt" x="906" y="233">⚡ Combined Verdict</text>
+                <rect x="894" y="252" width="192" height="26" rx="8" fill="#fff" stroke="#e2e7f0"/><text class="chiptxt" x="906" y="269">Deal Score · US Market</text>
+                <rect x="894" y="288" width="192" height="26" rx="8" fill="#fff" stroke="#e2e7f0"/><text class="chiptxt" x="906" y="305">Correlations · How It Works</text>
+                <rect x="894" y="324" width="192" height="26" rx="8" fill="#fff" stroke="#e2e7f0"/><text class="chiptxt" x="906" y="341">Client Dashboard</text>
+                <rect x="894" y="360" width="192" height="26" rx="8" fill="#fff" stroke="#e2e7f0"/><text class="chiptxt" x="906" y="377">Opportunities</text>
+                <rect x="894" y="396" width="192" height="26" rx="8" fill="#fff" stroke="#e2e7f0"/><text class="chiptxt" x="906" y="413">DDQ Intake</text>
+                <rect x="894" y="432" width="192" height="26" rx="8" fill="#fff" stroke="#e2e7f0"/><text class="chiptxt" x="906" y="449">Model Studio</text>
               </g>
 
               <!-- EXCEL NODE -->
@@ -426,8 +426,10 @@ footer .wrap{display:flex;flex-direction:column;align-items:center;gap:14px;text
             <p>Upload your deal spreadsheet on Home: it&#8217;s <strong>parsed in your browser and never uploaded</strong>, and
             your realized IRRs de-smooth the dashboard model. Ask the <strong>Grok-powered copilot</strong> anything — it sees
             the live scores and the tab you&#8217;re on. Then explore further: US Market base rates, Crime&#215;Market
-            correlations across 10,801 markets, or the institutional toolkit — <strong>Underwrite</strong> deal gates,
-            the <strong>Risk Model v2</strong> scorecard and the ILPA-aligned <strong>DDQ</strong>.</p>
+            correlations across 10,801 markets, the methodology toolkit — <strong>Underwrite</strong> deal gates,
+            the <strong>Risk Model v2</strong> scorecard and the ILPA-aligned <strong>DDQ</strong> — or the
+            <strong>&#9889; Combined Verdict</strong>, which scores a deal with your methodology and the market
+            evidence at once.</p>
           </div>
         </div>
       </div>
@@ -440,8 +442,9 @@ footer .wrap{display:flex;flex-direction:column;align-items:center;gap:14px;text
     <div class="wrap">
       <div class="sect-head center reveal" style="margin-left:auto;margin-right:auto;text-align:center">
         <h2 id="pilot-h">The pilot adds the institutional layer</h2>
-        <p>This gated build extends the public platform with three tools built from the Connected Capital
-        brief, the Risk Model v2 workbook, and three graded sample DDQs.</p>
+        <p>This gated build is organized in two sides &mdash; <strong>your methodology</strong> (three tools built from
+        the Connected Capital brief, the Risk Model v2 workbook, and the graded sample DDQs) and the platform&#8217;s
+        <strong>market evidence</strong> &mdash; joined by a Combined Verdict that scores a deal with both at once.</p>
       </div>
       <div class="steps" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px">
         <div class="step reveal" style="grid-template-columns:1fr;display:block">
@@ -466,10 +469,18 @@ footer .wrap{display:flex;flex-direction:column;align-items:center;gap:14px;text
           graded exemplars, analyst rubrics per category, and hard-fail overrides (active enforcement, suspended
           distributions, undisclosed litigation) that cap the grade at LOW. Everything stays in the browser.</p>
         </div>
+        <div class="step reveal d3" style="grid-template-columns:1fr;display:block">
+          <h3 style="margin:0 0 6px;font-size:17px">&#9889; Combined Verdict &mdash; both sides at once</h3>
+          <p style="margin:0;color:var(--muted);font-size:14px">The bridge: your Tier-1 gates act as hard filters
+          (a failing deal is rejected before any probability matters), then your Risk Model composite and DDQ grade
+          map through <strong>disclosed, hard-capped formulas</strong> to a small tilt the Monte Carlo applies on top
+          of the market&#8217;s real de-smoothed history &mdash; one blended probability, every ingredient itemized.
+          The combination weights are transparent assumptions, awaiting calibration against realized outcomes.</p>
+        </div>
       </div>
       <p class="reveal" style="text-align:center;margin-top:18px;font-size:13px;color:var(--muted)">
-        Deal &middot; asset &middot; market &middot; manager &mdash; the public platform covers the asset and market;
-        the pilot tools cover the deal and the manager.</p>
+        Deal &middot; asset &middot; market &middot; manager &mdash; the public platform covers the asset and market,
+        the methodology tools cover the deal and the manager, and the Combined Verdict scores all four together.</p>
     </div>
   </section>
 

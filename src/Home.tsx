@@ -46,8 +46,12 @@ const HOW_TO_STEPS = [
     body: 'Analyst Model Studio exposes the feature weights (sponsor, market, structure, macro, qual). Move a slider and every score recomputes live.',
   },
   {
-    tab: 'underwrite', icon: ClipboardList, title: '7. Institutional toolkit',
+    tab: 'underwrite', icon: ClipboardList, title: '7. Your methodology',
     body: 'Underwrite runs a deal through the Tier-1 survival gates (DSCR, exit-cap discipline, debt yield, rate stress) with live SOFR and Treasury rates. Risk Model scores the eight-category Capital-Risk scorecard, and Institutional DDQ grades a full ILPA-aligned questionnaire.',
+  },
+  {
+    tab: 'combined', icon: Target, title: '8. Combined Verdict',
+    body: 'The bridge: your gates filter the deal, your Risk Model and DDQ scores tilt the Monte Carlo through disclosed, hard-capped formulas, and the market evidence does the rest — one blended probability with every ingredient itemized.',
   },
   {
     tab: 'copilot', icon: MessageSquare, title: 'Anytime: ask the Copilot',
