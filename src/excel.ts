@@ -206,3 +206,27 @@ export async function downloadTemplate() {
   XLSX.utils.book_append_sheet(wb, opps, 'Opportunities')
   XLSX.writeFile(wb, 'diligence-data-template.xlsx')
 }
+
+/**
+ * Deal-document ingest: convert an uploaded pro forma workbook to per-sheet CSV
+ * text for the AI extraction endpoint. Parsing happens entirely in the browser —
+ * only CSV text leaves the machine. Sheets are capped so a huge workbook can't
+ * blow past the sync-function body limit.
+ */
+export async function workbookToCsvText(data: ArrayBuffer): Promise<{ sheets: Array<{ name: string; csv: string }> }> {
+  const XLSX = await loadXlsx()
+  const wb = XLSX.read(data, { type: 'array' })
+  const MAX_SHEET_CHARS = 60_000
+  const sheets: Array<{ name: string; csv: string }> = []
+  for (const name of wb.SheetNames) {
+    const ws = wb.Sheets[name]
+    if (!ws) continue
+    let csv = XLSX.utils.sheet_to_csv(ws)
+    // Drop rows that are only commas/whitespace, then skip empty sheets.
+    csv = csv.split('\n').filter(line => line.replace(/[,\s]/g, '') !== '').join('\n')
+    if (!csv) continue
+    if (csv.length > MAX_SHEET_CHARS) csv = csv.slice(0, MAX_SHEET_CHARS) + '\n…[truncated]'
+    sheets.push({ name, csv })
+  }
+  return { sheets }
+}

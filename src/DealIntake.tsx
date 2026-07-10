@@ -2,14 +2,16 @@
 // adjustments and a persisted decision ledger. Owns all intake state; the
 // step components are pure. Debounced live scoring mirrors DealScore.tsx.
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Kicker } from './cc-ui'
+import IntakeUpload from './IntakeUpload'
 import IntakeReview from './IntakeReview'
 import DealSnapshot from './DealSnapshot'
 import GateResults from './GateResults'
 import KpiScorecard from './KpiScorecard'
 import JudgmentPanel from './JudgmentPanel'
+import ConsistencyPanel from './ConsistencyPanel'
 import type { AvailableKey } from './JudgmentPanel'
-import { ALL_FIELDS, REQUIRED_FIELD_KEYS, SAMPLE_DEAL } from './deal-types'
+import type { ExtractionResult } from '../netlify/functions/lib/gate1/fields'
+import { ALL_FIELDS, REQUIRED_FIELD_KEYS } from './deal-types'
 import type {
   DealFields,
   FieldKind,
@@ -54,7 +56,7 @@ function isFilled(form: IntakeFormValues, key: keyof DealFields): boolean {
   return v !== null && v !== ''
 }
 
-function loadSaved(): { fields: IntakeFormValues; adjustments: JudgmentAdjustment[]; step: Step } | null {
+function loadSaved(): { fields: IntakeFormValues; adjustments: JudgmentAdjustment[]; step: Step; extraction: ExtractionResult | null } | null {
   try {
     const raw = localStorage.getItem(LS_KEY)
     if (!raw) return null
@@ -63,6 +65,7 @@ function loadSaved(): { fields: IntakeFormValues; adjustments: JudgmentAdjustmen
       fields: p.fields && typeof p.fields === 'object' ? p.fields : {},
       adjustments: Array.isArray(p.adjustments) ? p.adjustments : [],
       step: STEP_IDS.includes(p.step) ? p.step : 'intake',
+      extraction: p.extraction && typeof p.extraction === 'object' ? p.extraction : null,
     }
   } catch {
     return null
@@ -74,6 +77,7 @@ export default function DealIntake() {
   const [fields, setFields] = useState<IntakeFormValues>(() => saved?.fields ?? {})
   const [adjustments, setAdjustments] = useState<JudgmentAdjustment[]>(() => saved?.adjustments ?? [])
   const [step, setStep] = useState<Step>(() => saved?.step ?? 'intake')
+  const [extraction, setExtraction] = useState<ExtractionResult | null>(() => saved?.extraction ?? null)
   const [lastResponse, setLastResponse] = useState<Gate1Response | null>(null)
   const [scoring, setScoring] = useState(false)
   const [scoreErr, setScoreErr] = useState<string | null>(null)
@@ -85,9 +89,9 @@ export default function DealIntake() {
   // Persist the working state so a refresh never loses the analyst's inputs.
   useEffect(() => {
     try {
-      localStorage.setItem(LS_KEY, JSON.stringify({ fields, adjustments, step }))
+      localStorage.setItem(LS_KEY, JSON.stringify({ fields, adjustments, step, extraction }))
     } catch { /* storage full/blocked — non-fatal */ }
-  }, [fields, adjustments, step])
+  }, [fields, adjustments, step, extraction])
 
   const coerced = useMemo(() => coerceFields(fields), [fields])
   const canScore = !!coerced.asset_class
@@ -156,8 +160,17 @@ export default function DealIntake() {
     return [...seen.values()]
   }, [lastResponse])
 
-  const startFrom = (values: IntakeFormValues) => {
+  // Document ingest: an extraction result (live or recorded) becomes the review
+  // form's starting state. Extraction never guesses — nulls stay empty and land
+  // in the "needs attention" strip for the analyst.
+  const handleExtracted = (result: ExtractionResult) => {
+    const values: IntakeFormValues = {}
+    for (const f of ALL_FIELDS) {
+      const ex = result.fields[f.key]
+      if (ex && ex.value !== null && ex.value !== undefined) values[f.key] = ex.value as never
+    }
     setFields(values)
+    setExtraction(result)
     setAdjustments([])
     setLastResponse(null)
     setDecision(null)
@@ -210,42 +223,26 @@ export default function DealIntake() {
         ))}
       </nav>
 
-      {/* ① INTAKE */}
-      {step === 'intake' && (
-        <div className="card di-hero">
-          <Kicker>CONNECTED CAPITAL — DEAL INTAKE</Kicker>
-          <h1>Deal Intake</h1>
-          <p className="di-lede">
-            Bring in a deal, review every field, and run it through Gate 1 —
-            10 hard kills and 8 watch flags under the current macro posture.
-          </p>
-          <div className="di-drops">
-            <div className="di-drop" aria-disabled="true">
-              <div className="di-drop-title">Offering memorandum — PDF</div>
-              <div className="di-drop-note">AI extraction coming next milestone</div>
-            </div>
-            <div className="di-drop" aria-disabled="true">
-              <div className="di-drop-title">Pro forma — XLSX</div>
-              <div className="di-drop-note">AI extraction coming next milestone</div>
-            </div>
-          </div>
-          <div className="di-actions">
-            <button onClick={() => startFrom({ ...SAMPLE_DEAL })}>LOAD SAMPLE DEAL</button>
-            <button className="secondary" onClick={() => startFrom({})}>ENTER MANUALLY</button>
-          </div>
-        </div>
-      )}
+      {/* ① INTAKE — document ingest is the only way in */}
+      {step === 'intake' && <IntakeUpload onExtracted={handleExtracted} />}
 
-      {/* ② REVIEW */}
+      {/* ② REVIEW — verify what was extracted */}
       {step === 'review' && (
         <>
+          {extraction?.recorded && (
+            <div className="di-recorded-note" role="note">
+              Showing a recorded extraction of the sample deal documents (Faithful Trails OM v2 +
+              Okeechobee pro forma v18) — live extraction uses the same pipeline once the API key is configured.
+            </div>
+          )}
           <IntakeReview
             fields={fields}
             onChange={(key, rawValue) => setFields(prev => ({ ...prev, [key]: rawValue }))}
             missingKeys={missingKeys}
+            meta={extraction?.fields}
           />
           <div className="di-stickybar">
-            <span className="di-muted">{filledCount} of {ALL_FIELDS.length} fields filled</span>
+            <span className="di-muted">{filledCount} of {ALL_FIELDS.length} fields confirmed</span>
             <button onClick={() => setStep('results')} disabled={!canScore}>CONFIRM &amp; SCORE</button>
           </div>
         </>
@@ -263,6 +260,7 @@ export default function DealIntake() {
               {lastResponse && (
                 <>
                   <GateResults response={lastResponse} onAdjust={handleAdjust} />
+                  {extraction && <ConsistencyPanel discrepancies={extraction.discrepancies ?? []} />}
                   <KpiScorecard fields={coerced} response={lastResponse} />
                   <div ref={judgmentRef}>
                     <JudgmentPanel
@@ -336,8 +334,9 @@ button.di-nav-item:disabled{opacity:.45}
 .di-updating{color:#3f7d69;font-size:.78rem;letter-spacing:.06em}
 .di-decide{display:flex;align-items:center;gap:1rem;flex-wrap:wrap}
 .di-decide button{letter-spacing:.08em;font-size:12.5px}
-.di-recorded{font-size:.8rem;color:#157f3c}
+.di-recorded{font-size:.8rem;color:#3f7d69}
 .di-warning{font-size:.8rem;color:#b8860b}
+.di-recorded-note{background:#e4f5ee;border:1px solid #bcded3;color:#2c574a;border-radius:10px;padding:.8rem 1.1rem;font-size:.8rem;line-height:1.5;margin-bottom:1.25rem}
 .di-placeholder{padding:2.5rem;text-align:center}
 .di-placeholder h3{font-size:12px;letter-spacing:.08em;text-transform:uppercase;margin:0 0 .5rem}
 @media(max-width:900px){.di-drops{grid-template-columns:1fr}}

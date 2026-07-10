@@ -55,9 +55,43 @@ function devGate1Api(): Plugin {
   }
 }
 
+// Local-dev bridge for /api/extract — same extraction core as the Netlify
+// function; without ANTHROPIC_API_KEY it returns the same clear 500 the
+// deployed function would, so the UI's fallback path is honest in dev too.
+function devExtractApi(): Plugin {
+  return {
+    name: 'dev-extract-api',
+    configureServer(server: ViteDevServer) {
+      server.middlewares.use('/api/extract', (req, res) => {
+        if (req.method !== 'POST') { res.statusCode = 405; res.end('Method not allowed'); return }
+        const chunks: Buffer[] = []
+        req.on('data', (c) => chunks.push(c))
+        req.on('end', async () => {
+          res.setHeader('Content-Type', 'application/json')
+          try {
+            const raw = Buffer.concat(chunks).toString('utf8')
+            if (raw.length > 4_500_000) {
+              res.statusCode = 413
+              res.end(JSON.stringify({ error: 'Documents too large for sync extraction — compress the OM PDF below ~3MB' }))
+              return
+            }
+            const mod = await server.ssrLoadModule('/netlify/functions/lib/gate1/extract-core.ts')
+            const result = await mod.runExtraction(raw ? JSON.parse(raw) : {})
+            res.end(JSON.stringify(result))
+          } catch (e: unknown) {
+            const err = e as Error & { status?: number }
+            res.statusCode = err?.status ?? 500
+            res.end(JSON.stringify({ error: err?.message ?? String(e) }))
+          }
+        })
+      })
+    },
+  }
+}
+
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [react(), devScoreApi(), devGate1Api()],
+  plugins: [react(), devScoreApi(), devGate1Api(), devExtractApi()],
   server: { port: 5173 },
   build: { outDir: 'dist' },
 })
