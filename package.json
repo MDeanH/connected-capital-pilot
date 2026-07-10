@@ -14,18 +14,13 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.111.0",
     "@supabase/supabase-js": "^2.110.2",
-    "@types/three": "^0.165.0",
     "lucide-react": "^0.400.0",
-    "plotly.js": "^2.35.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-plotly.js": "^2.6.0",
-    "three": "^0.165.0",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },
   "devDependencies": {
     "@netlify/functions": "^5.3.0",
-    "@types/plotly.js": "^2.29.2",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",

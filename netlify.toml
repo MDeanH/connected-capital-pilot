@@ -6,15 +6,7 @@
 [build.environment]
   NODE_VERSION = "20"
 
-# Landing page: the how-it-works explainer serves at the root (forced — the
-# built React index.html exists at /, so this must shadow it)
-[[redirects]]
-  from = "/"
-  to = "/how-it-works.html"
-  status = 200
-  force = true
-
-# The React app lives at /app
+# The app serves at the root; /app kept for old bookmarks
 [[redirects]]
   from = "/app"
   to = "/index.html"
@@ -31,8 +23,8 @@
   to = "/.netlify/functions/score"
   status = 200
 
-# Grok / AI copilot proxy is a v2 function that self-routes via config.path
-# (/api/grok/chat) with native per-IP rate limiting — no redirect needed here.
+# Gate 1 / deals / extraction are v2 functions that self-route via config.path
+# (/api/gate1/*, /api/deals, /api/extract) — no redirects needed here.
 
 # Health / debug
 [[redirects]]
