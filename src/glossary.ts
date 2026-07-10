@@ -163,4 +163,30 @@ export const GLOSSARY: Record<string, GlossaryEntry> = {
     short: 'A per-deal manual change to a threshold, with a required written reason.',
     long: 'Always logged: every adjustment records who moved which threshold, by how much, and why.',
   },
+  cash_on_cash: {
+    term: 'Cash-on-cash',
+    short: 'Annual cash flow after debt service divided by the equity invested.',
+    long: 'The "what hits the bank account each year" return, separate from sale proceeds. Derived here from stabilized NOI, the loan terms, and equity.',
+    formula: 'CoC = (NOI \u2212 annual debt service) / equity',
+  },
+  financing: {
+    term: 'Financing vs market',
+    short: 'The loan rate the deal assumes, compared against prevailing rates (SOFR plus a typical spread).',
+    long: 'A modeled rate meaningfully below what the market charges today means the returns lean on financing nobody is offering.',
+  },
+  sofr: {
+    term: 'SOFR',
+    short: 'The Secured Overnight Financing Rate \u2014 the base rate US lenders price loans from.',
+    long: 'Construction loans are typically quoted as SOFR plus a spread, so it anchors the "is this loan realistic" check.',
+  },
+  quadrant: {
+    term: 'Macro quadrant',
+    short: 'Which of the four macro states we are in: inflation or disinflation, crossed with expansion or contraction.',
+    long: 'Inflationary expansion, disinflationary expansion (goldilocks), stagflation, or deflationary contraction \u2014 the one-look answer to "what kind of economy is this deal being born into."',
+  },
+  sp500_comparison: {
+    term: 'vs. S&P 500',
+    short: 'The deal\u2019s projected return against what the public market returned over comparable windows.',
+    long: 'Private deals lock money up and add complexity \u2014 they must clear the liquid alternative by a real margin, not just match it.',
+  },
 }

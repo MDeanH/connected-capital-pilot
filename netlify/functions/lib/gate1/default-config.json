@@ -170,7 +170,11 @@
     { "asset_class": "*", "posture": "*", "key": "interest_reserve_buffer_months", "value": 6 },
     { "asset_class": "*", "posture": "*", "key": "profit_margin_min", "value": 0.15 },
     { "asset_class": "*", "posture": "*", "key": "guarantor_net_worth_min_pct", "value": 0.15 },
-    { "asset_class": "*", "posture": "*", "key": "fragile_margin_pct", "value": 0.10 }
+    { "asset_class": "*", "posture": "*", "key": "fragile_margin_pct", "value": 0.10 },
+    { "asset_class": "*", "posture": "*", "key": "coc_benchmark", "value": 0.08 },
+    { "asset_class": "*", "posture": "*", "key": "irr_benchmark", "value": 0.12 },
+    { "asset_class": "*", "posture": "*", "key": "equity_multiple_benchmark", "value": 1.8 },
+    { "asset_class": "*", "posture": "*", "key": "financing_spread_typical_bps", "value": 250 }
   ],
   "verdictBands": { "passMaxFlagPts": 1, "conditionalMaxFlagPts": 3 },
   "macro": {
@@ -184,6 +188,17 @@
       "jobless_claims": 1.0,
       "ism": 0.5
     },
+    "signals": [
+      { "id": "sahm", "label": "Sahm rule", "fred": "SAHMREALTIME", "weight": 2.0, "transform": "level", "direction": "high_is_bad", "green": 0.2, "yellow": 0.45 },
+      { "id": "core_pce", "label": "Core PCE inflation (yoy)", "fred": "PCEPILFE", "weight": 1.5, "transform": "yoy", "direction": "high_is_bad", "green": 0.025, "yellow": 0.035 },
+      { "id": "gdp", "label": "Real GDP growth (yoy)", "fred": "GDPC1", "weight": 1.5, "transform": "yoy", "direction": "high_is_good", "green": 0.02, "yellow": 0.005 },
+      { "id": "hy_spread", "label": "High-yield spread", "fred": "BAMLH0A0HYM2", "weight": 1.5, "transform": "level", "direction": "high_is_bad", "green": 4.0, "yellow": 5.5 },
+      { "id": "unemployment", "label": "Unemployment rate", "fred": "UNRATE", "weight": 1.0, "transform": "level", "direction": "high_is_bad", "green": 4.5, "yellow": 5.5 },
+      { "id": "yield_curve", "label": "Yield curve (10y–3m)", "fred": "T10Y3M", "weight": 1.0, "transform": "level", "direction": "high_is_good", "green": 0.5, "yellow": 0.0 },
+      { "id": "jobless_claims", "label": "Initial jobless claims (4-wk avg)", "fred": "IC4WSA", "weight": 1.0, "transform": "level", "direction": "high_is_bad", "green": 260000, "yellow": 320000 },
+      { "id": "ism", "label": "ISM manufacturing PMI (manual)", "fred": null, "weight": 0.5, "transform": "level", "direction": "high_is_good", "green": 52, "yellow": 48 }
+    ],
+    "quadrantBands": { "inflationHotYoy": 0.025, "growthRecessionYoy": 0.0 },
     "postureMatrix": {
       "soft_landing": { "*": "green" },
       "stagflation": { "*": "yellow" },

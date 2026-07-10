@@ -23,6 +23,7 @@ export const SAMPLE_EXTRACTION: ExtractionResult = {
     land_cost: { value: 785000, confidence: 0.95, source: { doc: 'proforma', page: null, quote: 'Land acquisition $785,000' } },
     hard_cost_contingency_pct: { value: 0.03, confidence: 0.8, source: { doc: 'proforma', page: null, quote: 'Contingency (3% of hard costs)' } },
     construction_loan: { value: 6290000, confidence: 0.85, source: { doc: 'proforma', page: null, quote: 'Levered case: $6,290,000 construction-to-perm loan, 6.5% fixed, 25-yr amortization' } },
+    loan_interest_rate: { value: 0.065, confidence: 0.9, source: { doc: 'proforma', page: null, quote: '6.5% fixed rate, 25-year amortization' } },
     total_equity: { value: 4630000, confidence: 0.7, source: { doc: 'proforma', page: null, quote: 'Levered case equity: $4,430,000 LP + $200,000 sponsor' } },
     stabilized_noi_untrended: { value: 1472158, confidence: 0.9, source: { doc: 'proforma', page: null, quote: 'Year-2 (stabilized) NOI $1,472,158' } },
     exit_cap_rate: { value: 0.07, confidence: 0.95, source: { doc: 'om', page: 6, quote: 'Exit at a 7.0% capitalization rate in Year 10' } },

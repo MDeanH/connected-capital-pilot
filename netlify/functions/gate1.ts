@@ -72,9 +72,17 @@ export default async (req: Request, _context: Context): Promise<Response> => {
     }
   }
 
+  // Draft configs (thresholds editor) apply to PREVIEWS only — a recorded
+  // decision must reference a saved, replayable config version.
+  if (body.configOverride && action === 'decide') {
+    return json(400, { error: 'Draft configs cannot be recorded — save the config as a new version first' })
+  }
+  const effectiveConfig: Gate1Config = body.configOverride ?? config
+  const effectiveVersion = body.configOverride ? -1 : configVersion
+
   let payload: ReturnType<typeof computeGate1>
   try {
-    payload = computeGate1(body, config, configVersion, posture, postureSource, macroSnapshotId)
+    payload = computeGate1(body, effectiveConfig, effectiveVersion, posture, postureSource, macroSnapshotId)
   } catch (e: any) {
     return json(400, { error: e?.message ?? 'Evaluation failed' })
   }

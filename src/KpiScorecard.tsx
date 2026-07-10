@@ -2,11 +2,14 @@
 // coerced fields, colored by the matching Gate 1 check where one exists, with
 // the governing threshold as a caption.
 import { Term } from './GlossaryTip'
+import { dealCashOnCash } from './finance'
 import type { CheckResult, DealFields, Gate1Response } from './deal-types'
 
 interface Props {
   fields: DealFields
   response: Gate1Response | null
+  /** Config-sourced return benchmarks (optional — captions/coloring appear only when provided). */
+  benchmarks?: { coc: number; irr: number; equityMultiple: number }
 }
 
 const pct1 = (x: number) => `${(x * 100).toFixed(1)}%`
@@ -17,6 +20,8 @@ interface Kpi {
   value: string
   caption: string
   checkId?: string
+  /** Explicit value class for KPIs colored against a benchmark (no gate check). */
+  valueClass?: string
 }
 
 function statusClass(c: CheckResult | undefined): string {
@@ -30,7 +35,7 @@ function statusClass(c: CheckResult | undefined): string {
   }
 }
 
-export default function KpiScorecard({ fields, response }: Props) {
+export default function KpiScorecard({ fields, response, benchmarks }: Props) {
   const checks = new Map((response?.result.checks ?? []).map(c => [c.id, c]))
   const th = (id: string) => checks.get(id)?.threshold?.effective ?? null
 
@@ -42,17 +47,30 @@ export default function KpiScorecard({ fields, response }: Props) {
   const ltc = fields.construction_loan !== null && cost ? fields.construction_loan / cost : null
   const landBasis = fields.land_cost !== null && cost ? fields.land_cost / cost : null
   const stress = response?.result.stress
+  const coc = dealCashOnCash(fields)
 
   const kpis: Kpi[] = [
     {
       glossaryKey: 'irr', label: 'IRR',
       value: fields.projected_irr != null ? pct1(fields.projected_irr) : '—',
-      caption: 'sponsor-reported, not verified',
+      caption: benchmarks
+        ? `sponsor-reported · benchmark ≥ ${pct1(benchmarks.irr)}`
+        : 'sponsor-reported, not verified',
     },
     {
       glossaryKey: 'equity_multiple', label: 'Equity multiple',
       value: fields.projected_equity_multiple != null ? `${fields.projected_equity_multiple.toFixed(2)}x` : '—',
-      caption: 'sponsor-reported, not verified',
+      caption: benchmarks
+        ? `sponsor-reported · benchmark ≥ ${benchmarks.equityMultiple.toFixed(2)}x`
+        : 'sponsor-reported, not verified',
+    },
+    {
+      glossaryKey: 'cash_on_cash', label: 'Cash-on-cash',
+      value: coc !== null ? pct1(coc) : '—',
+      caption: benchmarks ? `benchmark ≥ ${pct1(benchmarks.coc)}` : '(NOI − debt service) ÷ equity',
+      valueClass: coc !== null && benchmarks
+        ? (coc >= benchmarks.coc ? 'kpi-good' : 'kpi-bad')
+        : undefined,
     },
     {
       glossaryKey: 'yoc', label: 'Yield on cost',
@@ -105,7 +123,7 @@ export default function KpiScorecard({ fields, response }: Props) {
         {kpis.map(k => (
           <div className="card kpi-card" key={k.label}>
             <div className="kpi-label"><Term k={k.glossaryKey}>{k.label}</Term></div>
-            <div className={`kpi-value ${statusClass(k.checkId ? checks.get(k.checkId) : undefined)}`}>{k.value}</div>
+            <div className={`kpi-value ${k.valueClass ?? statusClass(k.checkId ? checks.get(k.checkId) : undefined)}`}>{k.value}</div>
             <div className="kpi-cap">{k.caption}</div>
           </div>
         ))}

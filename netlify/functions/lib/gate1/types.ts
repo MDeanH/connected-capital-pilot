@@ -30,6 +30,7 @@ export interface DealFields {
   land_cost: number | null
   hard_cost_contingency_pct: number | null
   construction_loan: number | null // 0 = all-equity deal
+  loan_interest_rate: number | null // modeled rate on the loan (decimal), for the SOFR comparison
   total_equity: number | null // if null, derived as cost - loan
 
   stabilized_noi_untrended: number | null
@@ -86,10 +87,14 @@ export interface Gate1Config {
 
 export interface MacroConfig {
   signalWeights: Record<string, number>
+  /** Per-signal definitions (FRED series, weights, vote bands) — all data, no code. */
+  signals?: MacroSignalDef[]
   /** regime → asset_class → posture ('*' asset class supported) */
   postureMatrix: Record<Regime, Record<string, Posture>>
   hysteresisWins: number
   minVotes: number
+  /** Four-quadrant bands: inflation hot above this yoy; growth recessionary below this yoy. */
+  quadrantBands?: { inflationHotYoy: number; growthRecessionYoy: number }
   hurdleStack: {
     anchorPct: number
     illiquidityBpsByLockupYears: Array<{ maxYears: number; bps: number }>
@@ -153,6 +158,29 @@ export interface MacroSignalReading {
   asof?: string
   vote: Posture | null // null = signal unavailable this week
   weight: number
+  /** ~5 years of history for the dashboard sparklines (monthly-ish points). */
+  history?: Array<{ date: string; value: number }>
+}
+
+/** Patel's four-quadrant read: inflation/deflation × expansion/recession. */
+export interface MacroQuadrant {
+  inflationYoy: number | null
+  growthYoy: number | null
+  label:
+    | 'inflationary_expansion'
+    | 'disinflationary_expansion'
+    | 'stagflation'
+    | 'deflationary_contraction'
+    | 'unknown'
+}
+
+/** Prevailing-market context for the comparison panel (S&P + financing rates). */
+export interface MarketContext {
+  asof: string
+  sofr: number | null
+  mortgage30y: number | null
+  treasury10y: number | null
+  sp500: { level: number | null; ret1y: number | null; ret3y: number | null; ret5y: number | null }
 }
 
 export interface MacroSnapshot {
@@ -164,6 +192,22 @@ export interface MacroSnapshot {
   pending_regime?: Regime | null
   degraded: boolean
   postures: Record<string, Posture>
+  quadrant?: MacroQuadrant
+  market?: MarketContext
   hurdle?: Record<string, number>
   note?: string
+}
+
+/** Per-signal config: FRED series + weight + posture vote bands (all data, no code). */
+export interface MacroSignalDef {
+  id: string
+  label: string
+  fred: string | null // null = manual-entry signal (e.g. ISM)
+  weight: number
+  /** transform applied to the raw series: 'level' | 'yoy' (12-mo % change) */
+  transform: 'level' | 'yoy'
+  /** vote bands: value <= green → green; <= yellow → yellow; else red (or reversed when direction='high_is_good') */
+  direction: 'high_is_bad' | 'high_is_good'
+  green: number
+  yellow: number
 }

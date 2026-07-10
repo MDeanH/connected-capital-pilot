@@ -1,5 +1,5 @@
 {
-  "note": "Gate 1 golden fixtures. faithful_trails mirrors the client's sample deal (Okeechobee RV pro forma v18 + OM v2): strong headline returns, but it must FAIL on exactly three hard kills — unentitled site, 3% contingency, 1.8% co-invest — with GMP/guarantee data missing. palm_grove is a fictional clean multifamily deal that passes everything under Green posture but fails the mini-stress and dev-spread kill lines under Red.",
+  "note": "Gate 1 golden fixtures. faithful_trails mirrors the client's sample deal (Okeechobee RV pro forma v18 + OM v2): strong headline returns, but it must FAIL on exactly three hard kills \u2014 unentitled site, 3% contingency, 1.8% co-invest \u2014 with GMP/guarantee data missing. palm_grove is a fictional clean multifamily deal that passes everything under Green posture but fails the mini-stress and dev-spread kill lines under Red.",
   "faithful_trails": {
     "deal_name": "Faithful Trails RV Estates",
     "asset_class": "rv_specialty",
@@ -29,7 +29,8 @@
     "lease_up_months_assumed": 13,
     "submarket_leaseup_months": 24,
     "projected_irr": 0.177,
-    "projected_equity_multiple": 3.07
+    "projected_equity_multiple": 3.07,
+    "loan_interest_rate": 0.065
   },
   "palm_grove": {
     "deal_name": "Palm Grove Apartments",
@@ -39,7 +40,7 @@
     "sponsor_integrity_clear": true,
     "site_fully_entitled": true,
     "sponsor_completed_comparables": 5,
-    "sponsor_coinvest_pct": 0.10,
+    "sponsor_coinvest_pct": 0.1,
     "exit_dependent_single_refi": false,
     "has_gmp_or_bonded_gc": true,
     "has_completion_guarantee": true,
@@ -60,6 +61,7 @@
     "lease_up_months_assumed": 18,
     "submarket_leaseup_months": 15,
     "projected_irr": 0.155,
-    "projected_equity_multiple": 1.9
+    "projected_equity_multiple": 1.9,
+    "loan_interest_rate": 0.062
   }
 }

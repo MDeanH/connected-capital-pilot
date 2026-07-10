@@ -13,12 +13,14 @@ export interface Gate1Request {
   fields: DealFields
   adjustments?: JudgmentAdjustment[]
   posture?: Posture
+  /** Draft config from the thresholds editor — previews only, never recordable. */
+  configOverride?: Gate1Config
 }
 
 export function computeGate1(
   body: Gate1Request,
-  config: Gate1Config = DEFAULT_CONFIG,
-  configVersion = 0,
+  config: Gate1Config = body.configOverride ?? DEFAULT_CONFIG,
+  configVersion = body.configOverride ? -1 : 0,
   posture: Posture = body.posture ?? 'green',
   postureSource = body.posture ? 'request' : 'default',
   macroSnapshotId: string | null = null,

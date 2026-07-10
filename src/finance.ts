@@ -1,0 +1,49 @@
+// Pure finance helpers — no I/O, no config, no side effects. Used by the
+// market-comparison panel and the KPI scorecard for derived (not
+// sponsor-reported) return figures.
+import type { DealFields } from './deal-types'
+
+/**
+ * Annual debt service on a standard monthly-amortizing loan (annuity formula).
+ *   r = annualRate / 12, n = amortYears * 12
+ *   payment = loan * r / (1 - (1 + r)^-n), annual = 12 * payment
+ * A zero rate degenerates to straight-line principal: loan / n * 12.
+ */
+export function annualDebtService(loan: number, annualRate: number, amortYears = 25): number {
+  const n = amortYears * 12
+  if (annualRate === 0) return (loan / n) * 12
+  const r = annualRate / 12
+  return (12 * loan * r) / (1 - Math.pow(1 + r, -n))
+}
+
+/**
+ * Stabilized cash-on-cash return derived from the intake fields:
+ *   (stabilized untrended NOI − annual debt service) / equity
+ * where equity = total_equity ?? (total cost − loan).
+ *
+ * All-equity deals (loan 0 or unknown) return the unlevered NOI yield on
+ * equity (equity = total_equity ?? total cost). Any missing input → null —
+ * we never fake a number.
+ */
+export function dealCashOnCash(fields: DealFields): number | null {
+  const noi = fields.stabilized_noi_untrended
+  const cost = fields.total_project_cost
+  const loan = fields.construction_loan
+
+  if (noi === null || noi === undefined) return null
+
+  // Unlevered: no debt in the stack (or the loan is unknown → no debt service to model).
+  if (loan === null || loan === undefined || loan === 0) {
+    const equity = fields.total_equity ?? cost
+    if (equity === null || equity === undefined || equity <= 0) return null
+    return noi / equity
+  }
+
+  const rate = fields.loan_interest_rate
+  if (rate === null || rate === undefined) return null
+
+  const equity = fields.total_equity ?? (cost !== null && cost !== undefined ? cost - loan : null)
+  if (equity === null || equity <= 0) return null
+
+  return (noi - annualDebtService(loan, rate)) / equity
+}

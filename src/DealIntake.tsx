@@ -1,7 +1,7 @@
 // Deal Intake tab — upload/enter → review → Gate 1 results, with judgment
 // adjustments and a persisted decision ledger. Owns all intake state; the
 // step components are pure. Debounced live scoring mirrors DealScore.tsx.
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import IntakeUpload from './IntakeUpload'
 import IntakeReview from './IntakeReview'
 import DealSnapshot from './DealSnapshot'
@@ -9,8 +9,13 @@ import GateResults from './GateResults'
 import KpiScorecard from './KpiScorecard'
 import JudgmentPanel from './JudgmentPanel'
 import ConsistencyPanel from './ConsistencyPanel'
+import MarketComparison from './MarketComparison'
+import MacroDashboard, { MacroStrip } from './MacroDashboard'
+import ThresholdConfig from './ThresholdConfig'
+import Backtest from './Backtest'
 import type { AvailableKey } from './JudgmentPanel'
 import type { ExtractionResult } from '../netlify/functions/lib/gate1/fields'
+import type { Gate1Config, MacroSnapshot, Regime } from '../netlify/functions/lib/gate1/types'
 import { ALL_FIELDS, REQUIRED_FIELD_KEYS } from './deal-types'
 import type {
   DealFields,
@@ -18,12 +23,26 @@ import type {
   Gate1Response,
   IntakeFormValues,
   JudgmentAdjustment,
+  Posture,
 } from './deal-types'
 
-type Step = 'intake' | 'review' | 'results' | 'thresholds' | 'macro'
-const STEP_IDS: Step[] = ['intake', 'review', 'results', 'thresholds', 'macro']
+type Step = 'intake' | 'review' | 'results' | 'thresholds' | 'macro' | 'backtest'
+const STEP_IDS: Step[] = ['intake', 'review', 'results', 'thresholds', 'macro', 'backtest']
 
 const LS_KEY = 'cc_deal_intake_v1'
+const LS_DRAFT_KEY = 'cc_config_draft_v1'
+
+/** The live macro payload: snapshot plus market context + persistence honesty flags. */
+type MacroPayload = MacroSnapshot & { persisted?: boolean; live?: boolean; warning?: string }
+
+function loadDraftConfig(): Gate1Config | null {
+  try {
+    const raw = localStorage.getItem(LS_DRAFT_KEY)
+    return raw ? (JSON.parse(raw) as Gate1Config) : null
+  } catch {
+    return null
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Coercion: raw form values (typed sample values OR input strings) → DealFields.
@@ -86,6 +105,83 @@ export default function DealIntake() {
   const [prefill, setPrefill] = useState<{ key: string; value: number } | null>(null)
   const judgmentRef = useRef<HTMLDivElement>(null)
 
+  // Weekly macro snapshot + market context (live-computed when nothing is persisted).
+  const [macro, setMacro] = useState<MacroPayload | null>(null)
+  const [macroLoading, setMacroLoading] = useState(false)
+  const [macroErr, setMacroErr] = useState<string | null>(null)
+  // Active threshold config version + the analyst's local draft (previews only).
+  const [activeConfig, setActiveConfig] = useState<{ version: number; config: Gate1Config } | null>(null)
+  const [draftConfig, setDraftConfig] = useState<Gate1Config | null>(loadDraftConfig)
+
+  const fetchMacro = useCallback(async () => {
+    setMacroLoading(true)
+    setMacroErr(null)
+    try {
+      const r = await fetch('/api/macro/latest')
+      const data = await r.json()
+      if (data.error) throw new Error(data.error)
+      setMacro(data as MacroPayload)
+    } catch (e) {
+      setMacroErr(String((e as Error)?.message || e))
+    } finally {
+      setMacroLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchMacro()
+    fetch('/api/config/active')
+      .then(r => r.json())
+      .then(d => { if (d?.config) setActiveConfig({ version: d.version ?? 0, config: d.config }) })
+      .catch(() => { /* config panel shows its own empty state */ })
+  }, [fetchMacro])
+
+  const handleDraftChange = (cfg: Gate1Config | null) => {
+    setDraftConfig(cfg)
+    try {
+      cfg ? localStorage.setItem(LS_DRAFT_KEY, JSON.stringify(cfg)) : localStorage.removeItem(LS_DRAFT_KEY)
+    } catch { /* non-fatal */ }
+  }
+
+  const handleSaveConfig = async (cfg: Gate1Config, note: string) => {
+    const r = await fetch('/api/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ config: cfg, note }),
+    })
+    const data = await r.json()
+    if (r.ok && data.version) {
+      setActiveConfig({ version: data.version, config: cfg })
+      handleDraftChange(null)
+      return { persisted: true, version: data.version }
+    }
+    return { persisted: false, warning: data.error ?? 'Save failed' }
+  }
+
+  const handleOverride = async (o: { regime?: Regime; note: string }) => {
+    const r = await fetch('/api/macro/override', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(o),
+    })
+    const data = await r.json()
+    if (data.error) throw new Error(data.error)
+    setMacro(data as MacroPayload)
+  }
+
+  // Config-sourced return benchmarks ('*','*' rows) for KPI captions + comparisons.
+  const benchmarks = useMemo(() => {
+    const cfg = draftConfig ?? activeConfig?.config
+    if (!cfg) return null
+    const find = (key: string) => cfg.thresholds.find(t => t.key === key && t.asset_class === '*' && t.posture === '*')?.value
+    const coc = find('coc_benchmark')
+    const irr = find('irr_benchmark')
+    const em = find('equity_multiple_benchmark')
+    const spread = find('financing_spread_typical_bps')
+    if (coc == null || irr == null || em == null || spread == null) return null
+    return { coc, irr, equityMultiple: em, financingSpreadTypicalBps: spread }
+  }, [activeConfig, draftConfig])
+
   // Persist the working state so a refresh never loses the analyst's inputs.
   useEffect(() => {
     try {
@@ -96,7 +192,15 @@ export default function DealIntake() {
   const coerced = useMemo(() => coerceFields(fields), [fields])
   const canScore = !!coerced.asset_class
 
+  // The live macro posture for this deal's asset class ('*' fallback) — macro
+  // moves the bar automatically; Patel can override it on the Macro page.
+  const livePosture: Posture | undefined = useMemo(() => {
+    if (!macro?.postures || !coerced.asset_class) return undefined
+    return macro.postures[coerced.asset_class] ?? macro.postures['*']
+  }, [macro, coerced.asset_class])
+
   // Live scoring: debounce 400ms, POST /api/gate1/preview (DealScore pattern).
+  // Draft configs from the thresholds editor apply here (and only here).
   useEffect(() => {
     if (step !== 'results' || !canScore) return
     const t = setTimeout(async () => {
@@ -106,7 +210,12 @@ export default function DealIntake() {
         const r = await fetch('/api/gate1/preview', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ fields: coerced, adjustments }),
+          body: JSON.stringify({
+            fields: coerced,
+            adjustments,
+            posture: livePosture,
+            configOverride: draftConfig ?? undefined,
+          }),
         })
         const ct = r.headers.get('content-type') || ''
         if (!ct.includes('application/json'))
@@ -121,7 +230,7 @@ export default function DealIntake() {
       }
     }, 400)
     return () => clearTimeout(t)
-  }, [coerced, adjustments, step, canScore])
+  }, [coerced, adjustments, step, canScore, livePosture, draftConfig])
 
   const recordDecision = async () => {
     if (!canScore || deciding) return
@@ -131,7 +240,7 @@ export default function DealIntake() {
       const r = await fetch('/api/gate1/decide', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fields: coerced, adjustments }),
+        body: JSON.stringify({ fields: coerced, adjustments, posture: livePosture }),
       })
       const data = await r.json()
       if (data.error) throw new Error(data.error)
@@ -189,6 +298,7 @@ export default function DealIntake() {
     results: '③ RESULTS',
     thresholds: 'THRESHOLDS',
     macro: 'MACRO',
+    backtest: 'BACKTEST',
   }
 
   return (
@@ -210,7 +320,7 @@ export default function DealIntake() {
           </span>
         ))}
         <span className="di-nav-sep">|</span>
-        {(['thresholds', 'macro'] as Step[]).map((s, i) => (
+        {(['thresholds', 'macro', 'backtest'] as Step[]).map((s, i) => (
           <span key={s} className="di-nav-step">
             {i > 0 && <span className="di-nav-arrow">·</span>}
             <button
@@ -256,12 +366,20 @@ export default function DealIntake() {
           {!canScore && <div className="card di-muted">Pick an asset class on the review step to score this deal.</div>}
           {canScore && (
             <>
+              <MacroStrip snapshot={macro} />
+              {draftConfig && (
+                <div className="di-draft-note" role="note">
+                  Scoring against your DRAFT thresholds (v{activeConfig?.version ?? 0} + edits) — decisions can't
+                  be recorded until the draft is saved or cleared on the Thresholds page.
+                </div>
+              )}
               <DealSnapshot fields={coerced} response={lastResponse} />
               {lastResponse && (
                 <>
                   <GateResults response={lastResponse} onAdjust={handleAdjust} />
                   {extraction && <ConsistencyPanel discrepancies={extraction.discrepancies ?? []} />}
-                  <KpiScorecard fields={coerced} response={lastResponse} />
+                  <KpiScorecard fields={coerced} response={lastResponse} benchmarks={benchmarks ?? undefined} />
+                  <MarketComparison fields={coerced} market={macro?.market ?? null} benchmarks={benchmarks} />
                   <div ref={judgmentRef}>
                     <JudgmentPanel
                       adjustments={adjustments}
@@ -290,19 +408,29 @@ export default function DealIntake() {
         </div>
       )}
 
-      {/* Placeholders */}
+      {/* THRESHOLDS — Patel's control panel: every knob editable, nothing hardcoded */}
       {step === 'thresholds' && (
-        <div className="card di-placeholder">
-          <h3>Thresholds</h3>
-          <p className="di-muted">Coming in the next milestone</p>
-        </div>
+        <ThresholdConfig
+          active={activeConfig}
+          draft={draftConfig}
+          onDraftChange={handleDraftChange}
+          onSave={handleSaveConfig}
+        />
       )}
+
+      {/* MACRO — the weekly snapshot that moves the bar */}
       {step === 'macro' && (
-        <div className="card di-placeholder">
-          <h3>Macro</h3>
-          <p className="di-muted">Coming in the next milestone</p>
-        </div>
+        <MacroDashboard
+          snapshot={macro}
+          loading={macroLoading}
+          error={macroErr}
+          onOverride={handleOverride}
+          onRefresh={fetchMacro}
+        />
       )}
+
+      {/* BACKTEST — run past deals through the current rulebook */}
+      {step === 'backtest' && <Backtest parIrr={benchmarks?.irr ?? 0.12} />}
     </div>
   )
 }
@@ -337,6 +465,7 @@ button.di-nav-item:disabled{opacity:.45}
 .di-recorded{font-size:.8rem;color:#3f7d69}
 .di-warning{font-size:.8rem;color:#b8860b}
 .di-recorded-note{background:#e4f5ee;border:1px solid #bcded3;color:#2c574a;border-radius:10px;padding:.8rem 1.1rem;font-size:.8rem;line-height:1.5;margin-bottom:1.25rem}
+.di-draft-note{background:#fbf3df;border:1px solid #f0e0b0;color:#5b4a16;border-radius:10px;padding:.8rem 1.1rem;font-size:.8rem;line-height:1.5}
 .di-placeholder{padding:2.5rem;text-align:center}
 .di-placeholder h3{font-size:12px;letter-spacing:.08em;text-transform:uppercase;margin:0 0 .5rem}
 @media(max-width:900px){.di-drops{grid-template-columns:1fr}}

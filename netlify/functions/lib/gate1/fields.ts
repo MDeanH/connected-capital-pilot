@@ -25,6 +25,7 @@ export const EXTRACT_FIELDS: ExtractFieldDef[] = [
   { key: 'land_cost', label: 'Land cost', kind: 'usd' },
   { key: 'hard_cost_contingency_pct', label: 'Hard-cost contingency %', kind: 'pct', hint: 'Contingency line ÷ hard costs.' },
   { key: 'construction_loan', label: 'Construction loan', kind: 'usd', hint: '0 if the deal is explicitly all-equity; use the levered case if both are shown and note the other in discrepancies if they conflict.' },
+  { key: 'loan_interest_rate', label: 'Modeled loan interest rate', kind: 'pct', hint: 'The interest rate the pro forma assumes on the construction/perm loan.' },
   { key: 'total_equity', label: 'Total equity', kind: 'usd' },
   { key: 'stabilized_noi_untrended', label: 'Stabilized NOI (untrended)', kind: 'usd', hint: 'First stabilized-year NOI without growth trending.' },
   { key: 'exit_cap_rate', label: 'Exit cap rate', kind: 'pct' },
