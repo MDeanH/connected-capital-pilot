@@ -37,6 +37,24 @@ cd netlify/functions/lib && npx tsx parity.ts    # expect: 16 passed, 0 failed
 - `FRED_API_KEY` — only for refreshing the US-market macro data
   (`scripts/load_us_market.py`); the repo ships with current baked data.
 
+### Deal Intake (Gate 1) — new in this build
+
+- `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` — persistence for deals,
+  versioned threshold configs, macro snapshots, and the append-only
+  `gate_decisions` replay ledger. Server-only (Netlify functions); the SPA
+  never talks to Supabase. Without them everything still computes — the UI
+  shows "decision computed but NOT recorded". Schema:
+  `supabase/migrations/0001_init.sql`, seed: `supabase/seed.sql`.
+- `ANTHROPIC_API_KEY` — the AI document-extraction endpoint (OM PDF +
+  pro forma XLSX → ~30 intake fields). Without it, manual entry works.
+- Gate 1 golden suite gates the build alongside parity:
+  `npm run gate1` (expect: 23 passed, 0 failed). Engine + editable config
+  live in `netlify/functions/lib/gate1/`; every threshold is config data,
+  never a code literal.
+- Local dev: plain `vite` dev serves `/api/gate1/*` through a bridge in
+  `vite.config.ts` (no persistence); use `netlify dev` for Supabase-backed
+  endpoints.
+
 No client data is in the repo: the Excel upload parses entirely in the
 browser, DDQ/Risk Model state lives in localStorage, and the sample
 manager/deal ("Beacon Harbor", "Palmetto Court") is fictional and labeled

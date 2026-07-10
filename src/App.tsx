@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef, lazy, Suspense, useTransition } from 'react'
-import { Settings, BarChart3, MessageSquare, Upload, Target, Home as HomeIcon, Send, ClipboardList, BookOpen } from 'lucide-react'
+import { Settings, BarChart3, MessageSquare, Upload, Target, Home as HomeIcon, Send, ClipboardList, BookOpen, FileText } from 'lucide-react'
 import Plot from './LazyPlot'
 import Home from './Home'
 import ErrorBoundary from './ErrorBoundary'
@@ -7,6 +7,7 @@ import ErrorBoundary from './ErrorBoundary'
 // Each tab pane is its own async chunk — the entry bundle ships only the shell
 // and Home, and a tab's code downloads the first time it's opened.
 const PANE_LOADERS = {
+  intake: () => import('./DealIntake'),
   score: () => import('./DealScore'),
   engine: () => import('./EngineExplainer'),
   usmarket: () => import('./USMarket'),
@@ -15,6 +16,7 @@ const PANE_LOADERS = {
   ddqx: () => import('./DDQ'),
   combined: () => import('./CombinedVerdict'),
 }
+const DealIntake = lazy(PANE_LOADERS.intake)
 const EngineExplainer = lazy(PANE_LOADERS.engine)
 const DealScore = lazy(PANE_LOADERS.score)
 const CombinedVerdict = lazy(PANE_LOADERS.combined)
@@ -265,6 +267,10 @@ const TAB_GUIDE: Record<string, { name: string; guide: string }> = {
     name: 'Home / Upload',
     guide: 'Landing page. Step 1: drag-and-drop an Excel/CSV with the client\'s past deals (realized IRRs) and current opportunities — parsed in-browser, never uploaded to a server; a downloadable template shows the expected columns. Uploaded past deals replace the sample history that de-smooths the Monte Carlo; uploaded opportunities replace the sample pipeline. Step 2 is a how-to-use-the-site guide with clickable cards for each tab.',
   },
+  intake: {
+    name: 'Deal Intake',
+    guide: 'Structured deal intake for Gate 1. Flow: bring in a deal (upload dropzones for the OM PDF and pro forma XLSX are placeholders — AI extraction lands next milestone; today you load the client\'s sample deal or enter fields manually) → review every field grouped by Deal & Sponsor, Capital Stack, Operations, and Structure & Exit, with missing required fields highlighted → confirm & score. Scoring runs the server-side Gate 1 engine live: 18 checks — 10 hard kills (sponsor integrity, entitlements, LTC, dev spread, contingency, co-invest, track record, single-exit refi dependence, GMP on big jobs, and the mini-stress equity-multiple test) and 8 watch flags (yield-on-cost vs benchmark, exit cap vs market, interest reserve, land basis, rents vs comps, absorption, profit margin, completion guarantee). Any kill = FAIL; missing data = REVIEW (missing never passes); flag points map to PASS / CONDITIONAL / FAIL bands. Thresholds resolve per asset class and the current macro posture (green/yellow/red — kill lines tighten as conditions worsen). Analysts can apply judgment adjustments to any numeric threshold — reason required, always logged, and the rulebook\'s baseline verdict is kept alongside the adjusted one. RECORD DECISION persists an append-only, replayable decision row stamped with config version and macro snapshot.',
+  },
   score: {
     name: 'Deal Score',
     guide: 'The engine-backed single-deal scorer. Pick any of 20,216 US markets (metros, counties, cities — natural language like "miami dade county florida" works), set target return, risk-free rate, holding period, idiosyncratic volatility, book size, ticket, and answer the due-diligence questionnaire. The Netlify engine runs a 20,000-path Monte Carlo on that market\'s real Zillow price history plus a market-level rent carry (60% of observed gross yield, expense-adjusted; 4%/yr fallback where rents aren\'t observed), de-smoothed to honest volatility, and returns P(hit target) with confidence intervals, expected return, P(loss), VaR/CVaR, and a fractional-Kelly suggested allocation. A transparent "yield edge" adjustment (max ±0.30%/yr) rewards a market\'s within-state gross-yield percentile — the one signal that predicted forward returns in this platform\'s own backtests. A Crime context card shows FBI violent/property rates per 100k vs the US average. A Market context card shows open-data context for the selected market: Zillow rents & gross yield, inventory/days-to-pending market heat, BEA income & price-to-income, FEMA hazard risk, IRS migration flows, HMDA investor share & denial rates (demand quality), Census building permits (supply pipeline), and FEMA NFIP flood claims (realized losses).',
@@ -327,7 +333,7 @@ export default function App() {
   const [opportunities, setOpportunities] = useState<Opportunity[]>(INITIAL_OPPORTUNITIES)
   const [pastDeals, setPastDeals] = useState<PastDeal[]>(SAMPLE_PAST_DEALS)
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<'home' | 'score' | 'engine' | 'underwrite' | 'riskmodel' | 'ddqx' | 'combined' | 'usmarket' | 'dashboard' | 'opps' | 'ddq' | 'model' | 'corr'>('home')
+  const [activeTab, setActiveTab] = useState<'home' | 'intake' | 'score' | 'engine' | 'underwrite' | 'riskmodel' | 'ddqx' | 'combined' | 'usmarket' | 'dashboard' | 'opps' | 'ddq' | 'model' | 'corr'>('home')
   // Transition keeps the current pane visible while a lazy tab's chunk loads
   // (no "Loading…" flash); tabPending dims the pane as feedback meanwhile.
   const [tabPending, startTabSwitch] = useTransition()
@@ -551,6 +557,7 @@ ${pastDeals.slice(0, 3).map(d => `- ${d.id}: realized ${(d.realized_irr*100).toF
         {[
           { label: null, items: [
             { id: 'home', label: '🏠 Home / Upload', icon: HomeIcon },
+            { id: 'intake', label: 'Deal Intake', icon: FileText },
           ]},
           { label: 'YOUR METHODOLOGY', items: [
             { id: 'underwrite', label: '🏦 Underwrite', icon: Target },
@@ -606,6 +613,9 @@ ${pastDeals.slice(0, 3).map(d => `- ${d.id}: realized ${(d.realized_irr*100).toF
             goTo={(tab) => setActiveTab(tab as any)}
           />
         )}
+
+        {/* DEAL INTAKE — Gate 1 intake → review → score (Netlify /api/gate1/*) */}
+        {activeTab === 'intake' && <DealIntake />}
 
         {/* DEAL SCORE — engine-backed (Netlify /api/score) */}
         {activeTab === 'score' && <DealScore />}

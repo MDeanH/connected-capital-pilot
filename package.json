@@ -6,11 +6,14 @@
   "scripts": {
     "dev": "vite",
     "parity": "tsx netlify/functions/lib/parity.ts",
-    "build": "npm run parity && tsc -b && vite build",
+    "gate1": "tsx netlify/functions/lib/gate1/golden.ts",
+    "build": "npm run parity && npm run gate1 && tsc -b && vite build",
     "preview": "vite preview",
     "deploy": "bash scripts/deploy-netlify.sh"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.111.0",
+    "@supabase/supabase-js": "^2.110.2",
     "@types/three": "^0.165.0",
     "lucide-react": "^0.400.0",
     "plotly.js": "^2.35.2",
