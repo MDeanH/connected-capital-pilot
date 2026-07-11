@@ -1,7 +1,14 @@
 // Extraction core — shared by the Netlify function and the vite dev bridge so
 // local dev exercises the identical call path. Server-side only (SDK + key).
 import Anthropic from '@anthropic-ai/sdk'
-import { buildExtractionSchema, buildInstruction, type ExtractionResult } from './fields.ts'
+import {
+  buildExtractionSchema,
+  buildInstruction,
+  coerceExtraction,
+  type Discrepancy,
+  type ExtractionResult,
+  type RawExtractedField,
+} from './fields.ts'
 
 export interface ExtractRequest {
   dealName?: string
@@ -47,7 +54,8 @@ export async function runExtraction(req: ExtractRequest): Promise<ExtractionResu
 
   const text = msg.content.find(b => b.type === 'text')
   if (!text || text.type !== 'text') throw new Error('Extraction returned no output')
-  const parsed = JSON.parse(text.text) as ExtractionResult
+  const raw = JSON.parse(text.text) as { fields: Record<string, RawExtractedField>; discrepancies: Discrepancy[] }
+  const parsed = coerceExtraction(raw)
   console.log(
     `extract: model=${MODEL} ms=${Date.now() - started} pdf=${req.pdfBase64 ? Math.round(req.pdfBase64.length / 1024) + 'kb' : 'none'} sheets=${req.sheets?.length ?? 0} discrepancies=${parsed.discrepancies?.length ?? 0}`,
   )

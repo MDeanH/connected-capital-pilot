@@ -65,18 +65,15 @@ export interface ExtractionResult {
   recorded?: boolean
 }
 
-const SOURCE_SCHEMA = {
-  type: 'object',
-  properties: {
-    doc: { enum: ['om', 'proforma', null] },
-    page: { type: ['integer', 'null'] },
-    quote: { type: ['string', 'null'], description: 'Verbatim supporting quote, ≤200 chars' },
-  },
-  required: ['doc', 'page', 'quote'],
-  additionalProperties: false,
-} as const
-
-/** JSON Schema for the structured extraction output. */
+/**
+ * JSON Schema for the structured extraction output.
+ *
+ * Deliberately UNION-FREE: the Anthropic structured-outputs API caps the number
+ * of union-typed parameters, and ~30 fields × nullable unions blows past it
+ * (400: "Schemas contains too many parameters with union types"). Every value
+ * is a plain string ('' = not stated) plus enums; `coerceExtraction` converts
+ * to typed values deterministically using the field registry kinds.
+ */
 export function buildExtractionSchema() {
   const fieldProps: Record<string, unknown> = {}
   for (const f of EXTRACT_FIELDS) {
@@ -84,11 +81,17 @@ export function buildExtractionSchema() {
       type: 'object',
       description: `${f.label}${f.hint ? ` — ${f.hint}` : ''}`,
       properties: {
-        value: { type: ['number', 'string', 'boolean', 'null'] },
-        confidence: { type: 'number', description: '0–1; 0 when value is null' },
-        source: SOURCE_SCHEMA,
+        value: {
+          type: 'string',
+          description:
+            'The value as plain text: decimals for percentages (5% → "0.05"), plain numbers for dollars/months, "true"/"false" for yes-no. EMPTY STRING if the documents do not state it — never guess.',
+        },
+        confidence: { type: 'number', description: '0–1; 0 when value is empty' },
+        doc: { enum: ['om', 'proforma', 'none'] },
+        page: { type: 'integer', description: 'PDF page number; 0 when not applicable' },
+        quote: { type: 'string', description: 'Verbatim supporting quote ≤200 chars; empty when none' },
       },
-      required: ['value', 'confidence', 'source'],
+      required: ['value', 'confidence', 'doc', 'page', 'quote'],
       additionalProperties: false,
     }
   }
@@ -118,15 +121,57 @@ export function buildExtractionSchema() {
   } as const
 }
 
+/** Raw (string-typed) per-field shape the union-free schema produces. */
+export interface RawExtractedField {
+  value: string
+  confidence: number
+  doc: 'om' | 'proforma' | 'none'
+  page: number
+  quote: string
+}
+
+/** Deterministically convert the union-free raw output to typed ExtractedFields. */
+export function coerceExtraction(raw: {
+  fields: Record<string, RawExtractedField>
+  discrepancies: Discrepancy[]
+}): Pick<ExtractionResult, 'fields' | 'discrepancies'> {
+  const fields: Record<string, ExtractedField> = {}
+  for (const def of EXTRACT_FIELDS) {
+    const r = raw.fields[def.key]
+    if (!r) continue
+    let value: string | number | boolean | null = null
+    const s = (r.value ?? '').trim()
+    if (s !== '') {
+      if (def.kind === 'boolean') {
+        value = /^(true|yes|y)$/i.test(s) ? true : /^(false|no|n)$/i.test(s) ? false : null
+      } else if (def.kind === 'string') {
+        value = s
+      } else {
+        const n = Number(s.replace(/[$,%\s]/g, ''))
+        value = Number.isFinite(n) ? n : null
+      }
+    }
+    fields[def.key] = {
+      value,
+      confidence: value === null ? 0 : Math.max(0, Math.min(1, r.confidence ?? 0)),
+      source: {
+        doc: r.doc === 'none' ? null : r.doc,
+        page: r.page > 0 ? r.page : null,
+        quote: r.quote?.trim() ? r.quote.trim().slice(0, 240) : null,
+      },
+    }
+  }
+  return { fields, discrepancies: raw.discrepancies ?? [] }
+}
+
 export function buildInstruction(): string {
   const lines = EXTRACT_FIELDS.map(f => `- ${f.key} (${f.kind}): ${f.label}${f.hint ? ` — ${f.hint}` : ''}`)
   return `You are a real-estate due-diligence analyst. Extract the fields below from the attached deal documents (an offering memorandum PDF and/or pro forma spreadsheet CSVs).
 
 Rules:
-- NEVER guess. If a field is not stated in the documents, set value=null and confidence=0.
-- Percentages as decimals (5% → 0.05). Dollar amounts as plain numbers.
-- For every non-null field give confidence (0–1), the source document ('om' or 'proforma'), the page number (PDF) or null (spreadsheet), and a short verbatim quote (≤200 chars) supporting the value.
-- 'months' fields are plain numbers of months.
+- NEVER guess. If a field is not stated in the documents, set value to the EMPTY STRING and confidence to 0.
+- Every value is plain text: percentages as decimal strings (5% → "0.05"), dollar amounts as plain number strings ("10921964"), months as plain numbers, yes/no as "true"/"false".
+- For every non-empty field give confidence (0–1), the source document ('om' or 'proforma', 'none' when empty), the PDF page number (0 for spreadsheet or none), and a short verbatim quote (≤200 chars) supporting the value.
 - CRITICAL: compare the OM against the pro forma. List EVERY disagreement on the same economic fact (NOI, unit/pad count, rents, occupancy timeline/stabilization, costs, capital structure, returns) in 'discrepancies' with severity: 'material' when it changes the economics, 'minor' otherwise. Internal contradictions within one document count too (name the doc on both sides).
 
 Fields:
