@@ -1,13 +1,15 @@
 // Shared compute step for /api/gate1/* — used by the Netlify function AND the
 // vite dev bridge, so local dev runs the identical engine path.
-import { readFileSync } from 'node:fs'
+//
+// The config is IMPORTED (not readFileSync) so esbuild inlines it into the
+// serverless bundle — a runtime file read breaks on Netlify (/var/task ships
+// only the bundled .mjs, not sibling JSON files).
+import defaultConfigJson from './default-config.json'
 import { evaluateGate1 } from './engine.ts'
 import { resolveThresholds } from './thresholds.ts'
 import type { DealFields, Gate1Config, JudgmentAdjustment, Posture } from './types.ts'
 
-export const DEFAULT_CONFIG: Gate1Config = JSON.parse(
-  readFileSync(new URL('./default-config.json', import.meta.url), 'utf8'),
-)
+export const DEFAULT_CONFIG: Gate1Config = defaultConfigJson as unknown as Gate1Config
 
 export interface Gate1Request {
   fields: DealFields
