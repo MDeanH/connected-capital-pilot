@@ -67,26 +67,57 @@ export default function IntakeUpload({ onExtracted }: Props) {
     }
   }
 
+  // Deployed extraction runs as a BACKGROUND function (a full document pass
+  // exceeds the sync window): we generate the id, get a bodyless 202, and poll
+  // /api/extractions/:id. The local dev bridge answers synchronously with the
+  // result inline — both shapes are handled.
   const extract = async () => {
     if (!pdf && !proforma) return
-    setBusy('Extracting ~30 fields with AI — this can take a minute…')
+    setBusy('Sending documents…')
     setErr(null)
     try {
+      const extractionId = crypto.randomUUID()
       const r = await fetch('/api/extract', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          extractionId,
           dealName: pdf?.name ?? proforma?.name,
           pdfBase64: pdf?.base64,
           pdfFilename: pdf?.name,
           sheets: proforma?.sheets,
         }),
       })
+
       const ct = r.headers.get('content-type') || ''
-      if (!ct.includes('application/json')) throw new Error('Extraction endpoint offline — run `netlify dev` or the vite bridge.')
-      const data = await r.json()
-      if (data.error) throw new Error(data.error)
-      onExtracted(data as ExtractionResult)
+      if (ct.includes('application/json')) {
+        const data = await r.json()
+        if (data.error) throw new Error(data.error)
+        if (data.fields) {
+          onExtracted(data as ExtractionResult)
+          return
+        }
+      } else if (!r.ok && r.status !== 202) {
+        throw new Error(`Extraction endpoint unavailable (HTTP ${r.status})`)
+      }
+
+      // 202 (background) — poll for the result.
+      const started = Date.now()
+      const GIVE_UP_MS = 5 * 60_000
+      while (Date.now() - started < GIVE_UP_MS) {
+        const secs = Math.round((Date.now() - started) / 1000)
+        setBusy(`Deep-reading the documents — extracting ~30 cited fields (${secs}s)…`)
+        await new Promise(res => setTimeout(res, 3000))
+        const p = await fetch(`/api/extractions/${extractionId}`)
+        if (!p.ok) continue
+        const data = await p.json()
+        if (data.status === 'done') {
+          onExtracted(data as ExtractionResult)
+          return
+        }
+        if (data.status === 'error') throw new Error(data.error ?? 'Extraction failed')
+      }
+      throw new Error('Extraction timed out after 5 minutes — try again or load the recorded sample')
     } catch (e) {
       setErr(String((e as Error).message ?? e))
     } finally {
