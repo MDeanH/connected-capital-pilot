@@ -2,6 +2,8 @@
 
 **Purpose**: Comprehensive list of downloadable (or easily fetchable) public/semi-public data sources to feed the Monte Carlo engine (`mc_reference.py` / `src/model/mc_reference.py`).
 
+> **See also:** `public_economic_data_catalog.md` (2026-07-10) — the economy-wide superset: all US federal + state government data with retrieval details, international sources, 2025–26 landscape warnings (shutdown data holes, API migrations), and correlation/causation impact weights at macro/micro/state/country lenses. Machine-readable slice: `catalog/public_source_registry.json`.
+
 **How these map to the model** (per reference docs and review findings):
 - **Price levels / AVMs** (Zillow ZHVI, Redfin, Case-Shiller, FHFA, Census median prices, assessor data): Use `prices_to_returns(prices)` then `fit_distribution(returns, periods_per_year=12 or 4)`.
 - **Periodic returns series** (NCREIF-style quarterly total returns, REIT total returns, FRED HPI changes): Direct to `fit_distribution(..., periods_per_year=4 or 1 or 12)`. Apply `geltner_unsmooth` for appraisal-smoothed (NCREIF, some HPIs). Use `bias_mu < 0` and `bias_sigma_mult > 1` for survivorship/appraisal bias.

@@ -26,6 +26,12 @@ Re-pull the full curated set (Zillow, FHFA, FRED macro/indices, NCREIF snapshots
 
 See data_sources_inventory.md for the complete list with URLs, model mapping (ppy, geltner, bias, n_obs, etc.), and how each feeds the verified MC engine.
 
+For the economy-wide catalog (all federal + state + international public data, retrieval details, and impact weights at macro/micro/state/country lenses), see public_economic_data_catalog.md and catalog/public_source_registry.json (compiled + web-verified 2026-07-10).
+
+For stock market data — live/real-time (what's genuinely free vs licensed), EOD APIs, deep history to 1871/1789, official/regulatory feeds, and the two-direction correlation/causation map (what drives stocks; what stocks drive) — see stock_market_data_catalog.md (same date).
+
+**Ingesting the catalogs:** `python scripts/ingest_public_sources.py` pulls every free/keyless source (FRED batch, DOL claims, QCEW, Cboe, French, Shiller, CFTC COT, FINRA, BIS, EPU/GPR/TPU, GSCPI, ACM, Damodaran, Ritter, ICI, ECB, IMF, Treasury, and more) into `data/raw/public/<id>/` (gitignored) and writes the run manifest to `catalog/public_ingest_manifest.json` (per-source status, files, byte counts, failure remedies). Re-runs skip cached sources (`--force` to refetch, `--only id1,id2` to target). First full pull 2026-07-10: 35 sources, ~100 files, ~520 MB (mostly the BIS policy-rates bulk). Sources needing keys/logins (BEA, EIA, Census EITS, Comtrade, WTO, AAII, Alpaca/Tiingo) are recorded in the manifest's `skipped` block with what to register.
+
 For commercial real estate total returns (NCREIF NPI / ODCE): obtain the licensed quarterly series (or use recent public press-release snapshots for short demo), pass `periods_per_year=4`, apply geltner_unsmooth + negative bias_mu for appraisal + survivorship effects.
 
 Other series (optional future):

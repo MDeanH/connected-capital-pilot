@@ -1,0 +1,1228 @@
+{
+ "generated": "2026-07-10",
+ "doc": "data/public_economic_data_catalog.md",
+ "notes": "Machine-readable slice of the top-weighted sources. weights = lens composites from catalog \u00a71 rubric (macro/micro/state/country, 1-5 scale). verified: '2026-07-10' = endpoint web-verified that day; 'knowledge' = stable but re-verify on first integration. role: causal|leading|coincident|lagging|structural. Stock-market rows added 2026-07-10; see data/stock_market_data_catalog.md.",
+ "sources": [
+  {
+   "id": "fred",
+   "name": "FRED/ALFRED",
+   "level": "federal",
+   "agency": "St. Louis Fed",
+   "access": {
+    "api": "https://api.stlouisfed.org/fred/",
+    "key": "free",
+    "rate_limit": "120/min",
+    "formats": [
+     "json",
+     "xml",
+     "csv"
+    ],
+    "notes": "ALFRED vintages via realtime_start/realtime_end; keyless CSV via fredgraph.csv?id="
+   },
+   "frequency": "mirrors source",
+   "granularity": "national-county",
+   "role": "mixed",
+   "horizon": "both",
+   "weights": {
+    "macro": null,
+    "micro": null,
+    "state": null,
+    "country": null
+   },
+   "verified": "2026-07-10",
+   "ingested": true
+  },
+  {
+   "id": "fomc_policy",
+   "name": "Fed policy path (FOMC/SEP, H.15, DDP)",
+   "level": "federal",
+   "agency": "Federal Reserve Board",
+   "access": {
+    "url": "https://www.federalreserve.gov/datadownload/",
+    "key": "none",
+    "formats": [
+     "csv",
+     "sdmx-xml"
+    ]
+   },
+   "frequency": "daily-8x/yr",
+   "granularity": "national",
+   "role": "causal",
+   "horizon": "both",
+   "weights": {
+    "macro": 4.75,
+    "micro": null,
+    "state": null,
+    "country": null
+   },
+   "verified": "2026-07-10",
+   "ingested": false
+  },
+  {
+   "id": "oil_global",
+   "name": "Oil prices & global supply (EIA + OPEC MOMR + JODI)",
+   "level": "international",
+   "agency": "EIA/OPEC/JODI",
+   "access": {
+    "api": "https://api.eia.gov/v2/",
+    "key": "free (EIA)",
+    "formats": [
+     "json",
+     "csv"
+    ],
+    "notes": "JODI free CSV bundles; OPEC MOMR free PDF+data; IEA OMR paid until ~3mo old"
+   },
+   "frequency": "weekly-monthly",
+   "granularity": "national/world",
+   "role": "causal",
+   "horizon": "both",
+   "weights": {
+    "macro": 4.25,
+    "micro": null,
+    "state": null,
+    "country": 4.2
+   },
+   "verified": "2026-07-10",
+   "ingested": false
+  },
+  {
+   "id": "credit_conditions",
+   "name": "Credit spreads / EBP / NFCI / SLOOS",
+   "level": "federal",
+   "agency": "Fed Board / Chicago Fed",
+   "access": {
+    "url": "https://www.federalreserve.gov/econres/notes/feds-notes (EBP), Chicago Fed NFCI CSV, SLOOS page",
+    "key": "none",
+    "formats": [
+     "csv",
+     "xlsx"
+    ]
+   },
+   "frequency": "weekly-quarterly",
+   "granularity": "national",
+   "role": "leading",
+   "horizon": "short",
+   "weights": {
+    "macro": 4.15,
+    "micro": null,
+    "state": null,
+    "country": null
+   },
+   "verified": "knowledge",
+   "ingested": false,
+   "evidence": "Best-performing recession block 2022-26 (Gilchrist-Zakrajsek 2012; KC Fed 2024)"
+  },
+  {
+   "id": "fiscal_tariff",
+   "name": "Fiscal stance + tariff schedule (FiscalData, CBO, USITC DataWeb)",
+   "level": "federal",
+   "agency": "Treasury/CBO/USITC",
+   "access": {
+    "api": "https://api.fiscaldata.treasury.gov/services/api/fiscal_service/",
+    "key": "none (DataWeb: free account+token)",
+    "formats": [
+     "json",
+     "csv",
+     "xml"
+    ]
+   },
+   "frequency": "daily-monthly",
+   "granularity": "national (tariff: HS-line)",
+   "role": "causal",
+   "horizon": "both",
+   "weights": {
+    "macro": 4.05,
+    "micro": null,
+    "state": null,
+    "country": 4.1
+   },
+   "verified": "2026-07-10",
+   "ingested": false
+  },
+  {
+   "id": "yield_curve",
+   "name": "Treasury yield curve (10y-3m)",
+   "level": "federal",
+   "agency": "Treasury/FRED",
+   "access": {
+    "api": "FiscalData daily par yield curve; FRED T10Y3M",
+    "key": "none",
+    "formats": [
+     "json",
+     "csv"
+    ]
+   },
+   "frequency": "daily",
+   "granularity": "national",
+   "role": "leading",
+   "horizon": "short",
+   "weights": {
+    "macro": 3.85,
+    "micro": null,
+    "state": null,
+    "country": null
+   },
+   "verified": "2026-07-10",
+   "ingested": false,
+   "evidence": "Downgraded after 2022-24 26-month false positive; condition on credit spreads"
+  },
+  {
+   "id": "gscpi_supply",
+   "name": "Supply-chain pressure (GSCPI + PortWatch + Kiel)",
+   "level": "international",
+   "agency": "NY Fed / IMF / Kiel",
+   "access": {
+    "url": "https://www.newyorkfed.org/medialibrary/research/interactives/gscpi/downloads/gscpi_data.xlsx; portwatch.imf.org (ArcGIS REST, CSV/GeoJSON); trade.ifw-kiel.de/KTI/",
+    "key": "none",
+    "formats": [
+     "xlsx",
+     "csv",
+     "geojson"
+    ]
+   },
+   "frequency": "weekly-monthly",
+   "granularity": "world/chokepoint",
+   "role": "causal",
+   "horizon": "short",
+   "weights": {
+    "macro": 3.7,
+    "micro": null,
+    "state": null,
+    "country": 3.75
+   },
+   "verified": "2026-07-10",
+   "ingested": false
+  },
+  {
+   "id": "census_bps",
+   "name": "Building permits (BPS)",
+   "level": "federal",
+   "agency": "Census",
+   "access": {
+    "api": "https://api.census.gov/data/timeseries/eits/... + flat TXT at census.gov/construction/bps/",
+    "key": "free",
+    "formats": [
+     "json",
+     "txt"
+    ]
+   },
+   "frequency": "monthly",
+   "lag": "~2.5wk",
+   "granularity": "place/county/CBSA/state",
+   "role": "leading",
+   "horizon": "short",
+   "weights": {
+    "macro": 3.65,
+    "micro": 3.7,
+    "state": 4.1,
+    "country": null
+   },
+   "verified": "knowledge",
+   "ingested": true
+  },
+  {
+   "id": "rent_lead",
+   "name": "New-tenant rent leads (Zillow ZORI, BLS NTRI)",
+   "level": "private-free/federal",
+   "agency": "Zillow/BLS",
+   "access": {
+    "url": "zillow.com/research/data (CSV, no key); bls.gov/pir/new-tenant-rent.htm",
+    "key": "none",
+    "formats": [
+     "csv"
+    ]
+   },
+   "frequency": "monthly/quarterly",
+   "granularity": "national-zip (ZORI)",
+   "role": "leading",
+   "horizon": "short",
+   "weights": {
+    "macro": 3.65,
+    "micro": null,
+    "state": null,
+    "country": null
+   },
+   "verified": "2026-07-10",
+   "ingested": true,
+   "evidence": "Leads shelter CPI ~4 quarters; called 2023-24 shelter disinflation"
+  },
+  {
+   "id": "ui_claims",
+   "name": "Weekly state UI claims (ETA 539)",
+   "level": "federal",
+   "agency": "DOL ETA",
+   "access": {
+    "url": "https://oui.doleta.gov/unemploy/claims.asp + DataDownloads.asp",
+    "key": "none",
+    "formats": [
+     "csv"
+    ],
+    "notes": "state = advance + NSA; FRED mirrors {ST}ICLAIMS"
+   },
+   "frequency": "weekly",
+   "lag": "~1wk",
+   "granularity": "state",
+   "role": "leading",
+   "horizon": "short",
+   "weights": {
+    "macro": 3.5,
+    "micro": null,
+    "state": 4.1,
+    "country": null
+   },
+   "verified": "2026-07-10",
+   "ingested": false
+  },
+  {
+   "id": "qcew",
+   "name": "QCEW county x industry employment/wages",
+   "level": "federal",
+   "agency": "BLS",
+   "access": {
+    "api": "https://data.bls.gov/cew/data/api/{year}/{qtr}/area/{fips}.csv",
+    "key": "none",
+    "formats": [
+     "csv"
+    ]
+   },
+   "frequency": "quarterly",
+   "lag": "~5.5mo",
+   "granularity": "county x NAICS",
+   "role": "coincident-truth",
+   "horizon": "both",
+   "weights": {
+    "macro": null,
+    "micro": 3.85,
+    "state": 3.9,
+    "country": null
+   },
+   "verified": "knowledge",
+   "ingested": false
+  },
+  {
+   "id": "bfs",
+   "name": "Business Formation Statistics",
+   "level": "federal",
+   "agency": "Census",
+   "access": {
+    "api": "https://api.census.gov/data/timeseries/eits/bfs; FRED releases 443/468",
+    "key": "free",
+    "formats": [
+     "json",
+     "csv"
+    ]
+   },
+   "frequency": "weekly+monthly",
+   "lag": "~5 days (weekly)",
+   "granularity": "national/region/state/county",
+   "role": "leading",
+   "horizon": "short",
+   "weights": {
+    "macro": null,
+    "micro": null,
+    "state": 3.85,
+    "country": null
+   },
+   "verified": "2026-07-10",
+   "ingested": false
+  },
+  {
+   "id": "laus",
+   "name": "LAUS local unemployment",
+   "level": "federal",
+   "agency": "BLS",
+   "access": {
+    "api": "https://api.bls.gov/publicAPI/v2/timeseries/data/",
+    "key": "free (500/day)",
+    "formats": [
+     "json"
+    ]
+   },
+   "frequency": "monthly",
+   "lag": "1-2mo",
+   "granularity": "state/county/metro/city",
+   "role": "coincident",
+   "horizon": "short",
+   "weights": {
+    "macro": null,
+    "micro": null,
+    "state": 3.8,
+    "country": null
+   },
+   "verified": "2026-07-10",
+   "ingested": false,
+   "caveats": [
+    "2025-10 missing",
+    "Colorado suspended from 2025-01"
+   ]
+  },
+  {
+   "id": "philly_state_idx",
+   "name": "Philly Fed state coincident+leading indexes",
+   "level": "federal",
+   "agency": "Philadelphia Fed",
+   "access": {
+    "url": "philadelphiafed.org/surveys-and-data/regional-economic-analysis/state-coincident-indexes",
+    "key": "none",
+    "formats": [
+     "xlsx",
+     "csv"
+    ],
+    "notes": "also on FRED {ST}PHCI"
+   },
+   "frequency": "monthly",
+   "granularity": "state",
+   "role": "leading",
+   "horizon": "short",
+   "weights": {
+    "macro": null,
+    "micro": null,
+    "state": 3.7,
+    "country": null
+   },
+   "verified": "2026-07-10",
+   "ingested": false
+  },
+  {
+   "id": "irs_migration",
+   "name": "IRS SOI county migration + ZIP income",
+   "level": "federal",
+   "agency": "IRS",
+   "access": {
+    "url": "irs.gov/statistics/soi-tax-stats-migration-data",
+    "key": "none",
+    "formats": [
+     "csv",
+     "xlsx"
+    ]
+   },
+   "frequency": "annual",
+   "lag": "~2.5yr",
+   "granularity": "county/zip",
+   "role": "structural",
+   "horizon": "long",
+   "weights": {
+    "macro": null,
+    "micro": 4.05,
+    "state": null,
+    "country": null
+   },
+   "verified": "2026-07-10",
+   "ingested": true
+  },
+  {
+   "id": "hmda",
+   "name": "HMDA loan-level",
+   "level": "federal",
+   "agency": "CFPB/FFIEC",
+   "access": {
+    "api": "https://ffiec.cfpb.gov/data-browser/",
+    "key": "none",
+    "formats": [
+     "csv"
+    ]
+   },
+   "frequency": "annual",
+   "lag": "~6mo (2025 files out 2026-06-23)",
+   "granularity": "loan/tract",
+   "role": "coincident",
+   "horizon": "both",
+   "weights": {
+    "macro": null,
+    "micro": 4.0,
+    "state": null,
+    "country": null
+   },
+   "verified": "2026-07-10",
+   "ingested": true
+  },
+  {
+   "id": "fhfa_hpi",
+   "name": "FHFA HPI (incl. annual county/ZIP/tract) + UAD",
+   "level": "federal",
+   "agency": "FHFA",
+   "access": {
+    "url": "fhfa.gov/data/hpi/datasets",
+    "key": "none",
+    "formats": [
+     "csv",
+     "xlsx"
+    ]
+   },
+   "frequency": "monthly-annual",
+   "granularity": "national-tract",
+   "role": "coincident",
+   "horizon": "both",
+   "weights": {
+    "macro": null,
+    "micro": 3.9,
+    "state": null,
+    "country": null
+   },
+   "verified": "2026-07-10",
+   "ingested": false
+  },
+  {
+   "id": "fema_nri_nfip",
+   "name": "FEMA NRI + NFIP claims/policies",
+   "level": "federal",
+   "agency": "FEMA",
+   "access": {
+    "api": "https://www.fema.gov/api/open/v2/",
+    "key": "none",
+    "formats": [
+     "json",
+     "csv"
+    ],
+    "notes": "use v2; v1 deprecated"
+   },
+   "frequency": "monthly refresh",
+   "granularity": "county/tract",
+   "role": "structural",
+   "horizon": "long",
+   "weights": {
+    "macro": null,
+    "micro": 3.75,
+    "state": null,
+    "country": null
+   },
+   "verified": "2026-07-10",
+   "ingested": true
+  },
+  {
+   "id": "acs",
+   "name": "ACS 1yr/5yr",
+   "level": "federal",
+   "agency": "Census",
+   "access": {
+    "api": "https://api.census.gov/data/{yyyy}/acs/acs5",
+    "key": "free",
+    "formats": [
+     "json"
+    ]
+   },
+   "frequency": "annual",
+   "lag": "9-12mo",
+   "granularity": "block group (5yr)",
+   "role": "structural",
+   "horizon": "both",
+   "weights": {
+    "macro": null,
+    "micro": 3.7,
+    "state": null,
+    "country": null
+   },
+   "verified": "2026-07-10",
+   "ingested": false
+  },
+  {
+   "id": "fdic_sod",
+   "name": "FDIC BankFind + Summary of Deposits",
+   "level": "federal",
+   "agency": "FDIC",
+   "access": {
+    "api": "https://banks.data.fdic.gov/api/",
+    "key": "none",
+    "formats": [
+     "json",
+     "csv"
+    ]
+   },
+   "frequency": "quarterly/annual",
+   "granularity": "bank/branch/county",
+   "role": "coincident",
+   "horizon": "both",
+   "weights": {
+    "macro": null,
+    "micro": 3.55,
+    "state": null,
+    "country": null
+   },
+   "verified": "2026-07-10",
+   "ingested": false
+  },
+  {
+   "id": "lodes_qwi",
+   "name": "LEHD LODES + QWI",
+   "level": "federal",
+   "agency": "Census",
+   "access": {
+    "url": "lehd.ces.census.gov/data/lodes/LODES8/ + api.census.gov/data/timeseries/qwi/sa",
+    "key": "free (QWI api)",
+    "formats": [
+     "csv",
+     "json"
+    ],
+    "notes": "LODES v8.4 adds 2023 (no AK/MI)"
+   },
+   "frequency": "annual/quarterly",
+   "lag": "9-24mo",
+   "granularity": "block/county",
+   "role": "coincident",
+   "horizon": "both",
+   "weights": {
+    "macro": null,
+    "micro": 3.45,
+    "state": null,
+    "country": null
+   },
+   "verified": "2026-07-10",
+   "ingested": false
+  },
+  {
+   "id": "bea_regional",
+   "name": "BEA state/county GDP + personal income + RPP",
+   "level": "federal",
+   "agency": "BEA",
+   "access": {
+    "api": "https://apps.bea.gov/api/data",
+    "key": "free UserID",
+    "formats": [
+     "json",
+     "xml"
+    ],
+    "notes": "metro series discontinued 2024-vintage; CT on planning regions"
+   },
+   "frequency": "quarterly(state)/annual(county)",
+   "lag": "3-12mo",
+   "granularity": "state/county",
+   "role": "coincident",
+   "horizon": "both",
+   "weights": {
+    "macro": null,
+    "micro": 3.4,
+    "state": 3.55,
+    "country": null
+   },
+   "verified": "2026-07-10",
+   "ingested": true
+  },
+  {
+   "id": "qtax",
+   "name": "Census QTAX state/local tax revenue",
+   "level": "federal",
+   "agency": "Census",
+   "access": {
+    "api": "https://api.census.gov/data/timeseries/eits/qtax",
+    "key": "free",
+    "formats": [
+     "json",
+     "xlsx"
+    ]
+   },
+   "frequency": "quarterly",
+   "lag": "~2.5mo",
+   "granularity": "state",
+   "role": "coincident",
+   "horizon": "both",
+   "weights": {
+    "macro": null,
+    "micro": null,
+    "state": 3.35,
+    "country": null
+   },
+   "verified": "2026-07-10",
+   "ingested": false
+  },
+  {
+   "id": "cpi_pce",
+   "name": "CPI (BLS) / PCE (BEA)",
+   "level": "federal",
+   "agency": "BLS/BEA",
+   "access": {
+    "api": "api.bls.gov v2 + apps.bea.gov/api",
+    "key": "free",
+    "formats": [
+     "json"
+    ]
+   },
+   "frequency": "monthly",
+   "lag": "~2-4wk",
+   "granularity": "national/metro(CPI)",
+   "role": "lagging-policy-trigger",
+   "horizon": "short",
+   "weights": {
+    "macro": 2.9,
+    "micro": null,
+    "state": null,
+    "country": null
+   },
+   "verified": "2026-07-10",
+   "ingested": true,
+   "caveats": [
+    "2025-10 CPI missing",
+    "subnational CPI noisier post-2025 sample cuts"
+   ]
+  },
+  {
+   "id": "ces_payrolls",
+   "name": "CES payrolls (national first print)",
+   "level": "federal",
+   "agency": "BLS",
+   "access": {
+    "api": "api.bls.gov v2",
+    "key": "free",
+    "formats": [
+     "json"
+    ]
+   },
+   "frequency": "monthly",
+   "lag": "~1wk",
+   "granularity": "national/state/metro",
+   "role": "coincident",
+   "horizon": "short",
+   "weights": {
+    "macro": 2.65,
+    "micro": null,
+    "state": 3.05,
+    "country": null
+   },
+   "verified": "2026-07-10",
+   "ingested": false,
+   "caveats": [
+    "benchmark revisions -818k (2024), -911k prelim/-898k final (2025): shade toward QCEW/claims",
+    "~900 state/metro industry series culled 2026-01"
+   ]
+  },
+  {
+   "id": "global_financial",
+   "name": "Global financial conditions (BIS rates/dollar/global liquidity)",
+   "level": "international",
+   "agency": "BIS",
+   "access": {
+    "api": "https://data.bis.org (SDMX; stats.bis.org/api-doc/v2/) + bulk CSV",
+    "key": "none",
+    "formats": [
+     "sdmx",
+     "csv"
+    ]
+   },
+   "frequency": "daily-quarterly",
+   "granularity": "country",
+   "role": "causal",
+   "horizon": "both",
+   "weights": {
+    "macro": null,
+    "micro": null,
+    "state": null,
+    "country": 4.25
+   },
+   "verified": "2026-07-10",
+   "ingested": false
+  },
+  {
+   "id": "gpr_epu",
+   "name": "Risk indices (GPR, EPU/TPU, WUI, VIX)",
+   "level": "international",
+   "agency": "academic/Cboe",
+   "access": {
+    "url": "matteoiacoviello.com/gpr.htm; policyuncertainty.com; cdn.cboe.com/api/global/us_indices/daily_prices/VIX_History.csv",
+    "key": "none",
+    "formats": [
+     "xls",
+     "csv"
+    ]
+   },
+   "frequency": "daily-monthly",
+   "granularity": "US+country",
+   "role": "leading",
+   "horizon": "both",
+   "weights": {
+    "macro": null,
+    "micro": null,
+    "state": null,
+    "country": 3.6
+   },
+   "verified": "2026-07-10",
+   "ingested": false
+  },
+  {
+   "id": "china_activity",
+   "name": "China activity & credit (NBS, customs, TSF, RatingDog PMI)",
+   "level": "international",
+   "agency": "NBS/GACC/PBoC",
+   "access": {
+    "url": "data.stats.gov.cn/english (no API; use DB.nomics/FRED mirrors); Comtrade for trade",
+    "key": "none",
+    "formats": [
+     "html",
+     "mirrors"
+    ]
+   },
+   "frequency": "monthly",
+   "granularity": "national",
+   "role": "causal",
+   "horizon": "both",
+   "weights": {
+    "macro": null,
+    "micro": null,
+    "state": null,
+    "country": 3.35
+   },
+   "verified": "2026-07-10",
+   "ingested": false,
+   "evidence": "1pp China slowdown -> ~0.1-0.25pp US GDP (IMF; Fed IFDP 1260)"
+  },
+  {
+   "id": "ecb_eurostat",
+   "name": "Euro area (ECB Data Portal + Eurostat + Ifo/ZEW)",
+   "level": "international",
+   "agency": "ECB/Eurostat",
+   "access": {
+    "api": "https://data-api.ecb.europa.eu/service/data/{FLOW}/{KEY}; ec.europa.eu/eurostat/api/dissemination",
+    "key": "none",
+    "formats": [
+     "sdmx",
+     "csv",
+     "json"
+    ]
+   },
+   "frequency": "daily-quarterly",
+   "granularity": "EA/country",
+   "role": "leading",
+   "horizon": "short",
+   "weights": {
+    "macro": null,
+    "micro": null,
+    "state": null,
+    "country": 3.25
+   },
+   "verified": "2026-07-10",
+   "ingested": false
+  },
+  {
+   "id": "oecd_cli",
+   "name": "OECD Composite Leading Indicators + global PMIs",
+   "level": "international",
+   "agency": "OECD/S&P Global",
+   "access": {
+    "api": "https://sdmx.oecd.org/public/rest/ (no key); PMI headlines free via press releases",
+    "key": "none",
+    "formats": [
+     "sdmx-csv"
+    ]
+   },
+   "frequency": "monthly",
+   "lag": "~2wk",
+   "granularity": "country",
+   "role": "leading",
+   "horizon": "short",
+   "weights": {
+    "macro": 3.3,
+    "micro": null,
+    "state": null,
+    "country": 2.95
+   },
+   "verified": "2026-07-10",
+   "ingested": false
+  },
+  {
+   "id": "comtrade_wto",
+   "name": "UN Comtrade + WTO tariffs + CPB World Trade Monitor",
+   "level": "international",
+   "agency": "UN/WTO/CPB",
+   "access": {
+    "api": "comtradeapi.un.org (free key 500 calls/day); apiportal.wto.org (free key); CPB free XLSX",
+    "key": "free",
+    "formats": [
+     "json",
+     "xlsx"
+    ]
+   },
+   "frequency": "monthly",
+   "lag": "1-3mo",
+   "granularity": "bilateral HS-line",
+   "role": "coincident",
+   "horizon": "both",
+   "weights": {
+    "macro": null,
+    "micro": null,
+    "state": null,
+    "country": 4.1
+   },
+   "verified": "2026-07-10",
+   "ingested": false
+  },
+  {
+   "id": "imf_weo_gdd",
+   "name": "IMF WEO + Global Debt Database (DataMapper)",
+   "level": "international",
+   "agency": "IMF",
+   "access": {
+    "api": "https://www.imf.org/external/datamapper/api/v1/{IND}/{ISO3} + data.imf.org SDMX",
+    "key": "none",
+    "formats": [
+     "json",
+     "sdmx"
+    ],
+    "notes": "legacy dataservices.imf.org is DEAD; IFS split into thematic dataflows"
+   },
+   "frequency": "2x/yr + updates",
+   "granularity": "country",
+   "role": "structural",
+   "horizon": "long",
+   "weights": {
+    "macro": null,
+    "micro": null,
+    "state": null,
+    "country": null
+   },
+   "verified": "2026-07-10",
+   "ingested": false
+  },
+  {
+   "id": "un_wpp",
+   "name": "UN World Population Prospects",
+   "level": "international",
+   "agency": "UN",
+   "access": {
+    "url": "population.un.org/wpp/downloads (bulk CSV) + dataportalapi (bearer token)",
+    "key": "token for API",
+    "formats": [
+     "csv",
+     "xlsx"
+    ]
+   },
+   "frequency": "biennial revision",
+   "granularity": "country",
+   "role": "structural",
+   "horizon": "long",
+   "weights": {
+    "macro": null,
+    "micro": null,
+    "state": null,
+    "country": 4.0
+   },
+   "verified": "2026-07-10",
+   "ingested": false
+  },
+  {
+   "id": "immigration_flows",
+   "name": "Immigration/labor supply (CBP encounters, visas, OHSS)",
+   "level": "federal",
+   "agency": "DHS/State",
+   "access": {
+    "url": "cbp.gov/newsroom/stats; travel.state.gov visa statistics; ohss.dhs.gov",
+    "key": "none",
+    "formats": [
+     "xlsx",
+     "pdf"
+    ],
+    "notes": "cadence irregular 2025; verify vintages"
+   },
+   "frequency": "monthly",
+   "granularity": "national/border sector",
+   "role": "causal",
+   "horizon": "both",
+   "weights": {
+    "macro": 3.25,
+    "micro": null,
+    "state": null,
+    "country": null
+   },
+   "verified": "knowledge",
+   "ingested": false,
+   "evidence": "2025 net migration negative (first in >=50yrs); breakeven payrolls 20-50k/mo (Brookings 2026)"
+  },
+  {
+   "id": "usaspending",
+   "name": "USASpending federal fiscal flows",
+   "level": "federal",
+   "agency": "Treasury",
+   "access": {
+    "api": "https://api.usaspending.gov/api/v2/",
+    "key": "none",
+    "formats": [
+     "json",
+     "csv"
+    ]
+   },
+   "frequency": "daily updates",
+   "granularity": "award/county",
+   "role": "causal-local",
+   "horizon": "both",
+   "weights": {
+    "macro": null,
+    "micro": null,
+    "state": null,
+    "country": null
+   },
+   "verified": "2026-07-10",
+   "ingested": false
+  },
+  {
+   "id": "eia_energy",
+   "name": "EIA energy (petroleum/gas/electricity/STEO)",
+   "level": "federal",
+   "agency": "EIA",
+   "access": {
+    "api": "https://api.eia.gov/v2/",
+    "key": "free",
+    "formats": [
+     "json"
+    ],
+    "notes": "5000 rows/req; bulk zips"
+   },
+   "frequency": "weekly-monthly",
+   "granularity": "national/state/hub",
+   "role": "causal",
+   "horizon": "both",
+   "weights": {
+    "macro": null,
+    "micro": null,
+    "state": null,
+    "country": null
+   },
+   "verified": "2026-07-10",
+   "ingested": false
+  },
+  {
+   "id": "sentiment",
+   "name": "Consumer sentiment (UMich/Conference Board) + SCE",
+   "level": "private-free/federal",
+   "agency": "UMich/TCB/NY Fed",
+   "access": {
+    "url": "sca.isr.umich.edu; NY Fed SCE xlsx",
+    "key": "none",
+    "formats": [
+     "csv",
+     "xlsx"
+    ]
+   },
+   "frequency": "monthly",
+   "granularity": "national",
+   "role": "leading-weak",
+   "horizon": "short",
+   "weights": {
+    "macro": 2.5,
+    "micro": null,
+    "state": null,
+    "country": null
+   },
+   "verified": "2026-07-10",
+   "ingested": false,
+   "caveats": [
+    "partisan-contaminated post-2020; use changes not levels; SPF > household expectations"
+   ]
+  },
+  {
+   "id": "equity_eod",
+   "name": "Equity EOD prices (Tiingo primary; Stooq/yfinance backfill)",
+   "level": "private-free",
+   "agency": "Tiingo/Stooq/Yahoo",
+   "access": {
+    "api": "https://api.tiingo.com/tiingo/daily/{tkr}/prices (free key, 1k/day); stooq.com/q/d/l/?s=; yfinance",
+    "key": "Tiingo free",
+    "formats": [
+     "json",
+     "csv"
+    ],
+    "notes": "Tiingo internal-use-only; Stooq/yfinance personal-research; survivorship-biased"
+   },
+   "frequency": "daily",
+   "granularity": "ticker",
+   "role": "coincident",
+   "horizon": "both",
+   "weights": {
+    "macro": null,
+    "micro": null,
+    "state": null,
+    "country": null
+   },
+   "verified": "2026-07-10",
+   "ingested": false
+  },
+  {
+   "id": "shiller_cape",
+   "name": "Shiller S&P composite + CAPE (1871->)",
+   "level": "private-free",
+   "agency": "shillerdata.com",
+   "access": {
+    "url": "https://shillerdata.com/ (scrape ie_data.xls button; Yale copy frozen Oct 2023)",
+    "key": "none",
+    "formats": [
+     "xls"
+    ]
+   },
+   "frequency": "monthly",
+   "granularity": "national",
+   "role": "leading",
+   "horizon": "long",
+   "weights": {
+    "macro": null,
+    "micro": null,
+    "state": null,
+    "country": null
+   },
+   "verified": "2026-07-10",
+   "ingested": false,
+   "evidence": "R2 ~0.3-0.43 at 10yr horizon; nil at 1yr"
+  },
+  {
+   "id": "french_factors",
+   "name": "Ken French factors + market returns (1926->)",
+   "level": "private-free",
+   "agency": "Dartmouth",
+   "access": {
+    "url": "mba.tuck.dartmouth.edu/pages/faculty/ken.french/ftp/F-F_Research_Data_Factors_CSV.zip",
+    "key": "none",
+    "formats": [
+     "csv-zip"
+    ]
+   },
+   "frequency": "monthly (~1mo lag)",
+   "granularity": "factor/industry",
+   "role": "coincident",
+   "horizon": "both",
+   "verified": "2026-07-10",
+   "ingested": false,
+   "evidence": "Correlation/beta backbone for MC engine portfolio paths"
+  },
+  {
+   "id": "finra_short",
+   "name": "FINRA short interest + daily short volume + margin debt",
+   "level": "federal-adjacent",
+   "agency": "FINRA",
+   "access": {
+    "api": "api.finra.org/data/group/otcMarket/name/EquityShortInterest (free creds); cdn.finra.org/equity/regsho/daily/CNMSshvol{date}.txt (no key)",
+    "key": "free",
+    "formats": [
+     "json",
+     "csv",
+     "txt"
+    ]
+   },
+   "frequency": "bi-monthly/daily/monthly",
+   "granularity": "ticker/aggregate",
+   "role": "leading",
+   "horizon": "short",
+   "verified": "2026-07-10",
+   "ingested": false,
+   "evidence": "Aggregate short interest: strongest known aggregate return predictor (Rapach et al 2016; GWZ 2024 survivor)"
+  },
+  {
+   "id": "cftc_cot",
+   "name": "CFTC Commitments of Traders (TFF equity-index positioning)",
+   "level": "federal",
+   "agency": "CFTC",
+   "access": {
+    "api": "publicreporting.cftc.gov/resource/6dca-aqww.json (Socrata, no key)",
+    "key": "none",
+    "formats": [
+     "json",
+     "csv"
+    ]
+   },
+   "frequency": "weekly (Fri)",
+   "granularity": "contract",
+   "role": "leading-weak",
+   "horizon": "short",
+   "verified": "2026-07-10",
+   "ingested": false,
+   "caveats": [
+    "halted Oct 1-Nov 12 2025; tolerate gaps"
+   ]
+  },
+  {
+   "id": "hy_oas",
+   "name": "ICE BofA HY OAS / credit spreads (FRED)",
+   "level": "private-free",
+   "agency": "ICE via FRED",
+   "access": {
+    "api": "api.stlouisfed.org/fred series BAMLH0A0HYM2",
+    "key": "FRED free",
+    "formats": [
+     "json"
+    ],
+    "notes": "URGENT: FRED window truncates to rolling 3yr from Apr 2026 - pin ALFRED vintages now; no redistribution"
+   },
+   "frequency": "daily",
+   "granularity": "national",
+   "role": "leading",
+   "horizon": "short",
+   "verified": "2026-07-10",
+   "ingested": false
+  },
+  {
+   "id": "stocks_fiscal_channel",
+   "name": "Stocks->fiscal: cap-gains realizations (IRS SOI, CBO, CA LAO)",
+   "level": "federal/state",
+   "agency": "IRS/CBO/LAO",
+   "access": {
+    "url": "IRS SOI cap gains tables; cbo.gov projections; lao.ca.gov EconTax",
+    "key": "none",
+    "formats": [
+     "xlsx",
+     "csv"
+    ]
+   },
+   "frequency": "annual + projections",
+   "granularity": "federal/state",
+   "role": "causal",
+   "horizon": "both",
+   "verified": "2026-07-10",
+   "ingested": false,
+   "evidence": "CA: cap gains 25% of PIT liability 2021 -> 13% 2022; 1% S&P -> ~0.7% realizations growth (CBO)"
+  },
+  {
+   "id": "ritter_ipo",
+   "name": "Ritter IPO data (windows/exit regime)",
+   "level": "private-free",
+   "agency": "U. Florida",
+   "access": {
+    "url": "site.warrington.ufl.edu/ritter/ipo-data/",
+    "key": "none",
+    "formats": [
+     "xlsx"
+    ]
+   },
+   "frequency": "annual (updated Mar 2026)",
+   "granularity": "national",
+   "role": "causal-b",
+   "horizon": "both",
+   "verified": "2026-07-10",
+   "ingested": false,
+   "evidence": "Stocks->VC/IPO window transmission gauge (Lowry 2003; Gompers et al 2008)"
+  },
+  {
+   "id": "dfa_ownership",
+   "name": "Fed DFA equity ownership by percentile",
+   "level": "federal",
+   "agency": "Federal Reserve Board",
+   "access": {
+    "url": "federalreserve.gov/releases/z1/dataviz/dfa/ + FRED release tables",
+    "key": "none",
+    "formats": [
+     "csv"
+    ]
+   },
+   "frequency": "quarterly",
+   "granularity": "wealth percentile",
+   "role": "structural",
+   "horizon": "long",
+   "verified": "2026-07-10",
+   "ingested": false,
+   "evidence": "Top 10% hold ~87% of equities - caps wealth-effect breadth"
+  },
+  {
+   "id": "naaim",
+   "name": "NAAIM Exposure Index",
+   "level": "private-free",
+   "agency": "NAAIM",
+   "access": {
+    "url": "naaim.org/programs/naaim-exposure-index/ (scrape weekly XLSX link)",
+    "key": "none",
+    "formats": [
+     "xlsx"
+    ],
+    "notes": "DEADLINE: goes subscription Aug 1 2026 - download full history now"
+   },
+   "frequency": "weekly",
+   "granularity": "national",
+   "role": "leading-weak",
+   "horizon": "short",
+   "verified": "2026-07-10",
+   "ingested": false
+  }
+ ]
+}

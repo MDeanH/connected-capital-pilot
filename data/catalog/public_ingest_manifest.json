@@ -1,0 +1,916 @@
+{
+ "sources": {
+  "ig_oas_history_wayback": {
+   "status": "partial",
+   "desc": "ICE BofA IG Corp OAS history via Wayback (only snapshot is 2026-04-22 \u2014 checked for truncation)",
+   "files": [
+    {
+     "url": "https://web.archive.org/web/20260422045544id_/https://fred.stlouisfed.org/graph/fredgraph.csv?id=BAMLC0A0CM",
+     "file": "data/raw/public/ig_oas_history_wayback/BAMLC0A0CM_wayback_20260422045544.csv",
+     "bytes": 12680,
+     "lines": 794,
+     "note": "vintage snapshot 20260422045544; first observation 2023-04-24"
+    }
+   ],
+   "secs": 1.4,
+   "note": "only Wayback snapshot (2026-04-22) is already 3yr-truncated (starts 2023-04-24); full IG OAS history requires a free FRED key -> ALFRED realtime query"
+  },
+  "philly_fed_state_indexes": {
+   "status": "ok",
+   "desc": "Philly Fed state coincident indexes (all 50 states, one XLSX)",
+   "files": [
+    {
+     "url": "https://www.philadelphiafed.org/-/media/frbp/assets/surveys-and-data/coincident/coincident-revised.xlsx",
+     "file": "data/raw/public/philly_fed_state_indexes/state_coincident_indexes.xlsx",
+     "bytes": 1255424,
+     "lines": 4483
+    }
+   ],
+   "secs": 0.8,
+   "note": "file is a legacy CDFV2 .xls served with .xlsx name; verified through 2026-05, 51 state columns; CO column populated despite BLS suspension - treat CO cautiously"
+  },
+  "census_bfs": {
+   "status": "ok",
+   "desc": "Business Formation Statistics via FRED mirrors (Census EITS API demands a key)",
+   "files": [
+    {
+     "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=BABATOTALSAUS",
+     "file": "data/raw/public/census_bfs/BABATOTALSAUS.csv",
+     "bytes": 4783,
+     "lines": 265
+    },
+    {
+     "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=BAHBATOTALSAUS",
+     "file": "data/raw/public/census_bfs/BAHBATOTALSAUS.csv",
+     "bytes": 4713,
+     "lines": 265
+    },
+    {
+     "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=BUSAPPWNSAUS",
+     "file": "data/raw/public/census_bfs/BUSAPPWNSAUS.csv",
+     "bytes": 18384,
+     "lines": 1070
+    }
+   ],
+   "secs": 3.1
+  },
+  "stooq_indexes": {
+   "status": "superseded",
+   "desc": "Stooq deep index history",
+   "note": "Stooq /q/d/l download endpoint returns 'Access denied' to automation even in-browser (paid-account bulk wall); its pre-1927 ^SPX is a reconstructed predecessor index, not the real S&P 500. Superseded by yahoo_index_history (real S&P 1927->, Nasdaq 1971->, Dow 1992->)."
+  },
+  "sp_buyback_eps": {
+   "status": "ok",
+   "desc": "S&P DJI buyback history + EPS estimates workbooks",
+   "files": [
+    {
+     "file": "data/raw/public/sp_buyback_eps/sp-500-buyback.xlsx",
+     "bytes": 334980
+    },
+    {
+     "file": "data/raw/public/sp_buyback_eps/sp-500-eps-est.xlsx",
+     "bytes": 393696
+    }
+   ],
+   "note": "Akamai blocks requests/curl; fetched in-browser (same-origin, 200) and bridged to disk via localhost uploader with PNA header. EPS-est continuation uncertain post-Silverblatt (catalog 4b). | AUDIT: buyback data ends 2025-09-30 est (~2 releases behind site cadence); eps-est is DISCONTINUED per in-file farewell note (vintage 2026-01-30) \u2014 treat both as frozen unless S&P resumes."
+  },
+  "tpu": {
+   "status": "ok",
+   "desc": "Trade Policy Uncertainty index (scrape link from page)",
+   "files": [
+    {
+     "url": "https://www.matteoiacoviello.com/tpu_files/tpu_web_latest.xlsx",
+     "file": "data/raw/public/tpu/tpu_data.xlsx",
+     "bytes": 290752,
+     "lines": 908
+    }
+   ],
+   "secs": 0.7
+  },
+  "fao_food_price_index": {
+   "status": "ok",
+   "desc": "FAO Food Price Index CSV + 2 xlsx (correct versioned URLs found via browser)",
+   "files": [
+    {
+     "file": "data/raw/public/fao_food_price_index/ffpi_data_2026_07.xlsx",
+     "bytes": 128590
+    },
+    {
+     "file": "data/raw/public/fao_food_price_index/food_price_index_nominal_real.xlsx",
+     "bytes": 22937
+    },
+    {
+     "file": "data/raw/public/fao_food_price_index/food_price_indices_data.csv",
+     "bytes": 47799
+    }
+   ],
+   "note": "URLs carry ?sfvrsn= version stamps; fetched via requests once browser revealed them"
+  },
+  "hy_oas_history_wayback": {
+   "status": "ok",
+   "desc": "ICE BofA HY OAS full history via pre-Apr-2026 Wayback snapshot (FRED now 3yr-window)",
+   "files": [
+    {
+     "url": "https://web.archive.org/web/20251104204105id_/https://fred.stlouisfed.org/graph/fredgraph.csv?id=BAMLH0A0HYM2",
+     "file": "data/raw/public/hy_oas_history_wayback/BAMLH0A0HYM2_wayback_20251104204105.csv",
+     "bytes": 121887,
+     "lines": 7623,
+     "note": "vintage snapshot 20251104204105; first observation 1996-12-31"
+    }
+   ],
+   "secs": 1.6
+  },
+  "naaim_exposure": {
+   "status": "ok",
+   "desc": "NAAIM Exposure Index full history (goes subscription 2026-08-01)",
+   "files": [
+    {
+     "url": "https://naaim.org/wp-content/uploads/2026/07/USE_Data-since-Inception_2026-07-08.xlsx",
+     "file": "data/raw/public/naaim_exposure/naaim_use_history.xlsx",
+     "bytes": 86793,
+     "lines": 293
+    }
+   ],
+   "secs": 0.3,
+   "note": "sheet ordered newest-first; verified newest row 2026-07-08 = 82.95 (matches externally reported value)"
+  },
+  "fred_macro_market": {
+   "status": "ok",
+   "desc": "FRED keyless CSV batch: rates, curve, credit, claims, permits, liquidity, uncertainty",
+   "files": [
+    {
+     "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=T10Y3M",
+     "file": "data/raw/public/fred_macro_market/T10Y3M.csv",
+     "bytes": 185161,
+     "lines": 11616
+    },
+    {
+     "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=T10Y2Y",
+     "file": "data/raw/public/fred_macro_market/T10Y2Y.csv",
+     "bytes": 209053,
+     "lines": 13075
+    },
+    {
+     "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DGS10",
+     "file": "data/raw/public/fred_macro_market/DGS10.csv",
+     "bytes": 267963,
+     "lines": 16834
+    },
+    {
+     "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DGS2",
+     "file": "data/raw/public/fred_macro_market/DGS2.csv",
+     "bytes": 208136,
+     "lines": 13074
+    },
+    {
+     "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DFF",
+     "file": "data/raw/public/fred_macro_market/DFF.csv",
+     "bytes": 422747,
+     "lines": 26308
+    },
+    {
+     "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=SOFR",
+     "file": "data/raw/public/fred_macro_market/SOFR.csv",
+     "bytes": 34174,
+     "lines": 2159
+    },
+    {
+     "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=BAMLH0A0HYM2",
+     "file": "data/raw/public/fred_macro_market/BAMLH0A0HYM2.csv",
+     "bytes": 12718,
+     "lines": 796
+    },
+    {
+     "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=BAMLC0A0CM",
+     "file": "data/raw/public/fred_macro_market/BAMLC0A0CM.csv",
+     "bytes": 12712,
+     "lines": 796
+    },
+    {
+     "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=NFCI",
+     "file": "data/raw/public/fred_macro_market/NFCI.csv",
+     "bytes": 51299,
+     "lines": 2897
+    },
+    {
+     "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=ANFCI",
+     "file": "data/raw/public/fred_macro_market/ANFCI.csv",
+     "bytes": 51233,
+     "lines": 2897
+    },
+    {
+     "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=ICSA",
+     "file": "data/raw/public/fred_macro_market/ICSA.csv",
+     "bytes": 55932,
+     "lines": 3106
+    },
+    {
+     "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=CCSA",
+     "file": "data/raw/public/fred_macro_market/CCSA.csv",
+     "bytes": 59021,
+     "lines": 3105
+    },
+    {
+     "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=PERMIT",
+     "file": "data/raw/public/fred_macro_market/PERMIT.csv",
+     "bytes": 12649,
+     "lines": 798
+    },
+    {
+     "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=HOUST",
+     "file": "data/raw/public/fred_macro_market/HOUST.csv",
+     "bytes": 12873,
+     "lines": 810
+    },
+    {
+     "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=UMCSENT",
+     "file": "data/raw/public/fred_macro_market/UMCSENT.csv",
+     "bytes": 13374,
+     "lines": 884
+    },
+    {
+     "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=SAHMREALTIME",
+     "file": "data/raw/public/fred_macro_market/SAHMREALTIME.csv",
+     "bytes": 13073,
+     "lines": 800
+    },
+    {
+     "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=WALCL",
+     "file": "data/raw/public/fred_macro_market/WALCL.csv",
+     "bytes": 23092,
+     "lines": 1231
+    },
+    {
+     "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=WTREGEN",
+     "file": "data/raw/public/fred_macro_market/WTREGEN.csv",
+     "bytes": 21296,
+     "lines": 1231
+    },
+    {
+     "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=RRPONTSYD",
+     "file": "data/raw/public/fred_macro_market/RRPONTSYD.csv",
+     "bytes": 94340,
+     "lines": 6112
+    },
+    {
+     "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DTWEXBGS",
+     "file": "data/raw/public/fred_macro_market/DTWEXBGS.csv",
+     "bytes": 103233,
+     "lines": 5350
+    },
+    {
+     "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DCOILWTICO",
+     "file": "data/raw/public/fred_macro_market/DCOILWTICO.csv",
+     "bytes": 178388,
+     "lines": 10569
+    },
+    {
+     "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=VIXCLS",
+     "file": "data/raw/public/fred_macro_market/VIXCLS.csv",
+     "bytes": 160422,
+     "lines": 9529
+    },
+    {
+     "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=NASDAQCOM",
+     "file": "data/raw/public/fred_macro_market/NASDAQCOM.csv",
+     "bytes": 279695,
+     "lines": 14461
+    },
+    {
+     "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=SP500",
+     "file": "data/raw/public/fred_macro_market/SP500.csv",
+     "bytes": 48922,
+     "lines": 2610
+    },
+    {
+     "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=THREEFYTP10",
+     "file": "data/raw/public/fred_macro_market/THREEFYTP10.csv",
+     "bytes": 170155,
+     "lines": 9524
+    },
+    {
+     "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=GEPUCURRENT",
+     "file": "data/raw/public/fred_macro_market/GEPUCURRENT.csv",
+     "bytes": 10531,
+     "lines": 355
+    },
+    {
+     "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=USEPUINDXD",
+     "file": "data/raw/public/fred_macro_market/USEPUINDXD.csv",
+     "bytes": 264619,
+     "lines": 15166
+    },
+    {
+     "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=RECPROUSM156N",
+     "file": "data/raw/public/fred_macro_market/RECPROUSM156N.csv",
+     "bytes": 11457,
+     "lines": 709
+    },
+    {
+     "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=TEMPHELPS",
+     "file": "data/raw/public/fred_macro_market/TEMPHELPS.csv",
+     "bytes": 7911,
+     "lines": 439
+    },
+    {
+     "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=MORTGAGE30US",
+     "file": "data/raw/public/fred_macro_market/MORTGAGE30US.csv",
+     "bytes": 46755,
+     "lines": 2886
+    }
+   ],
+   "secs": 40.0
+  },
+  "dol_eta_claims": {
+   "status": "ok",
+   "desc": "DOL ETA 539 weekly state UI claims bulk CSV",
+   "files": [
+    {
+     "url": "https://oui.doleta.gov/unemploy/csv/ar539.csv",
+     "file": "data/raw/public/dol_eta_claims/ar539_state_weekly_claims.csv",
+     "bytes": 13297553,
+     "lines": 111756
+    }
+   ],
+   "secs": 2.2
+  },
+  "qcew_latest": {
+   "status": "ok",
+   "desc": "QCEW latest slice: US + CA/TX/FL/NY statewide (pattern documented for all areas)",
+   "files": [
+    {
+     "url": "https://data.bls.gov/cew/data/api/2025/4/area/US000.csv",
+     "file": "data/raw/public/qcew_latest/qcew_2025q4_US000.csv",
+     "bytes": 909699,
+     "lines": 4495
+    },
+    {
+     "url": "https://data.bls.gov/cew/data/api/2025/4/area/06000.csv",
+     "file": "data/raw/public/qcew_latest/qcew_2025q4_06000.csv",
+     "bytes": 665640,
+     "lines": 3217
+    },
+    {
+     "url": "https://data.bls.gov/cew/data/api/2025/4/area/48000.csv",
+     "file": "data/raw/public/qcew_latest/qcew_2025q4_48000.csv",
+     "bytes": 625090,
+     "lines": 3124
+    },
+    {
+     "url": "https://data.bls.gov/cew/data/api/2025/4/area/12000.csv",
+     "file": "data/raw/public/qcew_latest/qcew_2025q4_12000.csv",
+     "bytes": 600472,
+     "lines": 2936
+    },
+    {
+     "url": "https://data.bls.gov/cew/data/api/2025/4/area/36000.csv",
+     "file": "data/raw/public/qcew_latest/qcew_2025q4_36000.csv",
+     "bytes": 551482,
+     "lines": 2788
+    }
+   ],
+   "secs": 7.7
+  },
+  "cboe_index_history": {
+   "status": "ok",
+   "desc": "Cboe index history CSVs: VIX, SKEW, VVIX, VIX9D, VIX3M, RVX",
+   "files": [
+    {
+     "url": "https://cdn.cboe.com/api/global/us_indices/daily_prices/VIX_History.csv",
+     "file": "data/raw/public/cboe_index_history/VIX_History.csv",
+     "bytes": 470218,
+     "lines": 9226
+    },
+    {
+     "url": "https://cdn.cboe.com/api/global/us_indices/daily_prices/SKEW_History.csv",
+     "file": "data/raw/public/cboe_index_history/SKEW_History.csv",
+     "bytes": 201970,
+     "lines": 9181
+    },
+    {
+     "url": "https://cdn.cboe.com/api/global/us_indices/daily_prices/VVIX_History.csv",
+     "file": "data/raw/public/cboe_index_history/VVIX_History.csv",
+     "bytes": 107631,
+     "lines": 5058
+    },
+    {
+     "url": "https://cdn.cboe.com/api/global/us_indices/daily_prices/VIX9D_History.csv",
+     "file": "data/raw/public/cboe_index_history/VIX9D_History.csv",
+     "bytes": 198092,
+     "lines": 3901
+    },
+    {
+     "url": "https://cdn.cboe.com/api/global/us_indices/daily_prices/VIX3M_History.csv",
+     "file": "data/raw/public/cboe_index_history/VIX3M_History.csv",
+     "bytes": 215551,
+     "lines": 4227
+    },
+    {
+     "url": "https://cdn.cboe.com/api/global/us_indices/daily_prices/RVX_History.csv",
+     "file": "data/raw/public/cboe_index_history/RVX_History.csv",
+     "bytes": 215398,
+     "lines": 4224
+    }
+   ],
+   "secs": 1.2
+  },
+  "cboe_putcall_archive": {
+   "status": "ok",
+   "desc": "Cboe frozen put/call archives 2006-2019 (daily stats page scrape not implemented \u2014 use ?dt= per-date)",
+   "files": [
+    {
+     "url": "https://cdn.cboe.com/resources/options/volume_and_call_put_ratios/totalpc.csv",
+     "file": "data/raw/public/cboe_putcall_archive/totalpc.csv",
+     "bytes": 139830,
+     "lines": 3256
+    },
+    {
+     "url": "https://cdn.cboe.com/resources/options/volume_and_call_put_ratios/equitypc.csv",
+     "file": "data/raw/public/cboe_putcall_archive/equitypc.csv",
+     "bytes": 135696,
+     "lines": 3256
+    },
+    {
+     "url": "https://cdn.cboe.com/resources/options/volume_and_call_put_ratios/indexpc.csv",
+     "file": "data/raw/public/cboe_putcall_archive/indexpc.csv",
+     "bytes": 133796,
+     "lines": 3256
+    }
+   ],
+   "secs": 0.2
+  },
+  "french_factors": {
+   "status": "ok",
+   "desc": "Ken French 3-factor monthly + daily (1926->)",
+   "files": [
+    {
+     "url": "https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/ftp/F-F_Research_Data_Factors_CSV.zip",
+     "file": null,
+     "bytes": 13045,
+     "note": "zip"
+    },
+    {
+     "file": "data/raw/public/french_factors/F-F_Research_Data_Factors.csv",
+     "bytes": 52373,
+     "lines": 1308
+    },
+    {
+     "url": "https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/ftp/F-F_Research_Data_Factors_daily_CSV.zip",
+     "file": null,
+     "bytes": 177699,
+     "note": "zip"
+    },
+    {
+     "file": "data/raw/public/french_factors/F-F_Research_Data_Factors_daily.csv",
+     "bytes": 1208053,
+     "lines": 26260
+    }
+   ],
+   "secs": 0.6
+  },
+  "shiller_cape": {
+   "status": "ok",
+   "desc": "Shiller ie_data.xls from shillerdata.com (maintained home; Yale copy frozen)",
+   "files": [
+    {
+     "url": "https://img1.wsimg.com/blobby/go/e5e77e0b-59d1-44d9-ab25-4763ac982e53/downloads/907c87f4-4176-4a13-9487-abddeadceb1b/ie_data.xls?ver=1783525168910",
+     "file": "data/raw/public/shiller_cape/ie_data.xls",
+     "bytes": 1651712,
+     "lines": 14631
+    }
+   ],
+   "secs": 0.5
+  },
+  "damodaran": {
+   "status": "ok",
+   "desc": "Damodaran: annual returns 1928-> + implied ERP monthly",
+   "files": [
+    {
+     "url": "https://pages.stern.nyu.edu/~adamodar/pc/datasets/histretSP.xls",
+     "file": "data/raw/public/damodaran/histretSP.xls",
+     "bytes": 527872,
+     "lines": 4726
+    },
+    {
+     "url": "https://pages.stern.nyu.edu/~adamodar/pc/implprem/ERPbymonth.xlsx",
+     "file": "data/raw/public/damodaran/ERPbymonth.xlsx",
+     "bytes": 47130,
+     "lines": 200
+    },
+    {
+     "url": "https://pages.stern.nyu.edu/~adamodar/pc/datasets/histimpl.xls",
+     "file": "data/raw/public/damodaran/histimpl.xls",
+     "bytes": 113152,
+     "lines": 679
+    }
+   ],
+   "secs": 2.1
+  },
+  "goyal_welch": {
+   "status": "ok",
+   "desc": "Goyal-Welch predictor dataset (Google Sheets export)",
+   "files": [
+    {
+     "url": "https://docs.google.com/spreadsheets/d/1qwpl2R_DNujpU5YUkk8lacP1tTeMb9iJ/export?format=xlsx",
+     "file": "data/raw/public/goyal_welch/goyal_welch_predictors.xlsx",
+     "bytes": 485015,
+     "lines": 2143
+    }
+   ],
+   "secs": 0.7
+  },
+  "baker_wurgler": {
+   "status": "ok",
+   "desc": "Baker-Wurgler sentiment index (1965-2023, stale but canonical)",
+   "files": [
+    {
+     "url": "https://pages.stern.nyu.edu/~jwurgler/data/SENTIMENT.xlsx",
+     "file": "data/raw/public/baker_wurgler/SENTIMENT.xlsx",
+     "bytes": 103499,
+     "lines": 495
+    }
+   ],
+   "secs": 0.4
+  },
+  "ritter_ipo": {
+   "status": "ok",
+   "desc": "Ritter IPO data page: grab all linked xls/xlsx files",
+   "files": [
+    {
+     "url": "https://site.warrington.ufl.edu/ritter/files/IPO-age.xlsx",
+     "file": "data/raw/public/ritter_ipo/IPO-age.xlsx",
+     "bytes": 1346041
+    },
+    {
+     "url": "https://site.warrington.ufl.edu/ritter/files/2015/06/IPO-Analyst-Data-Online-1993-2009-2011-04-01.xls",
+     "file": "data/raw/public/ritter_ipo/IPO-Analyst-Data-Online-1993-2009-2011-04-01.xls",
+     "bytes": 572416
+    },
+    {
+     "url": "https://site.warrington.ufl.edu/ritter/files/Underwriter-Rank.xls",
+     "file": "data/raw/public/ritter_ipo/Underwriter-Rank.xls",
+     "bytes": 296960
+    },
+    {
+     "url": "https://site.warrington.ufl.edu/ritter/files/IPOALL.xlsx",
+     "file": "data/raw/public/ritter_ipo/IPOALL.xlsx",
+     "bytes": 41881
+    },
+    {
+     "url": "https://site.warrington.ufl.edu/ritter/files/2016/01/Purged-and-unpurged-Fama-French-1973-2003.xls",
+     "file": "data/raw/public/ritter_ipo/Purged-and-unpurged-Fama-French-1973-2003.xls",
+     "bytes": 79360
+    },
+    {
+     "url": "https://site.warrington.ufl.edu/ritter/files/2016/01/IPO-Allocation-2012-08-28.xls",
+     "file": "data/raw/public/ritter_ipo/IPO-Allocation-2012-08-28.xls",
+     "bytes": 252416
+    }
+   ],
+   "secs": 4.4
+  },
+  "finra_short": {
+   "status": "ok",
+   "desc": "FINRA consolidated short interest + latest daily short volume",
+   "files": [
+    {
+     "file": "data/raw/public/finra_short/CNMSshvol20260710.txt",
+     "bytes": 527593
+    },
+    {
+     "file": "data/raw/public/finra_short/consolidated_short_interest_latest.json",
+     "bytes": 10020029
+    }
+   ],
+   "secs": 1.8,
+   "note": "SI file re-pulled 2026-07-10 after audit found the bare GET returns the OLDEST partition (all rows 2020-04-15, truncated at 5k): now settlementDate=2026-06-30, 22,209 rows, paginated. Daily short volume current (20260710)."
+  },
+  "cftc_cot_tff": {
+   "status": "ok",
+   "desc": "CFTC TFF equity-index futures positioning, full history",
+   "files": [
+    {
+     "url": "https://publicreporting.cftc.gov/resource/gpe5-46if.json",
+     "file": "data/raw/public/cftc_cot_tff/cftc_tff_equity_indexes.json",
+     "bytes": 18664637,
+     "rows": 5671
+    }
+   ],
+   "secs": 5.9
+  },
+  "occ_volume": {
+   "status": "ok",
+   "desc": "OCC daily cleared options volume CSV",
+   "files": [
+    {
+     "url": "https://marketdata.theocc.com/daily-volume-statistics?reportDate=20260710&format=csv",
+     "file": "data/raw/public/occ_volume/occ_daily_volume_20260710.csv",
+     "bytes": 1257,
+     "lines": 26
+    }
+   ],
+   "secs": 0.3
+  },
+  "ici_flows": {
+   "status": "ok",
+   "desc": "ICI weekly fund flows workbooks",
+   "files": [
+    {
+     "url": "https://www.ici.org/flows_data_2026.xls",
+     "file": "data/raw/public/ici_flows/flows_data_2026.xls",
+     "bytes": 57344,
+     "lines": 892
+    },
+    {
+     "url": "https://www.ici.org/combined_flows_data_2025.xls",
+     "file": "data/raw/public/ici_flows/combined_flows_data_2025.xls",
+     "bytes": 44544,
+     "lines": 452
+    }
+   ],
+   "secs": 1.1
+  },
+  "sec_reference": {
+   "status": "ok",
+   "desc": "SEC reference: ticker-CIK map (fails-to-deliver NOT ingested \u2014 pull cnsfails zips separately)",
+   "files": [
+    {
+     "url": "https://www.sec.gov/files/company_tickers.json",
+     "file": "data/raw/public/sec_reference/company_tickers.json",
+     "bytes": 796915,
+     "lines": 0
+    }
+   ],
+   "secs": 0.3
+  },
+  "nasdaq_symbol_dirs": {
+   "status": "ok",
+   "desc": "Nasdaq Trader symbol directories (listing universe)",
+   "files": [
+    {
+     "url": "https://www.nasdaqtrader.com/dynamic/SymDir/nasdaqlisted.txt",
+     "file": "data/raw/public/nasdaq_symbol_dirs/nasdaqlisted.txt",
+     "bytes": 344769,
+     "lines": 5560
+    },
+    {
+     "url": "https://www.nasdaqtrader.com/dynamic/SymDir/otherlisted.txt",
+     "file": "data/raw/public/nasdaq_symbol_dirs/otherlisted.txt",
+     "bytes": 530012,
+     "lines": 7468
+    }
+   ],
+   "secs": 0.7
+  },
+  "gscpi": {
+   "status": "ok",
+   "desc": "NY Fed Global Supply Chain Pressure Index",
+   "files": [
+    {
+     "url": "https://www.newyorkfed.org/medialibrary/research/interactives/gscpi/downloads/gscpi_data.xlsx",
+     "file": "data/raw/public/gscpi/gscpi_data.xlsx",
+     "bytes": 182272,
+     "lines": 584
+    }
+   ],
+   "secs": 0.3,
+   "note": "file is a legacy CDFV2 .xls served with .xlsx name - open with xlrd/pd.ExcelFile, not zipfile/openpyxl; verified through 2026-06 (value 1.25)"
+  },
+  "acm_term_premia": {
+   "status": "ok",
+   "desc": "NY Fed ACM term premia (daily, 1961->)",
+   "files": [
+    {
+     "url": "https://www.newyorkfed.org/medialibrary/media/research/data_indicators/ACMTermPremium.xls",
+     "file": "data/raw/public/acm_term_premia/ACMTermPremium.xls",
+     "bytes": 10118144,
+     "lines": 61493
+    }
+   ],
+   "secs": 0.8
+  },
+  "epu": {
+   "status": "ok",
+   "desc": "Economic Policy Uncertainty: US monthly + daily + global",
+   "files": [
+    {
+     "url": "https://www.policyuncertainty.com/media/US_Policy_Uncertainty_Data.xlsx",
+     "file": "data/raw/public/epu/US_EPU_monthly.xlsx",
+     "bytes": 70568,
+     "lines": 236
+    },
+    {
+     "url": "https://www.policyuncertainty.com/media/All_Daily_Policy_Data.csv",
+     "file": "data/raw/public/epu/US_EPU_daily.csv",
+     "bytes": 248741,
+     "lines": 15166
+    },
+    {
+     "url": "https://www.policyuncertainty.com/media/Global_Policy_Uncertainty_Data.xlsx",
+     "file": "data/raw/public/epu/Global_EPU.xlsx",
+     "bytes": 18312,
+     "lines": 79
+    }
+   ],
+   "secs": 0.8
+  },
+  "gpr": {
+   "status": "ok",
+   "desc": "Caldara-Iacoviello Geopolitical Risk index",
+   "files": [
+    {
+     "url": "https://www.matteoiacoviello.com/gpr_files/data_gpr_export.xls",
+     "file": "data/raw/public/gpr/data_gpr_export.xls",
+     "bytes": 2709504,
+     "lines": 23197
+    }
+   ],
+   "secs": 0.8
+  },
+  "ecb_fx": {
+   "status": "ok",
+   "desc": "ECB euro FX reference rates full history",
+   "files": [
+    {
+     "url": "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-hist.zip",
+     "file": null,
+     "bytes": 635143,
+     "note": "zip"
+    },
+    {
+     "file": "data/raw/public/ecb_fx/eurofxref-hist.csv",
+     "bytes": 1908583,
+     "lines": 7047
+    }
+   ],
+   "secs": 1.4
+  },
+  "imf_weo_datamapper": {
+   "status": "ok",
+   "desc": "IMF DataMapper: real GDP growth + inflation, all countries",
+   "files": [
+    {
+     "url": "https://www.imf.org/external/datamapper/api/v1/NGDP_RPCH",
+     "file": "data/raw/public/imf_weo_datamapper/weo_ngdp_rpch.json",
+     "bytes": 121723,
+     "lines": 0
+    },
+    {
+     "url": "https://www.imf.org/external/datamapper/api/v1/PCPIPCH",
+     "file": "data/raw/public/imf_weo_datamapper/weo_pcpipch.json",
+     "bytes": 120999,
+     "lines": 0
+    }
+   ],
+   "secs": 1.4
+  },
+  "world_bank_wdi": {
+   "status": "ok",
+   "desc": "World Bank WDI: US+world GDP growth, US trade share (population not pulled)",
+   "files": [
+    {
+     "url": "https://api.worldbank.org/v2/country/USA;WLD;CHN;EMU/indicator/NY.GDP.MKTP.KD.ZG?format=json&per_page=2000&date=1990:2026",
+     "file": "data/raw/public/world_bank_wdi/wdi_gdp_growth.json",
+     "bytes": 31060,
+     "lines": 0
+    },
+    {
+     "url": "https://api.worldbank.org/v2/country/USA/indicator/NE.TRD.GNFS.ZS?format=json&per_page=2000",
+     "file": "data/raw/public/world_bank_wdi/wdi_us_trade_share.json",
+     "bytes": 13948,
+     "lines": 0
+    }
+   ],
+   "secs": 0.4
+  },
+  "bis_policy_rates": {
+   "status": "ok",
+   "desc": "BIS central bank policy rates bulk CSV",
+   "files": [
+    {
+     "url": "https://data.bis.org/static/bulk/WS_CBPOL_csv_flat.zip",
+     "file": null,
+     "bytes": 4094673,
+     "note": "zip"
+    },
+    {
+     "file": "data/raw/public/bis_policy_rates/WS_CBPOL_csv_flat.csv",
+     "bytes": 469351424,
+     "lines": 730337
+    }
+   ],
+   "secs": 14.8
+  },
+  "treasury_fiscaldata": {
+   "status": "ok",
+   "desc": "Treasury FiscalData: debt to the penny + avg interest rates (recent)",
+   "files": [
+    {
+     "url": "https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v2/accounting/od/debt_to_penny?page[size]=10000&sort=-record_date",
+     "file": "data/raw/public/treasury_fiscaldata/debt_to_penny_recent.json",
+     "bytes": 2801298,
+     "lines": 0
+    },
+    {
+     "url": "https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v2/accounting/od/avg_interest_rates?page[size]=10000&sort=-record_date",
+     "file": "data/raw/public/treasury_fiscaldata/avg_interest_rates.json",
+     "bytes": 1657012,
+     "lines": 0
+    }
+   ],
+   "secs": 4.8
+  },
+  "tic_mfh": {
+   "status": "ok",
+   "desc": "Treasury TIC major foreign holders \u2014 SLT Table 5 (current through 2026-04) + mfhhis01 history",
+   "files": [
+    {
+     "file": "data/raw/public/tic_mfh/mfh.txt",
+     "bytes": 7486
+    },
+    {
+     "file": "data/raw/public/tic_mfh/mfhhis01_history.csv",
+     "bytes": 98124
+    },
+    {
+     "file": "data/raw/public/tic_mfh/mfhhis01_history.txt",
+     "bytes": 98124
+    },
+    {
+     "file": "data/raw/public/tic_mfh/slt_table5.html",
+     "bytes": 14172
+    },
+    {
+     "file": "data/raw/public/tic_mfh/slt_table5.txt",
+     "bytes": 3801
+    }
+   ],
+   "secs": 0.3,
+   "note": "AUDIT FIX: legacy Publish/mfh.txt is frozen at Jan-2023 (kept for provenance); current MFH = slt_table5.txt/html (through 2026-04, Japan 1209.9) + mfhhis01 history (through 2025)."
+  },
+  "frankfurter_fx": {
+   "status": "ok",
+   "desc": "Frankfurter FX (ECB rates) sanity endpoint",
+   "files": [
+    {
+     "url": "https://api.frankfurter.dev/v1/latest?base=USD",
+     "file": "data/raw/public/frankfurter_fx/usd_latest.json",
+     "bytes": 433,
+     "lines": 0
+    }
+   ],
+   "secs": 0.2
+  },
+  "yahoo_index_history": {
+   "status": "ok",
+   "desc": "Deep daily index history via yfinance (Stooq fallback): ^GSPC 1927-12-30->, ^IXIC 1971->, ^DJI 1992->",
+   "files": [
+    {
+     "file": "data/raw/public/yahoo_index_history/gspc_sp500_daily.csv",
+     "rows": 24747
+    },
+    {
+     "file": "data/raw/public/yahoo_index_history/dji_dow_daily.csv",
+     "rows": 8691
+    },
+    {
+     "file": "data/raw/public/yahoo_index_history/ixic_nasdaq_daily.csv",
+     "rows": 13973
+    }
+   ],
+   "note": "unofficial Yahoo scrape - personal research only, refresh via scratch venv + yfinance"
+  }
+ },
+ "skipped": {
+  "bea_api": "needs free UserID key (apps.bea.gov/api/signup) \u2014 county income already ingested via existing pipeline",
+  "eia_api": "needs free key (eia.gov/opendata) \u2014 WTI covered via FRED DCOILWTICO meanwhile",
+  "bls_api_v2": "keyless v1 limited to 25/day; register free key for series pulls \u2014 QCEW slice API used instead (keyless)",
+  "census_acs_full": "keyless tier OK but full ACS pull is out of scope for one run; use api.census.gov with key",
+  "aaii_sentiment": "requires AAII account login (Imperva bot wall)",
+  "un_comtrade": "needs free key (comtradedeveloper.un.org)",
+  "wto_api": "needs free key (apiportal.wto.org)",
+  "sec_companyfacts_bulk": "nightly companyfacts.zip ~1.2GB \u2014 pull on demand, not in default run",
+  "un_wpp_bulk": "multi-GB CSVs \u2014 pull on demand",
+  "lodes_qcew_full_expand": "QCEW all-3000-counties + LODES are bulk jobs \u2014 pattern documented, run scaled pull when needed",
+  "alpaca_tiingo": "require free account registration (user action)",
+  "imf_portwatch": "ArcGIS item ids to be pinned on first UI visit \u2014 free CSV/GeoJSON per dataset",
+  "oecd_sdmx_cli": "needs exact dataflow key from Data Explorer 'Developer API' button \u2014 add on first use"
+ },
+ "run_at": "2026-07-10T18:17:19",
+ "data_hazards": [
+  "yahoo_index_history: 2 bad ^GSPC closes vs official (2021-08-11: 4442.41 vs 4447.70; 2019-08-12: -1.05pt) \u2014 prefer FRED SP500 on conflict; CSVs carry yfinance 2-row multi-header",
+  "shiller_cape: final row (2026-07) is a single-day close (2026-07-07), not a monthly average \u2014 drop/flag partial month before CAPE math",
+  "french_factors: monthly CSV is followed by an annual block + footer \u2014 filter rows to 6-digit YYYYMM keys",
+  "cboe VIX_History.csv omits 1999-12-31 (FRED VIXCLS has 24.64) \u2014 handle on merge",
+  "gscpi + philly xlsx are legacy CDFV2 .xls despite extension; NAAIM/EPU sheets are newest-first",
+  "ici combined_flows filename says 2025 but holds data through 2026-07-01",
+  "philly CO column populated despite BLS Colorado suspension \u2014 treat CO cautiously",
+  "HOUST May-2026 print 1177 (-15.4pct m/m) unusually sharp \u2014 verify on next release before load-bearing use"
+ ],
+ "verification": {
+  "date": "2026-07-10",
+  "report": "data/catalog/ingest_verification_2026-07-10.md",
+  "method": "25-check deterministic suite + 4-lens adversarial audit (37 claims re-derived independently)",
+  "result": "all cross-source equivalences confirmed; 2 ingest defects found+fixed (FINRA SI, TIC MFH); engine rebake flagged (HOUST sign flip, vintage labels)"
+ }
+}
