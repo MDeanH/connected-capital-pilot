@@ -37,23 +37,41 @@ cd netlify/functions/lib && npx tsx parity.ts    # expect: 16 passed, 0 failed
 - `FRED_API_KEY` — only for refreshing the US-market macro data
   (`scripts/load_us_market.py`); the repo ships with current baked data.
 
-### Deal Intake (Gate 1) — new in this build
+### The Connected Capital deal product (this build)
 
-- `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` — persistence for deals,
-  versioned threshold configs, macro snapshots, and the append-only
-  `gate_decisions` replay ledger. Server-only (Netlify functions); the SPA
-  never talks to Supabase. Without them everything still computes — the UI
-  shows "decision computed but NOT recorded". Schema:
-  `supabase/migrations/0001_init.sql`, seed: `supabase/seed.sql`.
-- `ANTHROPIC_API_KEY` — the AI document-extraction endpoint (OM PDF +
-  pro forma XLSX → ~30 intake fields). Without it, manual entry works.
-- Gate 1 golden suite gates the build alongside parity:
-  `npm run gate1` (expect: 23 passed, 0 failed). Engine + editable config
-  live in `netlify/functions/lib/gate1/`; every threshold is config data,
-  never a code literal.
-- Local dev: plain `vite` dev serves `/api/gate1/*` through a bridge in
-  `vite.config.ts` (no persistence); use `netlify dev` for Supabase-backed
-  endpoints.
+The app IS the deal product now: **Intake → Review → Results | Thresholds ·
+Macro · Backtest**. Old analytics tabs were removed (recoverable from git
+history); the verified MC engine + parity suite remain as server machinery.
+
+**Env vars to go fully live (Netlify site settings):**
+- `ANTHROPIC_API_KEY` — live AI extraction (OM PDF + pro forma XLSX →
+  ~30 cited fields + cross-document discrepancies, claude-opus-4-8 structured
+  outputs). Until set, the "recorded sample" path demos the identical flow.
+- `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` — persistence: deals,
+  extractions, versioned threshold configs, weekly macro snapshots, and the
+  append-only `gate_decisions` replay ledger. Server-only; the SPA never
+  talks to Supabase. Without them everything computes and says honestly
+  "NOT recorded". Schema: `supabase/migrations/0001_init.sql`; seed
+  (config v1): `supabase/seed.sql`.
+
+**Build gates (all must pass or the deploy fails):** `npm run parity` (16),
+`npm run gate1` (23), `npm run gate1:macro` (23).
+
+**Endpoints (v2 functions, self-routed):** `/api/gate1/preview|decide`,
+`/api/deals`, `/api/extract` + `/api/extractions/:id`,
+`/api/macro/latest|history|override`, `/api/config/active|:version` (POST
+`/api/config` = new version). `macro-cron.ts` runs Mondays 13:00 UTC once
+deployed (writes the weekly snapshot when Supabase is configured; without
+rows, `/api/macro/latest` computes live from keyless FRED).
+
+**Rules encoded:** zero hardcoded thresholds (all in config, editable in the
+Thresholds screen; browser drafts apply to previews only and can never be
+recorded); every decision stamped with config version + macro posture,
+baseline verdict kept alongside judgment adjustments (reason required).
+
+**Local dev:** plain `vite` serves all `/api/*` through bridges in
+`vite.config.ts` (live FRED fetches, no persistence); `netlify dev` for the
+Supabase-backed paths.
 
 No client data is in the repo: the Excel upload parses entirely in the
 browser, DDQ/Risk Model state lives in localStorage, and the sample
