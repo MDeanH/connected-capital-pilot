@@ -68,37 +68,38 @@ export interface ExtractionResult {
 /**
  * JSON Schema for the structured extraction output.
  *
- * Deliberately UNION-FREE: the Anthropic structured-outputs API caps the number
- * of union-typed parameters, and ~30 fields × nullable unions blows past it
- * (400: "Schemas contains too many parameters with union types"). Every value
- * is a plain string ('' = not stated) plus enums; `coerceExtraction` converts
- * to typed values deterministically using the field registry kinds.
+ * Two Anthropic structured-output limits shape this design:
+ *  - union-typed parameters are capped → every value is a plain string
+ *    ('' = not stated) plus enums; `coerceExtraction` converts to typed values
+ *    deterministically from the field registry kinds;
+ *  - the compiled grammar size is capped → fields are an ARRAY of entries with
+ *    a keyed enum (one item definition) instead of ~30 named object properties,
+ *    and per-field hints live in the prompt text, not schema descriptions.
  */
 export function buildExtractionSchema() {
-  const fieldProps: Record<string, unknown> = {}
-  for (const f of EXTRACT_FIELDS) {
-    fieldProps[f.key] = {
-      type: 'object',
-      description: `${f.label}${f.hint ? ` — ${f.hint}` : ''}`,
-      properties: {
-        value: {
-          type: 'string',
-          description:
-            'The value as plain text: decimals for percentages (5% → "0.05"), plain numbers for dollars/months, "true"/"false" for yes-no. EMPTY STRING if the documents do not state it — never guess.',
-        },
-        confidence: { type: 'number', description: '0–1; 0 when value is empty' },
-        doc: { enum: ['om', 'proforma', 'none'] },
-        page: { type: 'integer', description: 'PDF page number; 0 when not applicable' },
-        quote: { type: 'string', description: 'Verbatim supporting quote ≤200 chars; empty when none' },
-      },
-      required: ['value', 'confidence', 'doc', 'page', 'quote'],
-      additionalProperties: false,
-    }
-  }
   return {
     type: 'object',
     properties: {
-      fields: { type: 'object', properties: fieldProps, required: Object.keys(fieldProps), additionalProperties: false },
+      fields: {
+        type: 'array',
+        description: 'Exactly one entry per field key listed in the instructions',
+        items: {
+          type: 'object',
+          properties: {
+            key: { enum: EXTRACT_FIELDS.map(f => f.key) },
+            value: {
+              type: 'string',
+              description: 'Plain text: "0.05" for 5%, "10921964" for dollars, "true"/"false" for yes-no; EMPTY when not stated — never guess',
+            },
+            confidence: { type: 'number' },
+            doc: { enum: ['om', 'proforma', 'none'] },
+            page: { type: 'integer' },
+            quote: { type: 'string' },
+          },
+          required: ['key', 'value', 'confidence', 'doc', 'page', 'quote'],
+          additionalProperties: false,
+        },
+      },
       discrepancies: {
         type: 'array',
         description: 'Every disagreement between the OM and the pro forma on the same economic fact',
@@ -121,8 +122,9 @@ export function buildExtractionSchema() {
   } as const
 }
 
-/** Raw (string-typed) per-field shape the union-free schema produces. */
+/** Raw (string-typed) per-field entry the schema produces. */
 export interface RawExtractedField {
+  key: string
   value: string
   confidence: number
   doc: 'om' | 'proforma' | 'none'
@@ -130,17 +132,17 @@ export interface RawExtractedField {
   quote: string
 }
 
-/** Deterministically convert the union-free raw output to typed ExtractedFields. */
+/** Deterministically convert the raw entry array to typed ExtractedFields. */
 export function coerceExtraction(raw: {
-  fields: Record<string, RawExtractedField>
+  fields: RawExtractedField[]
   discrepancies: Discrepancy[]
 }): Pick<ExtractionResult, 'fields' | 'discrepancies'> {
+  const byKey = new Map((raw.fields ?? []).map(r => [r.key, r]))
   const fields: Record<string, ExtractedField> = {}
   for (const def of EXTRACT_FIELDS) {
-    const r = raw.fields[def.key]
-    if (!r) continue
+    const r = byKey.get(def.key)
     let value: string | number | boolean | null = null
-    const s = (r.value ?? '').trim()
+    const s = (r?.value ?? '').trim()
     if (s !== '') {
       if (def.kind === 'boolean') {
         value = /^(true|yes|y)$/i.test(s) ? true : /^(false|no|n)$/i.test(s) ? false : null
@@ -153,11 +155,11 @@ export function coerceExtraction(raw: {
     }
     fields[def.key] = {
       value,
-      confidence: value === null ? 0 : Math.max(0, Math.min(1, r.confidence ?? 0)),
+      confidence: value === null ? 0 : Math.max(0, Math.min(1, r?.confidence ?? 0)),
       source: {
-        doc: r.doc === 'none' ? null : r.doc,
-        page: r.page > 0 ? r.page : null,
-        quote: r.quote?.trim() ? r.quote.trim().slice(0, 240) : null,
+        doc: !r || r.doc === 'none' ? null : r.doc,
+        page: r && r.page > 0 ? r.page : null,
+        quote: r?.quote?.trim() ? r.quote.trim().slice(0, 240) : null,
       },
     }
   }
@@ -169,6 +171,7 @@ export function buildInstruction(): string {
   return `You are a real-estate due-diligence analyst. Extract the fields below from the attached deal documents (an offering memorandum PDF and/or pro forma spreadsheet CSVs).
 
 Rules:
+- Return EXACTLY ONE fields entry per key listed below — all of them, in order.
 - NEVER guess. If a field is not stated in the documents, set value to the EMPTY STRING and confidence to 0.
 - Every value is plain text: percentages as decimal strings (5% → "0.05"), dollar amounts as plain number strings ("10921964"), months as plain numbers, yes/no as "true"/"false".
 - For every non-empty field give confidence (0–1), the source document ('om' or 'proforma', 'none' when empty), the PDF page number (0 for spreadsheet or none), and a short verbatim quote (≤200 chars) supporting the value.

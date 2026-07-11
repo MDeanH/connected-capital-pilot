@@ -54,7 +54,7 @@ export async function runExtraction(req: ExtractRequest): Promise<ExtractionResu
 
   const text = msg.content.find(b => b.type === 'text')
   if (!text || text.type !== 'text') throw new Error('Extraction returned no output')
-  const raw = JSON.parse(text.text) as { fields: Record<string, RawExtractedField>; discrepancies: Discrepancy[] }
+  const raw = JSON.parse(text.text) as { fields: RawExtractedField[]; discrepancies: Discrepancy[] }
   const parsed = coerceExtraction(raw)
   console.log(
     `extract: model=${MODEL} ms=${Date.now() - started} pdf=${req.pdfBase64 ? Math.round(req.pdfBase64.length / 1024) + 'kb' : 'none'} sheets=${req.sheets?.length ?? 0} discrepancies=${parsed.discrepancies?.length ?? 0}`,
