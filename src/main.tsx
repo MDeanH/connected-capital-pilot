@@ -2,6 +2,7 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.tsx'
 import './index.css'
+import './cc-theme.css'
 
 // After a redeploy, an open tab still references the previous deploy's hashed
 // chunk URLs, which 404 (Netlify deploys are atomic). Vite surfaces failed

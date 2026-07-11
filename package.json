@@ -6,23 +6,22 @@
   "scripts": {
     "dev": "vite",
     "parity": "tsx netlify/functions/lib/parity.ts",
-    "build": "npm run parity && tsc -b && vite build",
+    "gate1": "tsx netlify/functions/lib/gate1/golden.ts",
+    "gate1:macro": "tsx netlify/functions/lib/gate1/golden-macro.ts",
+    "build": "npm run parity && npm run gate1 && npm run gate1:macro && tsc -b && vite build",
     "preview": "vite preview",
     "deploy": "bash scripts/deploy-netlify.sh"
   },
   "dependencies": {
-    "@types/three": "^0.165.0",
+    "@anthropic-ai/sdk": "^0.111.0",
+    "@supabase/supabase-js": "^2.110.2",
     "lucide-react": "^0.400.0",
-    "plotly.js": "^2.35.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-plotly.js": "^2.6.0",
-    "three": "^0.165.0",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },
   "devDependencies": {
     "@netlify/functions": "^5.3.0",
-    "@types/plotly.js": "^2.29.2",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",

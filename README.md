@@ -1,87 +1,56 @@
-# AI Investment Due-Diligence & Probability Platform
+# Connected Capital — Deal Diligence
 
-Explainable, analyst-augmented tool that scores the probability an alternative investment opportunity achieves a target return (e.g. ~20% net IRR or configurable) and quantifies the risk of falling short. Answers "how much risk to earn the 20%?" and recommends the right position size.
+Document-ingest deal screening for real-estate development. Drop in a sponsor's
+offering memorandum (PDF) and pro forma (XLSX); the platform extracts every
+screening field with confidence scores and citations, flags where the two
+documents contradict each other, and runs the deal through **Gate 1** —
+10 hard kills and 8 watch flags — under a **macro-aware posture** that
+tightens or loosens the bar as the economy moves.
 
-**Phase 1 (MVP)**: Real Estate — Development + Value-Add.  
-Later phases: VC, private lending, RE hedge funds, sports.
+**Connected Capital institutional pilot** — public build (no client data in
+the repo; the demo deal is a labeled recorded extraction of example
+documents).
 
-## Core Outputs (per opportunity)
-- % likelihood (P(hit target return))
-- Expected / median return (distributional)
-- Downside risk (P(loss), size of loss)
-- Confidence (backed by comps/history)
-- Top driving factors (explainable)
-- Recommended allocation ("right amount to invest" — risk-budgeted)
+## The flow
 
-## Key Differentiators
-- **Transparent** (glass-box drivers, not black box)
-- **Edge from proprietary data**: Your historical outcomes + analyst-curated qualitative judgment (via structured DDQ), not a secret algorithm
-- Analyst keeps the model current ("qualitize and quantize")
-- Public data (FRED, Zillow Research, Census) as auditable context/ base rates — model computes its own forecasts/metrics (see prior Data_Source_Comparison philosophy)
-- Local-first preferred
+```
+INTAKE   upload OM + pro forma → AI extraction (cited, never guessed)
+REVIEW   analyst confirms/corrects; unanswered fields flagged
+RESULTS  PASS / CONDITIONAL / FAIL / REVIEW · margin to every kill line ·
+         document-consistency panel · KPI scorecard (IRR, cash-on-cash,
+         equity multiple vs benchmarks) · deal vs S&P + financing-vs-SOFR ·
+         judgment adjustments (reason required, baseline verdict kept)
 
-## Honest Limits (baked into UI)
-- Small samples / high variance (especially non-RE)
-- Survivorship and self-reporting bias in third-party data
-- Conditional forecasts only — no macro shock timing
-- Wide confidence intervals on thin history
-- Not financial advice
-
-## Quick Start (Local - Streamlit)
-```bash
-cd /Users/friday/Projects/ai-diligence-tool
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-streamlit run app.py
+THRESHOLDS  every band, weight, and stress parameter editable — nothing
+            hard-coded; versioned saves, browser drafts preview-only
+MACRO       weekly FRED snapshot: 8 weighted signals → regime →
+            Green/Yellow/Red posture · four-quadrant inflation×growth
+            indicator · 5-year sparklines · manual override with reason
+BACKTEST    run past deals + realized outcomes through the current
+            rulebook — right calls, missed winners, above/below par
 ```
 
-Open http://localhost:8501
+## Principles (enforced in code)
 
-## Hosting on Netlify (recommended for production)
+- **Zero hardcoded thresholds** — every tunable lives in versioned config.
+- **Every decision replayable** — stamped with config version, macro posture,
+  inputs, and adjustments; the un-adjusted baseline verdict is always kept.
+- **Missing data never passes** — extraction returns null rather than guess;
+  unanswered fields force review.
+- **Macro moves the bar, never kills alone.**
 
-This repo now includes a full **React + TypeScript + Plotly** frontend that replicates the Streamlit experience, plus Netlify Functions for the Grok copilot.
+## Build & dev
 
-See [README-NETLIFY.md](./README-NETLIFY.md) for setup and deployment instructions.
+```bash
+npm install
+npm run dev      # vite — all /api/* served via dev bridges (live FRED, no persistence)
+npm run build    # gated by three golden suites: parity(16) · gate1(23) · macro(23)
+```
 
-### Deploy steps (one-time)
-1. Connect the GitHub repo to a new Netlify site (or use the included `scripts/deploy-netlify.sh` after `netlify-cli login`).
-2. Set the `XAI_API_KEY` environment variable in Netlify (Site settings → Environment variables) so the Diligence Copilot works.
-3. The included `netlify.toml` handles build + functions + SPA redirects.
+Deploys from the `pilot` branch (Netlify, HTTP Basic Auth). Env vars and
+operational notes: `HANDOFF.md` (confidential). Supabase schema:
+`supabase/migrations/`, config seed: `supabase/seed.sql`.
 
-The Netlify version is client-side for scoring/UI (very fast) and uses serverless functions only for the AI copilot.
-
-## Current Status (MVP in progress)
-- Core engine: exact de-smoothed NCREIF-style Monte Carlo (the grounded PoC you supplied) — desmooth_variance on your past realized IRRs, lognormal compounding, full P(≥20%), median, VaR_5%, CVaR_5%, fractional Kelly position size.
-- Live analyst weights directly drive mu_adj into the MC (transparent).
-- Both Streamlit (local) and React/Netlify (hosted) now use the real distributional engine.
-- DDQ + copilot context include the MC outputs.
-
-See the grounded reference block for the exact formulas. This is Streamlit-first + React parity to match your proven operator dashboards (Edge, ServeBot, etc.).
-
-Provide your scoping document or historical deals CSV for richer samples and real backtesting.
-
-## Data Sources (Public / Local Preferred)
-- FRED (rates, housing starts, HPI, etc.)
-- Zillow Research CSVs (ZHVI + ZHVF forecasts, inventory, etc.)
-- Census ACS (demographics)
-- Your DDQs + past investment outcomes (the real moat)
-
-Optional (when justified): RentCast or institutional feeds (Preqin, etc.).
-
-## Project Layout
-See plan.md for detailed structure and phases.
-
-## Run with Sample Data
-The app seeds realistic RE Dev/Value-Add examples derived from the internal scoping document. Upload your own CSVs or PDFs to extend.
-
-## Market Quest 3D (game + analysis environment)
-The **🎮 Market Quest 3D** tab is an exploratory game rendered entirely from the repo's real datasets: pilot a scout drone through a phyllotaxis "city" of the 150 largest metros (tower height = annualized ZHVI home-value growth, color = de-smoothed risk), scan towers up close, acquire up to 5 into a portfolio, and collect 8 data orbs hidden at landmarks computed from the series (2008 crash trough, 1981 rate peak, 2009 starts canyon…). Running diligence fires a correlated Monte Carlo (national + state factors, lognormal compounding) and scores the book vs the national ZHVI baseline — with missions, personal bests, a live portfolio preview, minimap, orb compass, and synth SFX. A **📊 Analysis Orbit** toggle restores the pure data-viz mode (hover tooltips on every object: metros, macro ring, and the ZHVI/mortgage/housing-starts ridges). Regenerate the scene data after refreshing sources with `python3 scripts/build_market3d_data.py`.
-
-## Next / Done
-- **Real data ingest for 100+ sources**: `scripts/ingest_real_data.py --fetch-all-curated` (Zillow, FHFA, FRED, NCREIF snapshots, REITs, Census, etc.). See `data/data_sources_inventory.md` (full categorized list with direct URLs + exact MC mapping: prices_to_returns, ppy, geltner, bias_mu/sigma, n_obs for confidence, etc.).
-- Connectors + scoring now load real pulled market comps / macro (boosts n_obs, applies source-appropriate bias, macro mu_adj).
-- Full verified reference engine (post 41-defect adversarial review) is the core.
-- Your real client deals CSV + DDQ remain the moat/alpha; public indices are base rates + context.
-
-Questions or data to share? Provide the document(s) and we'll wire them in immediately.
+The verified Monte Carlo market engine (Geltner de-smoothing, empirical
+bootstrap, fractional-Kelly sizing) remains in `netlify/functions/lib/` with
+its parity suite as server machinery for later deal-level deep review.

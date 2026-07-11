@@ -206,3 +206,177 @@ export async function downloadTemplate() {
   XLSX.utils.book_append_sheet(wb, opps, 'Opportunities')
   XLSX.writeFile(wb, 'diligence-data-template.xlsx')
 }
+
+/**
+ * Deal-document ingest: convert an uploaded pro forma workbook to per-sheet CSV
+ * text for the AI extraction endpoint. Parsing happens entirely in the browser —
+ * only CSV text leaves the machine. Sheets are capped so a huge workbook can't
+ * blow past the sync-function body limit.
+ */
+export async function workbookToCsvText(data: ArrayBuffer): Promise<{ sheets: Array<{ name: string; csv: string }> }> {
+  const XLSX = await loadXlsx()
+  const wb = XLSX.read(data, { type: 'array' })
+  const MAX_SHEET_CHARS = 60_000
+  const sheets: Array<{ name: string; csv: string }> = []
+  for (const name of wb.SheetNames) {
+    const ws = wb.Sheets[name]
+    if (!ws) continue
+    let csv = XLSX.utils.sheet_to_csv(ws)
+    // Drop rows that are only commas/whitespace, then skip empty sheets.
+    csv = csv.split('\n').filter(line => line.replace(/[,\s]/g, '') !== '').join('\n')
+    if (!csv) continue
+    if (csv.length > MAX_SHEET_CHARS) csv = csv.slice(0, MAX_SHEET_CHARS) + '\n…[truncated]'
+    sheets.push({ name, csv })
+  }
+  return { sheets }
+}
+
+// ---------------------------------------------------------------------------
+// Back-testing: Patel's past deals in, Gate 1 verdicts vs realized outcomes out.
+// ---------------------------------------------------------------------------
+
+/** One historical deal: Gate 1 inputs plus what actually happened. */
+export interface BacktestRow {
+  fields: Record<string, string | number | boolean | null>
+  realized_irr: number | null
+  realized_equity_multiple: number | null
+  outcome_notes: string | null
+}
+
+/** Column order for the template and the parser (field key = header row 2). */
+export const BACKTEST_COLUMNS: Array<{ key: string; label: string }> = [
+  { key: 'deal_name', label: 'Deal name' },
+  { key: 'asset_class', label: 'Asset class (rv_specialty/multifamily/industrial/retail/office)' },
+  { key: 'location', label: 'Location' },
+  { key: 'sponsor_name', label: 'Sponsor' },
+  { key: 'sponsor_integrity_clear', label: 'Sponsor integrity clear (yes/no)' },
+  { key: 'site_fully_entitled', label: 'Site fully entitled (yes/no)' },
+  { key: 'sponsor_completed_comparables', label: 'Comparable completed projects' },
+  { key: 'sponsor_coinvest_pct', label: 'Sponsor co-invest (% of equity)' },
+  { key: 'total_project_cost', label: 'Total project cost ($)' },
+  { key: 'hard_costs', label: 'Hard costs ($)' },
+  { key: 'land_cost', label: 'Land cost ($)' },
+  { key: 'hard_cost_contingency_pct', label: 'Hard-cost contingency (%)' },
+  { key: 'construction_loan', label: 'Construction loan ($, 0 if all-equity)' },
+  { key: 'loan_interest_rate', label: 'Loan rate (%)' },
+  { key: 'total_equity', label: 'Total equity ($)' },
+  { key: 'stabilized_noi_untrended', label: 'Stabilized NOI untrended ($)' },
+  { key: 'exit_cap_rate', label: 'Exit cap rate (%)' },
+  { key: 'market_cap_rate_today', label: 'Market cap rate at the time (%)' },
+  { key: 'assumed_rent_monthly', label: 'Assumed monthly rent ($)' },
+  { key: 'market_comp_rent_monthly', label: 'Market comp monthly rent ($)' },
+  { key: 'interest_reserve_months', label: 'Interest reserve (months)' },
+  { key: 'construction_duration_months', label: 'Construction duration (months)' },
+  { key: 'lease_up_months_assumed', label: 'Assumed lease-up (months)' },
+  { key: 'submarket_leaseup_months', label: 'Submarket lease-up record (months)' },
+  { key: 'exit_dependent_single_refi', label: 'Exit depends on a single refi (yes/no)' },
+  { key: 'has_gmp_or_bonded_gc', label: 'GMP contract / bonded GC (yes/no)' },
+  { key: 'has_completion_guarantee', label: 'Completion guarantee (yes/no)' },
+  { key: 'guarantor_net_worth', label: 'Guarantor net worth ($)' },
+  { key: 'projected_irr', label: 'Projected IRR at underwriting (%)' },
+  { key: 'projected_equity_multiple', label: 'Projected equity multiple at underwriting' },
+  { key: 'realized_irr', label: 'REALIZED IRR (%)' },
+  { key: 'realized_equity_multiple', label: 'REALIZED equity multiple' },
+  { key: 'outcome_notes', label: 'Outcome notes' },
+]
+
+const PCT_KEYS = new Set([
+  'sponsor_coinvest_pct', 'hard_cost_contingency_pct', 'loan_interest_rate',
+  'exit_cap_rate', 'market_cap_rate_today', 'projected_irr', 'realized_irr',
+])
+const BOOL_KEYS = new Set([
+  'sponsor_integrity_clear', 'site_fully_entitled', 'exit_dependent_single_refi',
+  'has_gmp_or_bonded_gc', 'has_completion_guarantee',
+])
+
+function coerceBacktestCell(key: string, v: unknown): string | number | boolean | null {
+  if (v === undefined || v === null || v === '') return null
+  if (BOOL_KEYS.has(key)) {
+    const s = String(v).trim().toLowerCase()
+    if (['yes', 'y', 'true', '1'].includes(s)) return true
+    if (['no', 'n', 'false', '0'].includes(s)) return false
+    return null
+  }
+  if (typeof v === 'boolean') return v
+  const n = Number(String(v).replace(/[$,%\s]/g, ''))
+  if (Number.isFinite(n)) {
+    // Percent columns accept either 5 (meaning 5%) or 0.05 — normalize to decimal.
+    if (PCT_KEYS.has(key)) return n > 1 ? n / 100 : n
+    return n
+  }
+  return String(v)
+}
+
+/**
+ * Parse a backtest workbook: row 1 = human labels, row 2+ = deals. Columns are
+ * matched by the machine key embedded in the template's second header row, or
+ * by exact key names if the user built their own sheet.
+ */
+export async function parseBacktestWorkbook(data: ArrayBuffer): Promise<{ rows: BacktestRow[]; warnings: string[] }> {
+  const XLSX = await loadXlsx()
+  const wb = XLSX.read(data, { type: 'array' })
+  const ws = wb.Sheets[wb.SheetNames[0]]
+  if (!ws) throw new Error('The workbook has no sheets')
+  const aoa: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null })
+  if (aoa.length < 2) throw new Error('No deal rows found (need a header row plus at least one deal)')
+
+  // Find the header row containing machine keys (template row 2), else assume row 1 holds keys.
+  const knownKeys = new Set(BACKTEST_COLUMNS.map(c => c.key))
+  let headerIdx = aoa.findIndex(r => r.filter(c => knownKeys.has(String(c ?? '').trim())).length >= 5)
+  if (headerIdx === -1) throw new Error('Could not find the header row — download the template and paste your deals into it')
+  const headers = aoa[headerIdx].map(h => String(h ?? '').trim())
+
+  const warnings: string[] = []
+  const rows: BacktestRow[] = []
+  for (const raw of aoa.slice(headerIdx + 1)) {
+    if (raw.every(c => c === null || c === '')) continue
+    const rec: Record<string, string | number | boolean | null> = {}
+    headers.forEach((h, i) => {
+      if (knownKeys.has(h)) rec[h] = coerceBacktestCell(h, raw[i])
+    })
+    if (!rec.deal_name) continue
+    const { realized_irr = null, realized_equity_multiple = null, outcome_notes = null, ...fields } = rec
+    rows.push({
+      fields,
+      realized_irr: realized_irr as number | null,
+      realized_equity_multiple: realized_equity_multiple as number | null,
+      outcome_notes: outcome_notes === null ? null : String(outcome_notes),
+    })
+  }
+  if (!rows.length) throw new Error('No deal rows found under the header')
+  if (rows.length > 100) {
+    warnings.push(`Capped at 100 deals (${rows.length} provided)`)
+    rows.length = 100
+  }
+  return { rows, warnings }
+}
+
+/** Two header rows: human label + machine key, plus two fictional example deals. */
+export async function downloadBacktestTemplate() {
+  const XLSX = await loadXlsx()
+  const wb = XLSX.utils.book_new()
+  const labels = BACKTEST_COLUMNS.map(c => c.label)
+  const keys = BACKTEST_COLUMNS.map(c => c.key)
+  const example1: Record<string, unknown> = {
+    deal_name: 'EXAMPLE — Pinewood Cottages (delete me)', asset_class: 'rv_specialty', location: 'Ocala, FL',
+    sponsor_name: 'Fictional Sponsor A', sponsor_integrity_clear: 'yes', site_fully_entitled: 'yes',
+    sponsor_completed_comparables: 3, sponsor_coinvest_pct: 8, total_project_cost: 9200000, hard_costs: 7100000,
+    land_cost: 900000, hard_cost_contingency_pct: 6, construction_loan: 5000000, loan_interest_rate: 6.0,
+    total_equity: 4200000, stabilized_noi_untrended: 1150000, exit_cap_rate: 7.5, market_cap_rate_today: 7.0,
+    assumed_rent_monthly: 850, market_comp_rent_monthly: 825, interest_reserve_months: 20,
+    construction_duration_months: 11, lease_up_months_assumed: 20, submarket_leaseup_months: 18,
+    exit_dependent_single_refi: 'no', has_gmp_or_bonded_gc: 'yes', has_completion_guarantee: 'yes',
+    guarantor_net_worth: 2000000, projected_irr: 16, projected_equity_multiple: 2.1,
+    realized_irr: 18.5, realized_equity_multiple: 2.3, outcome_notes: 'Sold year 6, above plan',
+  }
+  const example2: Record<string, unknown> = {
+    ...example1, deal_name: 'EXAMPLE — Bayside Flats (delete me)', asset_class: 'multifamily',
+    site_fully_entitled: 'no', hard_cost_contingency_pct: 3.5, sponsor_coinvest_pct: 2,
+    projected_irr: 21, realized_irr: 4.2, realized_equity_multiple: 1.1,
+    outcome_notes: 'Rezoning delays + overruns — barely returned capital',
+  }
+  const ws = XLSX.utils.aoa_to_sheet([labels, keys, keys.map(k => example1[k] ?? ''), keys.map(k => example2[k] ?? '')])
+  ws['!cols'] = BACKTEST_COLUMNS.map(() => ({ wch: 20 }))
+  XLSX.utils.book_append_sheet(wb, ws, 'Past Deals')
+  XLSX.writeFile(wb, 'connected-capital-backtest-template.xlsx')
+}

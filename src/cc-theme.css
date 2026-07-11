@@ -1,0 +1,123 @@
+/* Connected Capital brand theme — scoped re-skin.
+   Everything lives under .cc-theme so it REDEFINES the global CSS custom
+   properties (from index.css) only inside branded containers. Existing tabs
+   stay pixel-identical: no bare :root rules in this file. */
+
+.cc-theme {
+  --bg: #eff9f9;
+  --surface: #ffffff;
+  --surface-2: #f5fbfa;
+  --accent: #3f7d69;
+  --accent-soft: #e4f5ee;
+  --text: #090e11;
+  --muted: #5c6b67;
+  --border: #dcebe7;
+  --success: #3f7d69;
+  --warning: #b8860b;
+  --danger: #c2384a;
+  --cc-mint: #63cda9;
+  --cc-ink: #090e11;
+  --cc-deep: #3f7d69;
+  --cc-gray: #9c9c9c;
+  --posture-green: #3f7d69;
+  --posture-yellow: #b8860b;
+  --posture-red: #c2384a;
+  --tip-bg: #123028;
+  --tip-dot: #5c6b67;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Roboto', system-ui, sans-serif;
+  font-weight: 300;
+  font-size: 17px;
+  line-height: 1.55;
+}
+
+/* Typography */
+.cc-theme h1,
+.cc-theme h2,
+.cc-theme h3 {
+  font-family: 'Roboto', system-ui, sans-serif;
+  font-weight: 300;
+  letter-spacing: -0.01em;
+}
+
+.cc-theme h1 {
+  font-size: clamp(2.1rem, 4vw, 3rem);
+}
+
+.cc-theme .cc-kicker {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--cc-deep);
+  font-weight: 500;
+}
+
+/* Buttons */
+.cc-theme button {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 500;
+  border: 2px solid var(--cc-mint);
+  background: var(--cc-mint);
+  color: var(--cc-ink);
+  border-radius: 4px;
+  padding: 0.6rem 1.4rem;
+  cursor: pointer;
+}
+
+.cc-theme button:hover {
+  background: var(--cc-ink);
+  border-color: var(--cc-ink);
+  color: #fff;
+}
+
+.cc-theme button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.cc-theme button.secondary {
+  background: transparent;
+  border: 2px solid var(--cc-ink);
+  color: var(--cc-ink);
+}
+
+.cc-theme button.secondary:hover {
+  background: var(--cc-ink);
+  color: #fff;
+}
+
+/* Surfaces & form controls */
+.cc-theme .card {
+  padding: 1.5rem;
+  border-radius: 10px;
+}
+
+.cc-theme input,
+.cc-theme select,
+.cc-theme textarea {
+  border-color: var(--border);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 4px;
+}
+
+.cc-theme .dropzone {
+  border-color: #bcded3;
+}
+
+/* Tooltip focus ring (Info primitive) */
+.cc-theme .infotip:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 50%;
+}
+
+/* Formula line inside glossary tooltips */
+.cc-formula {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  opacity: 0.8;
+  margin-top: 4px;
+}
