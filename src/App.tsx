@@ -33,6 +33,23 @@ export default function App() {
               Deal diligence — Gate 1 screening · macro-aware thresholds · auditable decisions
             </div>
           </div>
+          <a
+            href="/how-it-works.html"
+            style={{
+              fontSize: '0.72rem',
+              letterSpacing: '0.1em',
+              textTransform: 'uppercase',
+              fontWeight: 500,
+              color: 'var(--accent)',
+              textDecoration: 'none',
+              border: '1px solid var(--border)',
+              borderRadius: 6,
+              padding: '6px 12px',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            How it works
+          </a>
         </div>
       </header>
 

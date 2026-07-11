@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>How it works — Connected Capital Deal Diligence</title>
+<meta name="description" content="From a sponsor's documents to a defensible verdict: cited AI extraction, a hard-kill rulebook, macro-aware thresholds, and an audit trail." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#eff9f9; --surface:#fff; --ink:#090e11; --muted:#5c6b67;
+    --deep:#3f7d69; --mint:#63cda9; --soft:#e4f5ee; --border:#dcebe7;
+    --warn:#b8860b; --bad:#c2384a;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:'Roboto',system-ui,sans-serif;font-weight:300;font-size:17px;line-height:1.6}
+  a{color:var(--deep)}
+  .wrap{max-width:960px;margin:0 auto;padding:0 1.5rem}
+  .topbar{display:flex;justify-content:space-between;align-items:center;padding:1.1rem 0;border-bottom:1px solid var(--border)}
+  .brand{font-weight:400;font-size:1.05rem;letter-spacing:-.01em}
+  .brand small{display:block;font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:500}
+  .btn{display:inline-block;background:var(--mint);color:var(--ink);border:2px solid var(--mint);border-radius:4px;padding:.55rem 1.3rem;font-size:12.5px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;text-decoration:none;transition:background .15s,color .15s,border-color .15s}
+  .btn:hover{background:var(--ink);border-color:var(--ink);color:#fff}
+  .btn.ghost{background:transparent;border-color:var(--ink);color:var(--ink)}
+  .btn.ghost:hover{background:var(--ink);color:#fff}
+  .hero{padding:4.5rem 0 3rem}
+  .kicker{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--deep);font-weight:500;margin-bottom:1rem}
+  h1{font-weight:300;font-size:clamp(2rem,5vw,3.1rem);line-height:1.15;letter-spacing:-.015em;margin:0 0 1.2rem;max-width:21ch}
+  .lede{color:var(--muted);max-width:56ch;font-size:1.02rem;margin:0 0 2rem}
+  .pillrow{display:flex;gap:.6rem;flex-wrap:wrap;margin-top:2.2rem}
+  .pill{font-size:.72rem;letter-spacing:.05em;border:1px solid var(--border);background:var(--surface);border-radius:999px;padding:.35rem .8rem;color:var(--muted)}
+  section{padding:2.6rem 0;border-top:1px solid var(--border)}
+  h2{font-weight:300;font-size:1.7rem;letter-spacing:-.01em;margin:0 0 .5rem}
+  .sub{color:var(--muted);max-width:60ch;margin:0 0 2rem}
+  .steps{display:grid;gap:1rem}
+  .step{display:grid;grid-template-columns:56px 1fr;gap:1.1rem;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1.4rem 1.5rem;align-items:start}
+  .num{width:40px;height:40px;border-radius:50%;background:var(--soft);color:var(--deep);display:flex;align-items:center;justify-content:center;font-weight:500;font-size:1rem;border:1px solid var(--border)}
+  .step h3{margin:.3rem 0 .4rem;font-weight:500;font-size:1.02rem}
+  .step p{margin:0;color:var(--muted);font-size:.92rem}
+  .step p b{color:var(--ink);font-weight:500}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+  .prin{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1.3rem 1.4rem}
+  .prin h3{margin:0 0 .4rem;font-weight:500;font-size:.95rem;color:var(--deep)}
+  .prin p{margin:0;color:var(--muted);font-size:.88rem}
+  .verdictrow{display:flex;gap:.7rem;flex-wrap:wrap;margin:1.4rem 0 0}
+  .v{font-size:11px;letter-spacing:.08em;font-weight:700;padding:4px 12px;border-radius:6px;border:1.5px solid}
+  .v.pass{color:var(--deep);border-color:var(--deep);background:rgba(63,125,105,.08)}
+  .v.cond{color:var(--warn);border-color:var(--warn);background:rgba(184,134,11,.08)}
+  .v.fail{color:var(--bad);border-color:var(--bad);background:rgba(194,56,74,.08)}
+  .v.review{color:var(--muted);border-color:#9c9c9c;background:rgba(156,156,156,.12)}
+  .quad{display:grid;grid-template-columns:1fr 1fr;gap:2px;border:1px solid var(--border);border-radius:12px;overflow:hidden;max-width:560px;margin:1.6rem 0 0}
+  .q{padding:1.1rem 1.2rem;background:var(--surface);font-size:.82rem;color:var(--muted)}
+  .q b{display:block;color:var(--ink);font-weight:500;font-size:.9rem;margin-bottom:.15rem}
+  .q.hot{background:#fdf6ec}.q.stag{background:#fdf0f2}.q.gold{background:#eefaf4}.q.cold{background:#f2f4f6}
+  .cta{padding:3.5rem 0 4.5rem;text-align:left}
+  footer{border-top:1px solid var(--border);padding:1.6rem 0 2.4rem;color:var(--muted);font-size:.78rem}
+  @media(max-width:700px){.grid2{grid-template-columns:1fr}.step{grid-template-columns:44px 1fr;padding:1.1rem 1.1rem}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="topbar">
+    <div class="brand">Connected Capital<small>Deal Diligence — Institutional Pilot</small></div>
+    <a class="btn" href="/">Open the app</a>
+  </div>
+
+  <div class="hero">
+    <div class="kicker">How it works</div>
+    <h1>From the sponsor's documents to a defensible verdict.</h1>
+    <p class="lede">
+      Upload an offering memorandum and a pro forma. The platform reads both, shows its receipts,
+      runs the deal through a hard-kill rulebook under live macro conditions, and records a decision
+      you can replay and defend — with a human in control at every step.
+    </p>
+    <a class="btn" href="/">Try it with the sample deal</a>
+    <div class="pillrow">
+      <span class="pill">18 screening checks</span>
+      <span class="pill">~30 extracted fields, every one cited</span>
+      <span class="pill">8 live macro signals</span>
+      <span class="pill">62 build-gating engine tests</span>
+    </div>
+  </div>
+
+  <section>
+    <h2>The flow</h2>
+    <p class="sub">One deal, five minutes, no blank forms.</p>
+    <div class="steps">
+      <div class="step"><div class="num">1</div><div>
+        <h3>Drop in the documents</h3>
+        <p>The offering memorandum (PDF) and the pro forma (Excel). The workbook is parsed
+        <b>in your browser</b> — only text leaves the machine.</p>
+      </div></div>
+      <div class="step"><div class="num">2</div><div>
+        <h3>Extraction with receipts</h3>
+        <p>AI pulls ~30 screening fields — costs, contingency, leverage, NOI, rents, entitlement,
+        sponsor terms. Every value carries a <b>confidence score and a citation</b> back to the
+        document and page. It <b>never guesses</b>: a fact the documents don't state comes back
+        empty and is flagged for you.</p>
+      </div></div>
+      <div class="step"><div class="num">3</div><div>
+        <h3>The documents get cross-examined</h3>
+        <p>The OM and the pro forma should tell the same story. Every disagreement — NOI, unit
+        count, timeline, rents, capital structure — is listed with a severity tag. <b>A deal's own
+        paperwork contradicting itself is a diligence signal no spreadsheet catches.</b></p>
+      </div></div>
+      <div class="step"><div class="num">4</div><div>
+        <h3>You verify, then it scores</h3>
+        <p>Review what was extracted, correct anything, answer what the documents couldn't.
+        <b>Nothing is scored until you confirm.</b></p>
+      </div></div>
+      <div class="step"><div class="num">5</div><div>
+        <h3>Gate 1: ten hard kills, eight watch flags</h3>
+        <p>Character, entitlement, leverage, development spread, contingency, alignment, track
+        record, exit dependence, construction protection, and a stress test. <b>Any single hard
+        kill fails the deal</b> — strengths don't average away a fatal flaw. Flags accumulate into
+        conditional approval. Every check shows its <b>margin to the line</b>, and thin passes are
+        marked fragile.</p>
+        <div class="verdictrow">
+          <span class="v pass">PASS</span><span class="v cond">CONDITIONAL</span>
+          <span class="v fail">FAIL</span><span class="v review">REVIEW — missing data never passes</span>
+        </div>
+      </div></div>
+      <div class="step"><div class="num">6</div><div>
+        <h3>The economy moves the bar</h3>
+        <p>Every week, eight economic signals — recession risk, inflation, growth, credit spreads,
+        the labor market — vote on the market regime, which sets a Green / Yellow / Red posture.
+        Posture <b>tightens or loosens the thresholds automatically</b>: the same deal can clear the
+        gate in a green week and fail it in a red one. Macro moves the bar; it never kills a deal
+        by itself.</p>
+        <div class="quad">
+          <div class="q stag"><b>Stagflation</b>rising prices, shrinking economy</div>
+          <div class="q hot"><b>Inflationary expansion</b>growth with heat</div>
+          <div class="q cold"><b>Deflationary contraction</b>recession territory</div>
+          <div class="q gold"><b>Goldilocks</b>growth, cooling prices</div>
+        </div>
+      </div></div>
+      <div class="step"><div class="num">7</div><div>
+        <h3>Judgment, on the record</h3>
+        <p>See something the model can't? Adjust any threshold for this deal — with a
+        <b>required written reason</b>. The rulebook's original verdict is kept alongside yours,
+        so every override is visible, attributed, and reversible. Manual control is never silent.</p>
+      </div></div>
+      <div class="step"><div class="num">8</div><div>
+        <h3>The market reality check</h3>
+        <p>The deal's returns stand next to what the S&amp;P 500 actually returned over one, three
+        and five years — and the loan rate the model assumes is checked against prevailing rates
+        (SOFR plus a typical spread). <b>Returns that lean on financing nobody offers get called
+        out.</b></p>
+      </div></div>
+      <div class="step"><div class="num">9</div><div>
+        <h3>Your rulebook, not ours</h3>
+        <p>Every threshold, band, weight and stress parameter is <b>editable configuration</b> —
+        there isn't a single hard-coded number in the engine. Changes are saved as new versions;
+        past decisions always know which version judged them.</p>
+      </div></div>
+      <div class="step"><div class="num">10</div><div>
+        <h3>Back-test your own history</h3>
+        <p>Load past deals with their realized outcomes and see how today's rulebook would have
+        called each one — <b>right calls, missed winners, and whether the book ran above or below
+        par</b>. The gate earns trust by being scored against reality.</p>
+      </div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>The rules the code enforces</h2>
+    <p class="sub">Not policies in a document — invariants in the build.</p>
+    <div class="grid2">
+      <div class="prin"><h3>Zero hardcoded thresholds</h3><p>Every tunable lives in versioned config. If a threshold were a literal in the codebase, it would be a bug.</p></div>
+      <div class="prin"><h3>Every decision replayable</h3><p>Recorded with its inputs, config version, macro posture and adjustments — any past verdict can be reproduced exactly.</p></div>
+      <div class="prin"><h3>Missing data never passes</h3><p>Extraction returns nothing rather than guessing, and an unanswered field forces human review — silence can't slip through.</p></div>
+      <div class="prin"><h3>Macro moves the bar, never kills</h3><p>Conditions make the gate stricter or looser; only the deal's own facts can fail it.</p></div>
+    </div>
+  </section>
+
+  <div class="cta">
+    <h2>See it on a real deal</h2>
+    <p class="sub">The app ships with a recorded extraction of a real example deal — strong headline
+    returns that fail three hard kills, with six contradictions between its own documents.</p>
+    <a class="btn" href="/">Open the app</a>&nbsp;&nbsp;
+    <a class="btn ghost" href="/">Load the sample deal</a>
+  </div>
+
+  <footer>
+    Connected Capital — institutional pilot. Screening support, not investment advice.
+    Engine quality is enforced at build time by three golden test suites (62 checks); a red suite blocks deployment.
+  </footer>
+
+</div>
+</body>
+</html>
