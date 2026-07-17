@@ -14,6 +14,7 @@ import MacroDashboard, { MacroStrip } from './MacroDashboard'
 import ThresholdConfig from './ThresholdConfig'
 import Backtest from './Backtest'
 import EvidencePanel from './EvidencePanel'
+import MarketPathCard from './MarketPathCard'
 import type { AvailableKey } from './JudgmentPanel'
 import type { ExtractionResult } from '../netlify/functions/lib/gate1/fields'
 import type { Gate1Config, MacroSnapshot, Regime } from '../netlify/functions/lib/gate1/types'
@@ -382,6 +383,7 @@ export default function DealIntake() {
                   {extraction && <ConsistencyPanel discrepancies={extraction.discrepancies ?? []} />}
                   <KpiScorecard fields={coerced} response={lastResponse} benchmarks={benchmarks ?? undefined} />
                   <MarketComparison fields={coerced} market={macro?.market ?? null} benchmarks={benchmarks} />
+                  <MarketPathCard location={typeof coerced.location === 'string' ? coerced.location : null} />
                   <div ref={judgmentRef}>
                     <JudgmentPanel
                       adjustments={adjustments}

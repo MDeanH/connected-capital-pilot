@@ -5,6 +5,7 @@ import { applyDdq, DEFAULT_ANSWERS, SCORECARD } from './ddq.ts';
 import baselines from './baselines.json';
 import metros from './metros.json';
 import marketEdge from './market-edge.json';
+import marketPath from './market-path.json';
 
 const MACRO = { mortgage30y: 6.48, caseShillerYoy: 0.67, asof: '2026-03-31' };
 type Baseline = { label: string; ppy: number; returns: number[] };
@@ -63,7 +64,17 @@ export function computeScore(body: any) {
   const edgeInfo = (marketEdge as Record<string, { gy: number; pct: number; nState: number }>)[bl.label];
   const yieldEdgeMu = edgeInfo ? round(((edgeInfo.pct - 50) / 50) * 0.003, 5) : 0;
 
-  const common = { returns, ppy, target, rf, holding, bookCorr: ddq.bookCorr, biasMu: ddq.biasMu + yieldEdgeMu + extBiasMu, seed };
+  // Conditional market-path tilt: the 12-month forecast that passed the
+  // pre-registered acceptance gate (research/tsfm_benchmark/HOUSING-ACCEPTANCE-
+  // TEST.md — beats the unconditional drift on 32/65 HLN-DM tests, survives
+  // Geltner de-smoothing). Year-1 statement only, so it is capped at ±2%/yr and
+  // amortized over the holding period (mean reversion kills it by years 3-5);
+  // markets without a baked path get zero, never a guess.
+  type Mp = { asof: string; tiltAnnual: number; annualMedian: number; annualQ10: number; annualQ90: number; cumMed: number[]; cumQ10: number[]; cumQ90: number[]; backtest: { hitRate: number | null; nWindows: number; dmPvsDrift: number } };
+  const mpInfo = (marketPath as unknown as Record<string, Mp>)[bl.label] ?? null;
+  const marketPathMu = mpInfo ? round(clamp(mpInfo.tiltAnnual, -0.02, 0.02) / holding, 5) : 0;
+
+  const common = { returns, ppy, target, rf, holding, bookCorr: ddq.bookCorr, biasMu: ddq.biasMu + yieldEdgeMu + extBiasMu + marketPathMu, seed };
   const honest = scoreOpportunity({ ...common, desmooth: true, sigmaMult: ddq.sigmaMult * extraMult * extSigmaMult });
   const naive = scoreOpportunity({ ...common, desmooth: false, sigmaMult: ddq.sigmaMult * extSigmaMult });
 
@@ -79,6 +90,15 @@ export function computeScore(body: any) {
     external: extBiasMu !== 0 || extSigmaMult !== 1 ? { biasMu: extBiasMu, sigmaMult: round(extSigmaMult, 3) } : null,
     marketEdge: edgeInfo
       ? { grossYield: edgeInfo.gy, statePct: edgeInfo.pct, nState: edgeInfo.nState, muBias: yieldEdgeMu }
+      : null,
+    marketPath: mpInfo
+      ? {
+          asof: mpInfo.asof, tiltAnnualRaw: mpInfo.tiltAnnual,
+          tiltAnnualCapped: round(clamp(mpInfo.tiltAnnual, -0.02, 0.02), 5), muBias: marketPathMu,
+          annualMedian: mpInfo.annualMedian, annualQ10: mpInfo.annualQ10, annualQ90: mpInfo.annualQ90,
+          cumMed: mpInfo.cumMed, cumQ10: mpInfo.cumQ10, cumQ90: mpInfo.cumQ90,
+          backtest: mpInfo.backtest,
+        }
       : null,
     honest, naive: { pLoss: naive.pLoss, varLoss: naive.varLoss },
     macro: MACRO,
