@@ -1,0 +1,16 @@
+# Benchmark-only dependencies (separate from the app's root requirements.txt).
+# CPU torch is enough; install it first from the CPU index to avoid pulling CUDA:
+#   pip install torch --index-url https://download.pytorch.org/whl/cpu
+#   pip install -r requirements.txt
+torch>=2.5
+timesfm>=2.0.2            # TimesFM 2.5 checkpoints (google/timesfm-2.5-200m-pytorch)
+chronos-forecasting>=2.3  # Chronos-2 (amazon/chronos-2)
+yfinance>=1.0
+pandas>=2.2
+numpy>=1.26
+scipy>=1.10
+matplotlib>=3.8
+# to execute the notebook headless:
+ipykernel>=6.29
+nbclient>=0.10
+nbconvert>=7.16

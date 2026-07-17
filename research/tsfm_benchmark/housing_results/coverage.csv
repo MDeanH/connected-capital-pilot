@@ -1,0 +1,27 @@
+task,model,cov_q10_q90
+US ZHVI,Chronos-2,0.825
+US ZHVI,TimesFM-2.5,0.8333333333333334
+US FHFA HPI,Chronos-2,0.7166666666666667
+US FHFA HPI,TimesFM-2.5,0.8083333333333333
+US Case-Shiller,Chronos-2,0.65
+US Case-Shiller,TimesFM-2.5,0.8166666666666667
+metro New York,Chronos-2,0.8
+metro New York,TimesFM-2.5,0.8083333333333333
+metro Los Angeles,Chronos-2,0.8416666666666667
+metro Los Angeles,TimesFM-2.5,0.8916666666666667
+metro Chicago,Chronos-2,0.7583333333333333
+metro Chicago,TimesFM-2.5,0.8666666666666667
+metro Dallas,Chronos-2,0.5083333333333333
+metro Dallas,TimesFM-2.5,0.5833333333333334
+metro Houston,Chronos-2,0.8333333333333334
+metro Houston,TimesFM-2.5,0.8666666666666667
+metro Washington,Chronos-2,0.8083333333333333
+metro Washington,TimesFM-2.5,0.8416666666666667
+metro Philadelphia,Chronos-2,0.8583333333333333
+metro Philadelphia,TimesFM-2.5,0.8083333333333333
+metro Miami,Chronos-2,0.8583333333333333
+metro Miami,TimesFM-2.5,0.7833333333333333
+metro Atlanta,Chronos-2,0.7833333333333333
+metro Atlanta,TimesFM-2.5,0.8916666666666667
+metro Boston,Chronos-2,0.8
+metro Boston,TimesFM-2.5,0.825
