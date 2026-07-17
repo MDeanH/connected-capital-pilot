@@ -13,6 +13,7 @@ import MarketComparison from './MarketComparison'
 import MacroDashboard, { MacroStrip } from './MacroDashboard'
 import ThresholdConfig from './ThresholdConfig'
 import Backtest from './Backtest'
+import EvidencePanel from './EvidencePanel'
 import type { AvailableKey } from './JudgmentPanel'
 import type { ExtractionResult } from '../netlify/functions/lib/gate1/fields'
 import type { Gate1Config, MacroSnapshot, Regime } from '../netlify/functions/lib/gate1/types'
@@ -26,8 +27,8 @@ import type {
   Posture,
 } from './deal-types'
 
-type Step = 'intake' | 'review' | 'results' | 'thresholds' | 'macro' | 'backtest'
-const STEP_IDS: Step[] = ['intake', 'review', 'results', 'thresholds', 'macro', 'backtest']
+type Step = 'intake' | 'review' | 'results' | 'thresholds' | 'macro' | 'backtest' | 'evidence'
+const STEP_IDS: Step[] = ['intake', 'review', 'results', 'thresholds', 'macro', 'backtest', 'evidence']
 
 const LS_KEY = 'cc_deal_intake_v1'
 const LS_DRAFT_KEY = 'cc_config_draft_v1'
@@ -299,6 +300,7 @@ export default function DealIntake() {
     thresholds: 'THRESHOLDS',
     macro: 'MACRO',
     backtest: 'BACKTEST',
+    evidence: 'EVIDENCE',
   }
 
   return (
@@ -320,7 +322,7 @@ export default function DealIntake() {
           </span>
         ))}
         <span className="di-nav-sep">|</span>
-        {(['thresholds', 'macro', 'backtest'] as Step[]).map((s, i) => (
+        {(['thresholds', 'macro', 'backtest', 'evidence'] as Step[]).map((s, i) => (
           <span key={s} className="di-nav-step">
             {i > 0 && <span className="di-nav-arrow">·</span>}
             <button
@@ -431,6 +433,9 @@ export default function DealIntake() {
 
       {/* BACKTEST — run past deals through the current rulebook */}
       {step === 'backtest' && <Backtest parIrr={benchmarks?.irr ?? 0.12} />}
+
+      {/* EVIDENCE — the predictability evidence map behind the engine's design */}
+      {step === 'evidence' && <EvidencePanel />}
     </div>
   )
 }
