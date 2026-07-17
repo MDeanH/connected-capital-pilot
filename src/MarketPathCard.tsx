@@ -13,25 +13,31 @@ interface Path {
   annualQ90: number
   driftAnnual: number
   tiltAnnual: number
+  gatePassed: boolean
+  geltnerTested: boolean
   cumMed: number[]
   cumQ10: number[]
   cumQ90: number[]
-  backtest: { hitRate: number | null; nWindows: number; dmPvsDrift: number; protocol: string }
+  backtest: { hitRate: number | null; nWindows: number; dmPvsDrift: number | null; protocol: string }
 }
 
 const PATHS = marketPath as unknown as Record<string, Path>
-const METROS = Object.keys(PATHS).filter(k => k !== 'US')
+const NATIONAL = 'United States'
+const METROS = Object.keys(PATHS).filter(k => k !== NATIONAL)
 
+// Exact "City, ST" match only — a substring guess would show another market's
+// forecast as this deal's own. No match -> national path, clearly labeled.
 function resolveKey(location: string | null): { key: string; exact: boolean } {
   if (location) {
-    const loc = location.toLowerCase()
+    const norm = location.trim().toLowerCase().replace(/\s+/g, ' ')
     for (const k of METROS) {
-      const city = k.split(',')[0].toLowerCase()
-      if (loc.includes(city)) return { key: k, exact: true }
+      if (norm === k.toLowerCase()) return { key: k, exact: true }
     }
   }
-  return { key: 'US', exact: false }
+  return { key: NATIONAL, exact: false }
 }
+
+const fmtP = (p: number | null) => p === null ? '—' : p < 0.001 ? 'p<0.001' : `p=${p.toFixed(3)}`
 
 const pct = (x: number, d = 1) => `${(x * 100).toFixed(d)}%`
 
@@ -52,7 +58,7 @@ export default function MarketPathCard({ location }: { location: string | null }
   return (
     <div className="card" style={{ marginTop: '1rem' }}>
       <h3 style={{ marginTop: 0 }}>
-        Market path — {key === 'US' ? 'US national (ZHVI)' : key}
+        Market path — {key === NATIONAL ? 'US national (ZHVI)' : key}
         <span style={{ fontSize: '0.68rem', color: 'var(--muted)', fontWeight: 500, marginLeft: 8, letterSpacing: '0.06em' }}>
           12-MO CONDITIONAL FORECAST · AS OF {p.asof}
         </span>
@@ -75,13 +81,16 @@ export default function MarketPathCard({ location }: { location: string | null }
         <text x={PAD} y={H - 4} fontSize={10} fill="var(--muted)">months 1–12 · cumulative price return · {p.model}, zero-shot</text>
       </svg>
       <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', fontSize: '0.82rem', marginTop: 6 }}>
-        <span><b>Tilt vs trailing drift:</b> {pct(p.tiltAnnual)} {Math.abs(p.tiltAnnual) > 0.02 ? '(engine caps at ±2%/yr)' : ''}</span>
-        <span><b>Out-of-sample backtest:</b> direction right {p.backtest.hitRate === null ? '—' : `${Math.round((p.backtest.hitRate) * (p.backtest.nWindows))}/${p.backtest.nWindows}`} windows · DM p={p.backtest.dmPvsDrift} vs drift</span>
+        <span><b>Tilt vs trailing drift:</b> {pct(p.gatePassed ? p.tiltAnnual : 0)}{' '}
+          {!p.gatePassed ? '(market did not pass its out-of-sample gate — no tilt applied)'
+            : Math.abs(p.tiltAnnual) > 0.02 ? '(MC engine caps at ±2%/yr)' : ''}</span>
+        <span><b>Out-of-sample record (2015–2025):</b> direction right {p.backtest.hitRate === null ? '—' : `${Math.round((p.backtest.hitRate) * (p.backtest.nWindows))}/${p.backtest.nWindows}`} windows · {fmtP(p.backtest.dmPvsDrift)} vs drift</span>
       </div>
       <div style={{ fontSize: '0.72rem', color: 'var(--muted)', marginTop: 6 }}>
-        Index-level forecast (rolling-origin 2015–2025 protocol; survives de-smoothing) — the market’s base rate,
-        never deal alpha. Band = pointwise monthly quantiles compounded (approximate). The engine amortizes the
-        capped tilt over the hold; mean reversion removes it by years 3–5.
+        Index-level forecast (rolling-origin 2015–2025 protocol{p.geltnerTested ? '; edge survives de-smoothing on this market' : ''}) —
+        the market’s base rate, never deal alpha. Band = pointwise monthly quantiles compounded (approximate).
+        The Gate&nbsp;1 verdict above does not use this tilt; in the MC scoring engine it enters capped at ±2%/yr,
+        amortized over the hold, and expires with data age. Mean reversion removes it by years 3–5.
       </div>
     </div>
   )

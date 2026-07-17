@@ -203,8 +203,8 @@ export default function EvidencePanel() {
           pre-registered protocol on the housing indices this platform actually uses (national ZHVI, FHFA,
           Case&ndash;Shiller + 10 metros): conditional forecasts beat the engine&rsquo;s unconditional-drift null on
           <b> 32 of 65</b> tests, and the edge survives Geltner de-smoothing. Index-level predictability is
-          not deal-level alpha — any conditional prior enters the engine capped and CI-widened, like every
-          other adjustment. Full protocol, results, and caveats: <code>research/tsfm_benchmark/</code> in the
+          not deal-level alpha — any conditional prior enters the engine capped, amortized over the hold, and gated by its own
+          out-of-sample record. Full protocol, results, and caveats: <code>research/tsfm_benchmark/</code> in the
           pilot repo.
         </div>
       </div>

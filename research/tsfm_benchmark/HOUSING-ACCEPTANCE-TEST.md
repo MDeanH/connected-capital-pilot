@@ -39,7 +39,7 @@ The equity finding **inverts** on the platform's own domain:
 |---|---|---|
 | DM tests beating zero-RW at 5% | **0 / 40** (best p ≈ 0.10) | **40 / 65** |
 | DM tests beating unconditional drift at 5% | not run | **32 / 65** |
-| Best skill vs the null | ±0.02 (noise) | **+0.56** (Chronos-2, US ZHVI) |
+| Best skill vs the null | ±0.02 (noise) | **+0.57** (Chronos-2, metro Miami) |
 
 - **Task wins (lowest MAE):** TimesFM-2.5 7, AR(1) 3, Chronos-2 3.
   Average MAE rank: TimesFM-2.5 **1.46**, Chronos-2 2.00, AR(1) 2.77,
@@ -64,7 +64,7 @@ de-smoother, removed autocorr capped at 0.6 exactly like the engine) on 7 tasks:
 - **19 / 28** model–task pairs still significantly beat drift at 5%.
 - **TimesFM-2.5: significant on all 7 tasks** (p ≤ 0.0042); Chronos-2 all 7.
 - **AR(1) collapses** on FHFA (p = 0.99) and Case-Shiller (p = 0.39) — its edge
-  *was* largely the lag-1 smoothing artifact. The TSFMs keep 0.15–0.47 skill:
+  *was* largely the lag-1 smoothing artifact. TimesFM keeps 0.15–0.47 skill (Chronos 0.09–0.44):
   they exploit longer-range and seasonal structure beyond lag-1 autocorrelation.
 
 This is the strongest single argument for a TSFM prior over a plain AR(1)

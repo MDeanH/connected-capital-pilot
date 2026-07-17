@@ -150,7 +150,10 @@ export function coerceExtraction(raw: {
         value = s
       } else {
         const n = Number(s.replace(/[$,%\s]/g, ''))
-        value = Number.isFinite(n) ? n : null
+        // A value the model echoes with an explicit '%' is in percent units —
+        // convert to the decimal convention every downstream check expects
+        // ('1.8%' -> 0.018, not 1.8, which would flip hard-kill comparisons).
+        value = Number.isFinite(n) ? (s.includes('%') ? n / 100 : n) : null
       }
     }
     fields[def.key] = {

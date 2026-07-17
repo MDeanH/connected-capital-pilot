@@ -24,7 +24,8 @@ export const BASELINE_OPTIONS = Object.entries(BASELINES).map(([key, v]) => ({ k
 export const DDQ_FIELDS = SCORECARD.map((f) => ({ key: f.key, question: f.question, options: f.options.map((o) => ({ key: o.key, label: o.label })) }));
 
 export function computeScore(body: any) {
-  const bl = BASELINES[body.baseline] || BASELINES[DEFAULT_BASELINE];
+  const bl = (typeof body.baseline === 'string' && Object.hasOwn(BASELINES, body.baseline))
+    ? BASELINES[body.baseline] : BASELINES[DEFAULT_BASELINE];
   // All numeric inputs are clamped to sane ranges: they drive Monte Carlo loop
   // sizes, so an unbounded value (e.g. holding=500000) is a CPU-exhaustion lever.
   const target = clamp(num(body.target, 0.2), 0, 1);
@@ -70,9 +71,16 @@ export function computeScore(body: any) {
   // Geltner de-smoothing). Year-1 statement only, so it is capped at ±2%/yr and
   // amortized over the holding period (mean reversion kills it by years 3-5);
   // markets without a baked path get zero, never a guess.
-  type Mp = { asof: string; tiltAnnual: number; annualMedian: number; annualQ10: number; annualQ90: number; cumMed: number[]; cumQ10: number[]; cumQ90: number[]; backtest: { hitRate: number | null; nWindows: number; dmPvsDrift: number } };
-  const mpInfo = (marketPath as unknown as Record<string, Mp>)[bl.label] ?? null;
-  const marketPathMu = mpInfo ? round(clamp(mpInfo.tiltAnnual, -0.02, 0.02) / holding, 5) : 0;
+  type Mp = { asof: string; tiltAnnual: number; gatePassed: boolean; geltnerTested: boolean; annualMedian: number; annualQ10: number; annualQ90: number; cumMed: number[]; cumQ10: number[]; cumQ90: number[]; backtest: { hitRate: number | null; nWindows: number; dmPvsDrift: number | null } };
+  const mpAll = marketPath as unknown as Record<string, Mp>;
+  const mpInfo = Object.hasOwn(mpAll, bl.label) ? mpAll[bl.label] : null;
+  // Staleness guard: the tilt is a 12-month statement from its asof date; past
+  // MP_MAX_AGE_DAYS it is provenance, not a forward view — apply zero.
+  const MP_MAX_AGE_DAYS = 270;
+  const mpAgeDays = mpInfo ? (Date.now() - Date.parse(mpInfo.asof)) / 86_400_000 : Infinity;
+  const mpStale = !mpInfo || !(mpAgeDays <= MP_MAX_AGE_DAYS);
+  const marketPathMu = mpInfo && !mpStale && mpInfo.gatePassed
+    ? round(clamp(mpInfo.tiltAnnual, -0.02, 0.02) / holding, 5) : 0;
 
   const common = { returns, ppy, target, rf, holding, bookCorr: ddq.bookCorr, biasMu: ddq.biasMu + yieldEdgeMu + extBiasMu + marketPathMu, seed };
   const honest = scoreOpportunity({ ...common, desmooth: true, sigmaMult: ddq.sigmaMult * extraMult * extSigmaMult });
@@ -93,7 +101,8 @@ export function computeScore(body: any) {
       : null,
     marketPath: mpInfo
       ? {
-          asof: mpInfo.asof, tiltAnnualRaw: mpInfo.tiltAnnual,
+          asof: mpInfo.asof, stale: mpStale, gatePassed: mpInfo.gatePassed,
+          geltnerTested: mpInfo.geltnerTested, tiltAnnualRaw: mpInfo.tiltAnnual,
           tiltAnnualCapped: round(clamp(mpInfo.tiltAnnual, -0.02, 0.02), 5), muBias: marketPathMu,
           annualMedian: mpInfo.annualMedian, annualQ10: mpInfo.annualQ10, annualQ90: mpInfo.annualQ90,
           cumMed: mpInfo.cumMed, cumQ10: mpInfo.cumQ10, cumQ90: mpInfo.cumQ90,
