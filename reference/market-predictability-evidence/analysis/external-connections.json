@@ -1,0 +1,224 @@
+{
+  "_comment": "External-evidence layer for evidence-network.html. Anchors OUTSIDE the 184-study ledger that calibrate the rating scales or corroborate family verdicts with live/out-of-scope evidence. Every claim is grounded in evidence-formula-analysis.md (which is itself grounded in a 10-agent web fan-out). The `verified` field carries provenance through per the analysis doc's own caveats: \"fetched\" = retrieved to source; \"snippet\" = search-result text only, a lead not a settled fact. Consumed by bake_evidence_network.py; connections are drawn as a distinct external layer. NOTE 2026-07-14: family_flags corrected after a blind rule search + real-market-data validation — reit-vol's over-grade flag was WITHDRAWN (I=3 clears the validated gate) and crypto-vol's basis was restated as a labeling contradiction. See real-data-findings.md.",
+  "externals": [
+    {
+      "id": "ext:mclean-pontiff-2016",
+      "label": "McLean & Pontiff (2016)",
+      "source": "Journal of Finance",
+      "year": "2016",
+      "kind": "calibrator",
+      "verified": "snippet",
+      "claim": "97 published predictors decay ~26% out-of-sample and ~58% post-publication — but not to zero.",
+      "role": "Calibrates the map's temporal-stability (T) scale: 58% partial decay is literally the T=2 definition, which is why re-validated value/momentum stay at T=3 (Supported) rather than folding into Ineffective.",
+      "connects": [
+        {
+          "family": "eq-value",
+          "relation": "calibrates T"
+        },
+        {
+          "family": "eq-momentum-xs",
+          "relation": "calibrates T"
+        },
+        {
+          "family": "eq-profitability-quality",
+          "relation": "calibrates T"
+        },
+        {
+          "family": "eq-ts-trend",
+          "relation": "calibrates T"
+        }
+      ]
+    },
+    {
+      "id": "ext:harvey-liu-zhu-2016",
+      "label": "Harvey, Liu & Zhu (2016)",
+      "source": "Review of Financial Studies",
+      "year": "2016",
+      "kind": "calibrator",
+      "verified": "fetched",
+      "claim": "316 factors; with multiple-testing control a new factor needs t > 3, not 2.",
+      "role": "Is the map's bias-resistance (B) scale: B=1 is the single-test t~2 winner HLZ reject; B=3 is a dependence-aware correction (HLZ's framework).",
+      "connects": [
+        {
+          "family": "eq-anomaly-zoo",
+          "relation": "calibrates B"
+        },
+        {
+          "family": "eq-size",
+          "relation": "calibrates B"
+        },
+        {
+          "family": "credit-factor-zoo",
+          "relation": "calibrates B"
+        }
+      ]
+    },
+    {
+      "id": "ext:hou-xue-zhang-2020",
+      "label": "Hou, Xue & Zhang (2020)",
+      "source": "Review of Financial Studies",
+      "year": "2020",
+      "kind": "calibrator",
+      "verified": "fetched",
+      "claim": "65% of 452 anomalies fail |t|>1.96 once microcaps are controlled (82% fail at t>2.78).",
+      "role": "Grounds the Ineffective verdicts on the equity anomaly zoo and size once market-cap weighting is applied.",
+      "connects": [
+        {
+          "family": "eq-anomaly-zoo",
+          "relation": "grounds verdict"
+        },
+        {
+          "family": "eq-size",
+          "relation": "grounds verdict"
+        }
+      ]
+    },
+    {
+      "id": "ext:jensen-kelly-pedersen-2023",
+      "label": "Jensen, Kelly & Pedersen (2023)",
+      "source": "Journal of Finance",
+      "year": "2023",
+      "kind": "calibrator",
+      "verified": "fetched",
+      "claim": "The lenient pole: 82.4% of factors replicate as CAPM alphas across 93 countries.",
+      "role": "Licenses the R/T scores of exactly the three equity families rated Supported for alpha — the map cites it as the upper bound.",
+      "connects": [
+        {
+          "family": "eq-value",
+          "relation": "licenses R/T"
+        },
+        {
+          "family": "eq-momentum-xs",
+          "relation": "licenses R/T"
+        },
+        {
+          "family": "eq-profitability-quality",
+          "relation": "licenses R/T"
+        }
+      ]
+    },
+    {
+      "id": "ext:chen-zimmermann-2022",
+      "label": "Chen & Zimmermann (2022)",
+      "source": "Critical Finance Review",
+      "year": "2022",
+      "kind": "calibrator",
+      "verified": "fetched",
+      "claim": "98% of predictors numerically reproduce; publication bias shrinks returns only 10-15%.",
+      "role": "Empirical basis for the map's core axiom — numerical reproduction (R) is not economic replication (E): a family can be R=3 and still Ineffective on E. The 98%-reproduce vs 65%-fail contrast against HXZ is the whole point.",
+      "connects": [
+        {
+          "family": "eq-anomaly-zoo",
+          "relation": "grounds R≠E axiom"
+        }
+      ]
+    },
+    {
+      "id": "ext:basel-var-trafficlight",
+      "label": "Basel VaR traffic-light",
+      "source": "Basel regime / Fed FEDS note",
+      "year": "1996–",
+      "kind": "live-record",
+      "verified": "fetched",
+      "claim": "A standing, regulator-audited daily live backtest across every large bank; ~1% design coverage held everywhere except the March-2020 tail.",
+      "role": "The closest thing to LIVE-X evidence anywhere in the map — volatility/VaR forecasting is corroborated by 25+ years of mandatory live backtesting the paper ledger cannot capture.",
+      "connects": [
+        {
+          "family": "vol-rv-forecast",
+          "relation": "corroborates (live)"
+        }
+      ]
+    },
+    {
+      "id": "ext:credit-live-discrimination",
+      "label": "S&P / Moody's / Altman-Z live",
+      "source": "S&P, Moody's EDF-X, Altman",
+      "year": "1981–",
+      "kind": "live-record",
+      "verified": "fetched",
+      "claim": "40+ years of published live discrimination: S&P one-year Gini 82.6% (1981-2023); Moody's EDF-X flags 87% of defaulters a month out (2004-2020); Altman Z ~80-90% accurate 50 years on.",
+      "role": "Risk ranking shows no McLean-Pontiff decay — unlike alpha. Corroborates the credit-default-hazard verdict on a live sample, which is why E=0 (no trading alpha) does not sink it.",
+      "connects": [
+        {
+          "family": "credit-default-hazard",
+          "relation": "corroborates (live)"
+        }
+      ]
+    },
+    {
+      "id": "ext:sg-trend-index",
+      "label": "SG Trend / AQMIX (managed futures)",
+      "source": "SG/BarclayHedge, AQR",
+      "year": "1999–",
+      "kind": "live-record",
+      "verified": "snippet",
+      "claim": "26 years net-of-fee live: SG Trend CAGR ~4.9%, Sharpe ~0.6; crisis alpha +20.9% in 2008, +27.3% in 2022; AQMIX ~4.1%/yr since 2010 — with a real, cyclical 'lost decade' ~1.8%/yr in the 2010s.",
+      "role": "Live corroboration of time-series trend beyond the academic ledger, including its documented cyclicality.",
+      "connects": [
+        {
+          "family": "eq-ts-trend",
+          "relation": "corroborates (live)"
+        }
+      ]
+    },
+    {
+      "id": "ext:msci-momentum-live",
+      "label": "MSCI Momentum / MTUM live",
+      "source": "MSCI factsheets, Suhonen et al.",
+      "year": "2013–",
+      "kind": "live-record",
+      "verified": "snippet",
+      "claim": "Live 10-yr momentum premium ~+2pp/yr (MTUM ~16.25%/yr) — positive but a measurable haircut; AQR's AMOMX lagged its benchmark. Beats the 73% backtest-to-live Sharpe haircut and the ~0% 'Smart-Beta Mirage' base rates.",
+      "role": "Live evidence tempers cross-sectional momentum: real premium, but with a haircut the backtest scores don't show.",
+      "connects": [
+        {
+          "family": "eq-momentum-xs",
+          "relation": "tempers (live haircut)"
+        }
+      ]
+    },
+    {
+      "id": "ext:russell-value-spread",
+      "label": "Russell Value–Growth live spread",
+      "source": "Russell index series",
+      "year": "1979–",
+      "kind": "live-record",
+      "verified": "snippet",
+      "claim": "The live Value-minus-Growth spread is ~zero/negative over 46 years.",
+      "role": "For equity value, 'Supported pre-live' is accurate, not conservative — the live record does not corroborate a tradable premium.",
+      "connects": [
+        {
+          "family": "eq-value",
+          "relation": "tempers (live ~0)"
+        }
+      ]
+    }
+  ],
+  "family_flags": [
+    {
+      "family": "crypto-vol",
+      "flag": "labeling-contradiction",
+      "note": "Rated 'Supported pre-live' on scorecard P3 E2 R2 T2 I2 B2 (conf C) — bit-identical to eq-ml-xs and credit-spread-value, which are both rated 'Promising'. Identical scorecards with different verdicts is a contradiction in the data: no score-based rule can separate them, which is why 46/47 is the provable ceiling for any such rule. Supersedes the earlier 'violates min(R,T,B)>=3' framing — that gate was itself mis-derived (it scores 44/47, and its stated carve-outs are logical no-ops). Recommend re-verdict to Promising or document why an identical scorecard earns a higher verdict."
+    },
+    {
+      "family": "eq-aggregate-valuation-macro",
+      "flag": "confidence-B-violation",
+      "note": "Family confidence B requires a genuine holdout plus independent/external evidence, but this family cites no HOLD/EXT/LIVE-P study — only IS/POOS — and its B exceeds the protocol_confidence of every study it cites. Suggested: downgrade to C."
+    },
+    {
+      "family": "fx-carry",
+      "flag": "confidence-B-violation",
+      "note": "Confidence B with no HOLD/EXT/LIVE-P study cited (only IS/POOS); family B exceeds every cited study's protocol_confidence. Suggested: downgrade to C."
+    },
+    {
+      "family": "fx-technical",
+      "flag": "confidence-B-violation",
+      "note": "Confidence B with no HOLD/EXT/LIVE-P study cited (only IS/POOS); family B exceeds every cited study's protocol_confidence. Suggested: downgrade to C."
+    },
+    {
+      "family": "reit-returns",
+      "flag": "confidence-B-violation",
+      "note": "Confidence B with no HOLD/EXT/LIVE-P study cited (only IS/POOS); family B exceeds every cited study's protocol_confidence. Suggested: downgrade to C."
+    }
+  ]
+}
