@@ -1,208 +1,660 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>How it works — Connected Capital Deal Diligence</title>
-<meta name="description" content="From a sponsor's documents to a defensible verdict: cited AI extraction, a hard-kill rulebook, macro-aware thresholds, and an audit trail." />
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet" />
+<script>document.documentElement.classList.add("js");setTimeout(function(){var r=document.querySelectorAll(".reveal");for(var i=0;i<r.length;i++)r[i].classList.add("in")},3000);</script>
+<meta name="description" content="From a sponsor's documents to a defensible verdict: cited AI extraction, a hard-kill rulebook, macro-aware thresholds, and an audit trail.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@600;700;800&family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-  :root{
-    --bg:#eff9f9; --surface:#fff; --ink:#090e11; --muted:#5c6b67;
-    --deep:#3f7d69; --mint:#63cda9; --soft:#e4f5ee; --border:#dcebe7;
-    --warn:#b8860b; --bad:#c2384a;
-  }
-  *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--ink);font-family:'Roboto',system-ui,sans-serif;font-weight:300;font-size:17px;line-height:1.6}
-  a{color:var(--deep)}
-  .wrap{max-width:960px;margin:0 auto;padding:0 1.5rem}
-  .topbar{display:flex;justify-content:space-between;align-items:center;padding:1.1rem 0;border-bottom:1px solid var(--border)}
-  .brand{font-weight:400;font-size:1.05rem;letter-spacing:-.01em}
-  .brand small{display:block;font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:500}
-  .btn{display:inline-block;background:var(--mint);color:var(--ink);border:2px solid var(--mint);border-radius:4px;padding:.55rem 1.3rem;font-size:12.5px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;text-decoration:none;transition:background .15s,color .15s,border-color .15s}
-  .btn:hover{background:var(--ink);border-color:var(--ink);color:#fff}
-  .btn.ghost{background:transparent;border-color:var(--ink);color:var(--ink)}
-  .btn.ghost:hover{background:var(--ink);color:#fff}
-  .hero{padding:4.5rem 0 3rem}
-  .kicker{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--deep);font-weight:500;margin-bottom:1rem}
-  h1{font-weight:300;font-size:clamp(2rem,5vw,3.1rem);line-height:1.15;letter-spacing:-.015em;margin:0 0 1.2rem;max-width:21ch}
-  .lede{color:var(--muted);max-width:56ch;font-size:1.02rem;margin:0 0 2rem}
-  .pillrow{display:flex;gap:.6rem;flex-wrap:wrap;margin-top:2.2rem}
-  .pill{font-size:.72rem;letter-spacing:.05em;border:1px solid var(--border);background:var(--surface);border-radius:999px;padding:.35rem .8rem;color:var(--muted)}
-  section{padding:2.6rem 0;border-top:1px solid var(--border)}
-  h2{font-weight:300;font-size:1.7rem;letter-spacing:-.01em;margin:0 0 .5rem}
-  .sub{color:var(--muted);max-width:60ch;margin:0 0 2rem}
-  .steps{display:grid;gap:1rem}
-  .step{display:grid;grid-template-columns:56px 1fr;gap:1.1rem;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1.4rem 1.5rem;align-items:start}
-  .num{width:40px;height:40px;border-radius:50%;background:var(--soft);color:var(--deep);display:flex;align-items:center;justify-content:center;font-weight:500;font-size:1rem;border:1px solid var(--border)}
-  .step h3{margin:.3rem 0 .4rem;font-weight:500;font-size:1.02rem}
-  .step p{margin:0;color:var(--muted);font-size:.92rem}
-  .step p b{color:var(--ink);font-weight:500}
-  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
-  .prin{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1.3rem 1.4rem}
-  .prin h3{margin:0 0 .4rem;font-weight:500;font-size:.95rem;color:var(--deep)}
-  .prin p{margin:0;color:var(--muted);font-size:.88rem}
-  .verdictrow{display:flex;gap:.7rem;flex-wrap:wrap;margin:1.4rem 0 0}
-  .v{font-size:11px;letter-spacing:.08em;font-weight:700;padding:4px 12px;border-radius:6px;border:1.5px solid}
-  .v.pass{color:var(--deep);border-color:var(--deep);background:rgba(63,125,105,.08)}
-  .v.cond{color:var(--warn);border-color:var(--warn);background:rgba(184,134,11,.08)}
-  .v.fail{color:var(--bad);border-color:var(--bad);background:rgba(194,56,74,.08)}
-  .v.review{color:var(--muted);border-color:#9c9c9c;background:rgba(156,156,156,.12)}
-  .quad{display:grid;grid-template-columns:1fr 1fr;gap:2px;border:1px solid var(--border);border-radius:12px;overflow:hidden;max-width:560px;margin:1.6rem 0 0}
-  .q{padding:1.1rem 1.2rem;background:var(--surface);font-size:.82rem;color:var(--muted)}
-  .q b{display:block;color:var(--ink);font-weight:500;font-size:.9rem;margin-bottom:.15rem}
-  .q.hot{background:#fdf6ec}.q.stag{background:#fdf0f2}.q.gold{background:#eefaf4}.q.cold{background:#f2f4f6}
-  .cta{padding:3.5rem 0 4.5rem;text-align:left}
-  footer{border-top:1px solid var(--border);padding:1.6rem 0 2.4rem;color:var(--muted);font-size:.78rem}
-  @media(max-width:700px){.grid2{grid-template-columns:1fr}.step{grid-template-columns:44px 1fr;padding:1.1rem 1.1rem}}
+:root{
+  --bg:#eff9f9; --surface:#fff; --accent:#3f7d69; --accent-soft:#e4f5ee; --mint:#63cda9;
+  --text:#090e11; --muted:#5c6b67; --border:#dcebe7;
+  --local:#3b5bdb; --bad:#c2384a; --warn:#b8860b;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--text);font-family:'Poppins',system-ui,-apple-system,sans-serif;font-size:15px;line-height:1.65;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'Manrope',system-ui,sans-serif;letter-spacing:-.02em;line-height:1.15}
+a{color:var(--accent)}
+.skip{position:absolute;left:-999px;top:0;background:var(--accent);color:#fff;padding:8px 14px;border-radius:0 0 8px 0;z-index:99}
+.skip:focus{left:0}
+.wrap{max-width:1100px;margin:0 auto;padding:0 22px}
+
+/* top bar */
+.topbar{background:var(--surface);border-bottom:1px solid var(--border)}
+.topbar .wrap{display:flex;align-items:center;justify-content:space-between;height:58px}
+.brand{font-family:'Manrope',sans-serif;font-weight:800;font-size:15px;letter-spacing:.01em}
+.brand span{color:var(--accent)}
+.backlink{display:inline-flex;align-items:center;gap:7px;font-size:13.5px;font-weight:600;text-decoration:none;color:var(--accent);background:var(--accent-soft);border:1px solid #cfe8dd;padding:7px 14px;border-radius:999px;transition:background .15s}
+.backlink:hover{background:#d7efe4}
+
+/* hero */
+.hero{padding:58px 0 30px;text-align:center}
+.eyebrow{font-size:12px;font-weight:600;letter-spacing:.16em;color:var(--accent);text-transform:uppercase}
+.hero h1{font-size:clamp(28px,4.6vw,44px);margin:12px auto 14px;max-width:760px;font-weight:800}
+.lede{max-width:680px;margin:0 auto;color:var(--muted);font-size:16px}
+.cta-btn{display:inline-block;background:var(--mint);color:var(--text);font-family:Manrope,Poppins,sans-serif;font-weight:700;font-size:1.05rem;padding:13px 34px;border-radius:10px;text-decoration:none;box-shadow:0 6px 18px rgba(99,205,169,.38);transition:transform .15s ease,box-shadow .15s ease,background .15s,color .15s}
+.cta-btn:hover{transform:translateY(-1px);box-shadow:0 9px 24px rgba(9,14,17,.22);background:var(--text);color:#fff}
+.cta-sub{display:block;margin-top:10px;font-size:.74rem;color:var(--muted)}
+.stats{display:flex;flex-wrap:wrap;justify-content:center;gap:14px;margin:34px auto 0;max-width:980px}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px 22px;min-width:168px;flex:1 1 168px;max-width:215px}
+.stat-num{font-family:'Manrope',sans-serif;font-weight:800;font-size:27px;color:var(--accent);font-variant-numeric:tabular-nums}
+.stat-lbl{font-size:12px;color:var(--muted);margin-top:2px;line-height:1.45}
+
+/* sections */
+section{padding:52px 0}
+.sect-head{max-width:680px;margin:0 0 28px}
+.sect-head h2{font-size:clamp(22px,3vw,30px);margin:0 0 10px;font-weight:800}
+.sect-head p{color:var(--muted);margin:0}
+.center .sect-head{margin-left:auto;margin-right:auto;text-align:center}
+
+/* reveal on scroll */
+html.js .reveal{opacity:0;transform:translateY(22px);transition:opacity .7s ease,transform .7s ease}
+html.js .reveal.in{opacity:1;transform:none}
+.reveal.d1{transition-delay:.08s}.reveal.d2{transition-delay:.16s}.reveal.d3{transition-delay:.24s}.reveal.d4{transition-delay:.32s}
+
+/* ---- flow diagram ---- */
+.diagram-card{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:14px 6px 10px}
+.diagram-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.diagram-inner{position:relative;min-width:980px;max-width:1120px;margin:0 auto}
+.diagram-inner svg{display:block;width:100%;height:auto}
+svg text{font-family:'Poppins',system-ui,sans-serif}
+.coltitle{font-size:11px;font-weight:600;letter-spacing:.14em;fill:var(--muted)}
+.nname{font-size:12.5px;font-weight:600;fill:var(--text)}
+.nsub{font-size:10px;fill:var(--muted)}
+.elabel{font-size:10px;fill:#7d8c88;font-weight:500}
+.chiptxt{font-size:10.5px;font-weight:500;fill:var(--text)}
+.node{cursor:default;outline:none}
+.node rect{transition:stroke .15s, filter .15s}
+.node:hover>rect,.node:focus>rect,.node:focus-visible>rect{stroke:var(--accent);stroke-width:1.6;filter:drop-shadow(0 2px 6px rgba(63,125,105,.22))}
+.edge{fill:none;stroke:#d3e5df;stroke-width:1.5}
+.flowline{fill:none;stroke:var(--accent);stroke-opacity:.62;stroke-width:3.4;stroke-linecap:round;stroke-dasharray:.1 11;animation:flowdash 1.15s linear infinite}
+.flowline.slow{animation-duration:1.5s}
+.flowline.local{stroke:var(--local)}
+@keyframes flowdash{to{stroke-dashoffset:-11.1}}
+.tip{position:absolute;z-index:5;max-width:280px;background:#090e11;color:#eff9f9;font-size:12px;line-height:1.55;padding:10px 13px;border-radius:10px;pointer-events:none;box-shadow:0 8px 24px rgba(9,14,17,.25);transform:translate(-50%,calc(-100% - 10px))}
+.tip strong{display:block;font-family:'Manrope',sans-serif;font-size:12.5px;margin-bottom:3px;color:#fff}
+.tip[hidden]{display:none}
+.tip::after{content:"";position:absolute;left:50%;bottom:-5px;width:10px;height:10px;background:#090e11;transform:translateX(-50%) rotate(45deg)}
+.diagram-legend{display:flex;flex-wrap:wrap;gap:18px;justify-content:center;padding:10px 14px 8px;font-size:12px;color:var(--muted)}
+.diagram-legend i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:baseline}
+
+/* ---- journey ---- */
+.steps{display:grid;gap:16px}
+.step{display:grid;grid-template-columns:96px 1fr;gap:20px;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:22px 24px;align-items:start}
+.step-vis{display:flex;flex-direction:column;align-items:center;gap:8px}
+.step-num{font-family:'Manrope',sans-serif;font-weight:800;font-size:12px;color:var(--accent);background:var(--accent-soft);border:1px solid #cfe8dd;border-radius:999px;padding:2px 11px;white-space:nowrap}
+.step h3{margin:0 0 6px;font-size:17.5px}
+.step p{margin:0;color:var(--muted);font-size:14px}
+.step p strong{color:var(--text);font-weight:600}
+.step svg{width:62px;height:62px}
+@media(max-width:620px){.step{grid-template-columns:1fr}.step-vis{flex-direction:row}}
+.verdictrow{display:flex;gap:.7rem;flex-wrap:wrap;margin:14px 0 0}
+.v{font-size:11px;letter-spacing:.08em;font-weight:700;padding:4px 12px;border-radius:6px;border:1.5px solid;font-family:'Manrope',sans-serif}
+.v.pass{color:var(--accent);border-color:var(--accent);background:rgba(63,125,105,.08)}
+.v.cond{color:var(--warn);border-color:var(--warn);background:rgba(184,134,11,.08)}
+.v.fail{color:var(--bad);border-color:var(--bad);background:rgba(194,56,74,.08)}
+.v.review{color:var(--muted);border-color:#9c9c9c;background:rgba(156,156,156,.12)}
+.quad{display:grid;grid-template-columns:1fr 1fr;gap:2px;border:1px solid var(--border);border-radius:12px;overflow:hidden;max-width:560px;margin:14px 0 0}
+.q{padding:1rem 1.1rem;background:var(--surface);font-size:.82rem;color:var(--muted)}
+.q b{display:block;color:var(--text);font-weight:600;font-size:.9rem;margin-bottom:.15rem;font-family:'Manrope',sans-serif}
+.q.hot{background:#fdf6ec}.q.stag{background:#fdf0f2}.q.gold{background:#eefaf4}.q.cold{background:#f2f4f6}
+
+/* ---- the bar that moves ---- */
+.honest-grid{display:grid;grid-template-columns:1fr 1.15fr;gap:26px;align-items:center}
+@media(max-width:840px){.honest-grid{grid-template-columns:1fr}}
+.honest-copy h3{font-size:16px;margin:18px 0 6px}
+.honest-copy p{color:var(--muted);font-size:14px;margin:0 0 10px}
+.honest-copy .k{color:var(--text);font-weight:600}
+.bar-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:20px 24px}
+.bar-card h3{margin:0 0 4px;font-size:16px}
+.bar-card .sub{font-size:12.5px;color:var(--muted);margin:0 0 16px}
+.sigrow{margin:11px 0}
+.sigrow .lab{display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:4px}
+.sigrow .lab b{font-variant-numeric:tabular-nums}
+.sigtrack{height:13px;background:#edf3f1;border-radius:7px;overflow:hidden}
+.sigbar{height:100%;border-radius:7px;width:0;transition:width 1s cubic-bezier(.2,.7,.2,1)}
+.bars-in .sigbar{width:var(--w)}
+.s-green{background:var(--mint)}.s-yellow{background:#e3c35e}.s-red{background:#e08a97}
+.sigfoot{font-size:11.5px;color:var(--muted);margin-top:12px}
+
+/* ---- footnotes ---- */
+.notes-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:14px}
+.note{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 20px}
+.note h3{margin:0 0 6px;font-size:14.5px}
+.note p{margin:0;font-size:13px;color:var(--muted)}
+
+/* cta */
+.cta-sect{text-align:center}
+
+/* footer */
+footer{border-top:1px solid var(--border);background:var(--surface);padding:34px 0 40px;margin-top:20px}
+footer .wrap{display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center}
+.foot-disc{font-size:12px;color:var(--muted);max-width:640px}
+
+@media (prefers-reduced-motion: reduce){
+  html{scroll-behavior:auto}
+  .flowline{animation:none}
+  .reveal{opacity:1;transform:none;transition:none}
+  .sigbar{transition:none;width:var(--w)}
+}
 </style>
 </head>
 <body>
-<div class="wrap">
+<a class="skip" href="#main">Skip to content</a>
 
-  <div class="topbar">
-    <div class="brand">Connected Capital<small>Deal Diligence — Institutional Pilot</small></div>
-    <a class="btn" href="/app">Open the app</a>
+<header class="topbar">
+  <div class="wrap">
+    <div class="brand">Connected <span>Capital</span> — Deal Diligence</div>
+    <a class="backlink" href="/app">Open the app &#8594;</a>
   </div>
+</header>
 
-  <div class="hero">
-    <div class="kicker">How it works</div>
-    <h1>From the sponsor's documents to a defensible verdict.</h1>
-    <p class="lede">
-      Upload an offering memorandum and a pro forma. The platform reads both, shows its receipts,
-      runs the deal through a hard-kill rulebook under live macro conditions, and records a decision
-      you can replay and defend — with a human in control at every step.
-    </p>
-    <a class="btn" href="/app">Try it with the sample deal</a>
-    <div class="pillrow">
-      <span class="pill">18 screening checks</span>
-      <span class="pill">~30 extracted fields, every one cited</span>
-      <span class="pill">8 live macro signals</span>
-      <span class="pill">62 build-gating engine tests</span>
+<main id="main">
+
+  <!-- HERO -->
+  <section class="hero wrap" aria-labelledby="hero-h">
+    <div class="eyebrow">How it works &#183; institutional pilot</div>
+    <h1 id="hero-h">From the sponsor's documents to a defensible verdict</h1>
+    <p class="lede">Upload an offering memorandum and a pro forma. The platform reads both, shows its receipts,
+    runs the deal through a hard-kill rulebook under live macro conditions, and records a decision you can
+    replay and defend — with a human in control at every step.</p>
+    <p style="text-align:center;margin:26px 0 6px"><a class="cta-btn" href="/app">Try it with the sample deal &#8594;</a><span class="cta-sub">One click loads a recorded extraction of a real example deal &middot; no upload needed</span></p>
+    <div class="stats" role="list">
+      <div class="stat reveal" role="listitem"><div class="stat-num" data-n="18">18</div><div class="stat-lbl">screening checks — 10 hard kills + 8 watch flags</div></div>
+      <div class="stat reveal d1" role="listitem"><div class="stat-num" data-n="30">30</div><div class="stat-lbl">extracted fields, every one cited to its page</div></div>
+      <div class="stat reveal d2" role="listitem"><div class="stat-num" data-n="8">8</div><div class="stat-lbl">live economic signals vote on the regime weekly</div></div>
+      <div class="stat reveal d3" role="listitem"><div class="stat-num" data-n="62">62</div><div class="stat-lbl">engine tests gate every deploy — a red suite blocks it</div></div>
+      <div class="stat reveal d4" role="listitem"><div class="stat-num" data-n="0">0</div><div class="stat-lbl">hardcoded thresholds — the whole rulebook is editable config</div></div>
     </div>
-  </div>
+  </section>
 
-  <section>
-    <h2>The flow</h2>
-    <p class="sub">One deal, five minutes, no blank forms.</p>
-    <div class="steps">
-      <div class="step"><div class="num">1</div><div>
-        <h3>Drop in the documents</h3>
-        <p>The offering memorandum (PDF) and the pro forma (Excel). The workbook is parsed
-        <b>in your browser</b> — only text leaves the machine.</p>
-      </div></div>
-      <div class="step"><div class="num">2</div><div>
-        <h3>Extraction with receipts</h3>
-        <p>AI pulls ~30 screening fields — costs, contingency, leverage, NOI, rents, entitlement,
-        sponsor terms. Every value carries a <b>confidence score and a citation</b> back to the
-        document and page. It <b>never guesses</b>: a fact the documents don't state comes back
-        empty and is flagged for you.</p>
-      </div></div>
-      <div class="step"><div class="num">3</div><div>
-        <h3>The documents get cross-examined</h3>
-        <p>The OM and the pro forma should tell the same story. Every disagreement — NOI, unit
-        count, timeline, rents, capital structure — is listed with a severity tag. <b>A deal's own
-        paperwork contradicting itself is a diligence signal no spreadsheet catches.</b></p>
-      </div></div>
-      <div class="step"><div class="num">4</div><div>
-        <h3>You verify, then it scores</h3>
-        <p>Review what was extracted, correct anything, answer what the documents couldn't.
-        <b>Nothing is scored until you confirm.</b></p>
-      </div></div>
-      <div class="step"><div class="num">5</div><div>
-        <h3>Gate 1: ten hard kills, eight watch flags</h3>
-        <p>Character, entitlement, leverage, development spread, contingency, alignment, track
-        record, exit dependence, construction protection, and a stress test. <b>Any single hard
-        kill fails the deal</b> — strengths don't average away a fatal flaw. Flags accumulate into
-        conditional approval. Every check shows its <b>margin to the line</b>, and thin passes are
-        marked fragile.</p>
-        <div class="verdictrow">
-          <span class="v pass">PASS</span><span class="v cond">CONDITIONAL</span>
-          <span class="v fail">FAIL</span><span class="v review">REVIEW — missing data never passes</span>
+  <!-- FLOW DIAGRAM -->
+  <section class="center" aria-labelledby="flow-h">
+    <div class="wrap">
+      <div class="sect-head reveal">
+        <h2 id="flow-h">The pipeline: documents &#8594; receipts &#8594; rulebook &#8594; decision</h2>
+        <p>One deal, five minutes, no blank forms. Hover over — or tab to — any node for what it does.</p>
+      </div>
+      <div class="diagram-card reveal">
+        <div class="diagram-scroll">
+          <div class="diagram-inner" id="diagram-wrap">
+            <svg viewBox="0 0 1120 520" role="group" aria-label="Data-flow diagram: the sponsor's offering memorandum and pro forma feed AI extraction with citations; extracted fields are cross-examined and reviewed by you; the confirmed deal runs through the serverless rulebook — Gate 1 checks, versioned thresholds, weekly macro posture — and the decision is recorded and shown in the app.">
+              <defs>
+                <marker id="arr" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path d="M0 0L8 4L0 8z" fill="#b3cec5"/>
+                </marker>
+              </defs>
+
+              <!-- column titles -->
+              <text class="coltitle" x="20" y="34">THE SPONSOR'S DOCUMENTS</text>
+              <text class="coltitle" x="320" y="34">EXTRACTION &amp; REVIEW</text>
+              <text class="coltitle" x="600" y="34">THE RULEBOOK (SERVERLESS)</text>
+              <text class="coltitle" x="880" y="34">THE APP</text>
+
+              <!-- edges: documents -> extraction -->
+              <path class="edge" d="M250 96 C 288 96, 285 116, 320 116"/>
+              <path class="edge" d="M250 186 C 288 186, 285 136, 320 136"/>
+              <path class="flowline slow" d="M250 96 C 288 96, 285 116, 320 116"/>
+              <path class="flowline local slow" style="animation-delay:-.4s" d="M250 186 C 288 186, 285 136, 320 136"/>
+              <text class="elabel" x="256" y="80">PDF text</text>
+              <text class="elabel" x="256" y="212">parsed in your browser</text>
+
+              <!-- extraction -> cross-exam -> review (vertical) -->
+              <path class="edge" marker-end="url(#arr)" d="M425 152 L425 196"/>
+              <path class="flowline" d="M425 152 L425 196"/>
+              <path class="edge" marker-end="url(#arr)" d="M425 260 L425 304"/>
+              <path class="flowline" style="animation-delay:-.5s" d="M425 260 L425 304"/>
+              <text class="elabel" x="436" y="178">every value cited</text>
+              <text class="elabel" x="436" y="286">discrepancies listed</text>
+
+              <!-- review -> rulebook -->
+              <path class="edge" marker-end="url(#arr)" d="M530 336 C 566 336, 562 150, 596 150"/>
+              <path class="flowline" d="M530 336 C 566 336, 562 150, 596 150"/>
+              <text class="elabel" x="543" y="250" transform="rotate(-80 543 250)">only after you confirm</text>
+
+              <!-- rulebook -> app -->
+              <path class="edge" marker-end="url(#arr)" d="M818 143 L876 143"/>
+              <path class="edge" marker-end="url(#arr)" d="M818 219 L876 219"/>
+              <path class="edge" marker-end="url(#arr)" d="M818 295 L876 295"/>
+              <path class="edge" marker-end="url(#arr)" d="M818 371 L876 371"/>
+              <path class="flowline" style="animation-delay:-.1s" d="M818 143 L876 143"/>
+              <path class="flowline" style="animation-delay:-.4s" d="M818 219 L876 219"/>
+              <path class="flowline" style="animation-delay:-.7s" d="M818 295 L876 295"/>
+              <path class="flowline" style="animation-delay:-1s" d="M818 371 L876 371"/>
+              <text class="elabel" x="847" y="262" transform="rotate(-90 847 262)" text-anchor="middle">HTTPS &#183; JSON</text>
+
+              <!-- DOCUMENT NODES -->
+              <g class="node" tabindex="0" role="img" aria-label="Offering memorandum, PDF: the sponsor's own story of the deal. Its text goes to extraction, and every extracted value cites the page it came from." data-name="Offering memorandum — PDF" data-tip="The sponsor&#8217;s own story of the deal. Its text goes to extraction, and every extracted value carries a citation back to the page it came from.">
+                <rect x="20" y="72" width="230" height="48" rx="10" fill="#fff" stroke="#dcebe7"/>
+                <text class="nname" x="34" y="92">Offering memorandum</text>
+                <text class="nsub" x="34" y="109">PDF &#183; the sponsor&#8217;s pitch</text>
+              </g>
+              <g class="node" tabindex="0" role="img" aria-label="Pro forma, Excel: the sponsor's numbers. The workbook is parsed entirely in your browser — only extracted text leaves the machine." data-name="Pro forma — XLSX" data-tip="The sponsor&#8217;s numbers. The workbook is parsed entirely in your browser — only text leaves the machine, never the file.">
+                <rect x="20" y="162" width="230" height="48" rx="10" fill="#eef2ff" stroke="#c9d4f5"/>
+                <text class="nname" x="34" y="182">Pro forma</text>
+                <text class="nsub" x="34" y="199">XLSX &#183; parsed locally, never uploaded</text>
+              </g>
+
+              <!-- EXTRACTION NODES -->
+              <g class="node" tabindex="0" role="img" aria-label="AI extraction with receipts: about 30 screening fields — costs, contingency, leverage, NOI, rents, entitlement, sponsor terms — each with a confidence score and a citation. It never guesses: missing facts come back empty and flagged." data-name="AI extraction — with receipts" data-tip="~30 screening fields — costs, contingency, leverage, NOI, rents, entitlement, sponsor terms — each with a confidence score and a page citation. It never guesses: a fact the documents don&#8217;t state comes back empty and flagged.">
+                <rect x="320" y="88" width="210" height="64" rx="12" fill="#fff" stroke="#dcebe7"/>
+                <text class="nname" x="336" y="114">AI extraction</text>
+                <text class="nsub" x="336" y="132">~30 fields &#183; confidence + citations</text>
+              </g>
+              <g class="node" tabindex="0" role="img" aria-label="Cross-examination: the OM and the pro forma should tell the same story. Every disagreement — NOI, unit count, timeline, rents, capital structure — is listed with a severity tag." data-name="Cross-examination" data-tip="The OM and the pro forma should tell the same story. Every disagreement — NOI, unit count, timeline, rents, capital structure — is listed with a severity tag. A deal contradicting its own paperwork is a diligence signal no spreadsheet catches.">
+                <rect x="320" y="196" width="210" height="64" rx="12" fill="#fff" stroke="#dcebe7"/>
+                <text class="nname" x="336" y="222">Cross-examination</text>
+                <text class="nsub" x="336" y="240">OM vs pro forma &#183; severity-tagged</text>
+              </g>
+              <g class="node" tabindex="0" role="img" aria-label="Your review: confirm or correct each value, answer what the documents couldn't. Nothing is scored until you confirm." data-name="Your review" data-tip="Confirm or correct each extracted value; answer what the documents couldn&#8217;t. Nothing is scored until you confirm — the human stays in control.">
+                <rect x="320" y="304" width="210" height="64" rx="12" fill="#e4f5ee" stroke="#bcdcce"/>
+                <text class="nname" x="336" y="330">Your review</text>
+                <text class="nsub" x="336" y="348">nothing scores until you confirm</text>
+              </g>
+
+              <!-- RULEBOOK GROUP -->
+              <rect x="600" y="60" width="230" height="352" rx="16" fill="#fbfdfc" stroke="#dcebe7"/>
+              <text class="nsub" x="616" y="84" style="letter-spacing:.1em">NETLIFY FUNCTIONS</text>
+              <g class="node" tabindex="0" role="img" aria-label="Gate 1 engine: ten hard kills and eight watch flags. Any single hard kill fails the deal; flags accumulate into conditional approval. Every check shows its margin to the line and thin passes are marked fragile." data-name="Gate 1 engine" data-tip="Ten hard kills + eight watch flags. Any single hard kill fails the deal — strengths don&#8217;t average away a fatal flaw. Every check shows its margin to the line; thin passes are marked fragile.">
+                <rect x="612" y="116" width="206" height="54" rx="11" fill="#fff" stroke="#dcebe7"/>
+                <text class="nname" x="628" y="138">Gate 1 engine</text>
+                <text class="nsub" x="628" y="156">10 hard kills &#183; 8 watch flags</text>
+              </g>
+              <g class="node" tabindex="0" role="img" aria-label="Versioned thresholds: every threshold, band, weight and stress parameter is editable configuration. Changes are saved as new versions, and past decisions always know which version judged them." data-name="Versioned thresholds" data-tip="Every threshold, band, weight and stress parameter is editable configuration — zero hardcoded numbers. Changes save as new versions; past decisions always know which version judged them.">
+                <rect x="612" y="192" width="206" height="54" rx="11" fill="#fff" stroke="#dcebe7"/>
+                <text class="nname" x="628" y="214">Versioned thresholds</text>
+                <text class="nsub" x="628" y="232">your rulebook &#183; zero hardcoded</text>
+              </g>
+              <g class="node" tabindex="0" role="img" aria-label="Macro posture: every week eight economic signals vote on the market regime, which sets a Green, Yellow or Red posture. Posture tightens or loosens the thresholds automatically; it never kills a deal by itself." data-name="Macro posture" data-tip="Every week, eight economic signals — recession risk, inflation, growth, credit spreads, the labor market — vote on the regime, setting a Green / Yellow / Red posture that tightens or loosens the thresholds. Macro moves the bar; it never kills a deal by itself.">
+                <rect x="612" y="268" width="206" height="54" rx="11" fill="#fff" stroke="#dcebe7"/>
+                <text class="nname" x="628" y="290">Macro posture</text>
+                <text class="nsub" x="628" y="308">8 signals &#183; Green / Yellow / Red</text>
+              </g>
+              <g class="node" tabindex="0" role="img" aria-label="Decision record: every decision is stamped with its inputs, config version, macro posture and any judgment adjustments — so any past verdict can be replayed exactly." data-name="Decision record" data-tip="Every decision is stamped with its inputs, config version, macro posture and any judgment adjustments — so any past verdict can be replayed exactly, and every override is visible and attributed.">
+                <rect x="612" y="344" width="206" height="54" rx="11" fill="#fff" stroke="#dcebe7"/>
+                <text class="nname" x="628" y="366">Decision record</text>
+                <text class="nsub" x="628" y="384">replayable &#183; overrides attributed</text>
+              </g>
+
+              <!-- APP GROUP -->
+              <g class="node" tabindex="0" role="img" aria-label="The app: Intake, Review, Results, then Thresholds, Macro and Backtest. The pro forma parses locally; deal drafts stay in your browser." data-name="The app — your browser" data-tip="The product: Intake &#8594; Review &#8594; Results, plus the Thresholds editor, the weekly Macro dashboard and Backtest. The pro forma parses locally and deal drafts stay in your browser.">
+                <rect x="880" y="60" width="220" height="352" rx="16" fill="#fbfdfc" stroke="#dcebe7"/>
+                <text class="nsub" x="896" y="84" style="letter-spacing:.1em">INTAKE &#8594; REVIEW &#8594; RESULTS</text>
+                <rect x="894" y="98" width="192" height="30" rx="9" fill="#e4f5ee" stroke="#bcdcce"/>
+                <text class="chiptxt" x="906" y="117" style="fill:#3f7d69;font-weight:600">Intake — drop the documents</text>
+                <rect x="894" y="140" width="192" height="30" rx="9" fill="#fff" stroke="#dcebe7"/><text class="chiptxt" x="906" y="159">Review — verify the receipts</text>
+                <rect x="894" y="182" width="192" height="30" rx="9" fill="#fff" stroke="#dcebe7"/><text class="chiptxt" x="906" y="201">Results — verdict + margins</text>
+                <rect x="894" y="224" width="192" height="30" rx="9" fill="#fff" stroke="#dcebe7"/><text class="chiptxt" x="906" y="243">Thresholds — edit the rulebook</text>
+                <rect x="894" y="266" width="192" height="30" rx="9" fill="#fff" stroke="#dcebe7"/><text class="chiptxt" x="906" y="285">Macro — the weekly posture</text>
+                <rect x="894" y="308" width="192" height="30" rx="9" fill="#fff" stroke="#dcebe7"/><text class="chiptxt" x="906" y="327">Backtest — score the rulebook</text>
+                <rect x="894" y="350" width="192" height="30" rx="9" fill="#fff" stroke="#dcebe7"/><text class="chiptxt" x="906" y="369">Judgment — overrides w/ reasons</text>
+              </g>
+            </svg>
+            <div class="tip" id="tip" hidden aria-hidden="true"></div>
+          </div>
         </div>
-      </div></div>
-      <div class="step"><div class="num">6</div><div>
-        <h3>The economy moves the bar</h3>
-        <p>Every week, eight economic signals — recession risk, inflation, growth, credit spreads,
-        the labor market — vote on the market regime, which sets a Green / Yellow / Red posture.
-        Posture <b>tightens or loosens the thresholds automatically</b>: the same deal can clear the
-        gate in a green week and fail it in a red one. Macro moves the bar; it never kills a deal
-        by itself.</p>
-        <div class="quad">
-          <div class="q stag"><b>Stagflation</b>rising prices, shrinking economy</div>
-          <div class="q hot"><b>Inflationary expansion</b>growth with heat</div>
-          <div class="q cold"><b>Deflationary contraction</b>recession territory</div>
-          <div class="q gold"><b>Goldilocks</b>growth, cooling prices</div>
+        <div class="diagram-legend">
+          <span><i style="background:var(--accent)"></i>deal data flow</span>
+          <span><i style="background:var(--local)"></i>parsed in your browser — the file never leaves</span>
+          <span>Extraction sends text, not files; decisions record with their config version and macro posture.</span>
         </div>
-      </div></div>
-      <div class="step"><div class="num">7</div><div>
-        <h3>Judgment, on the record</h3>
-        <p>See something the model can't? Adjust any threshold for this deal — with a
-        <b>required written reason</b>. The rulebook's original verdict is kept alongside yours,
-        so every override is visible, attributed, and reversible. Manual control is never silent.</p>
-      </div></div>
-      <div class="step"><div class="num">8</div><div>
-        <h3>The market reality check</h3>
-        <p>The deal's returns stand next to what the S&amp;P 500 actually returned over one, three
-        and five years — and the loan rate the model assumes is checked against prevailing rates
-        (SOFR plus a typical spread). <b>Returns that lean on financing nobody offers get called
-        out.</b></p>
-      </div></div>
-      <div class="step"><div class="num">9</div><div>
-        <h3>Your rulebook, not ours</h3>
-        <p>Every threshold, band, weight and stress parameter is <b>editable configuration</b> —
-        there isn't a single hard-coded number in the engine. Changes are saved as new versions;
-        past decisions always know which version judged them.</p>
-      </div></div>
-      <div class="step"><div class="num">10</div><div>
-        <h3>Back-test your own history</h3>
-        <p>Load past deals with their realized outcomes and see how today's rulebook would have
-        called each one — <b>right calls, missed winners, and whether the book ran above or below
-        par</b>. The gate earns trust by being scored against reality.</p>
-      </div></div>
+      </div>
     </div>
   </section>
 
-  <section>
-    <h2>The rules the code enforces</h2>
-    <p class="sub">Not policies in a document — invariants in the build.</p>
-    <div class="grid2">
-      <div class="prin"><h3>Zero hardcoded thresholds</h3><p>Every tunable lives in versioned config. If a threshold were a literal in the codebase, it would be a bug.</p></div>
-      <div class="prin"><h3>Every decision replayable</h3><p>Recorded with its inputs, config version, macro posture and adjustments — any past verdict can be reproduced exactly.</p></div>
-      <div class="prin"><h3>Missing data never passes</h3><p>Extraction returns nothing rather than guessing, and an unanswered field forces human review — silence can't slip through.</p></div>
-      <div class="prin"><h3>Macro moves the bar, never kills</h3><p>Conditions make the gate stricter or looser; only the deal's own facts can fail it.</p></div>
+  <!-- JOURNEY -->
+  <section aria-labelledby="journey-h">
+    <div class="wrap">
+      <div class="sect-head reveal">
+        <h2 id="journey-h">The flow, step by step</h2>
+        <p>One deal, five minutes, no blank forms.</p>
+      </div>
+      <div class="steps">
+        <div class="step reveal">
+          <div class="step-vis" aria-hidden="true">
+            <svg viewBox="0 0 64 64" fill="none"><rect x="14" y="8" width="28" height="36" rx="4" stroke="#5c6b67" stroke-width="2"/><line x1="20" y1="18" x2="36" y2="18" stroke="#cfe0da" stroke-width="2.4" stroke-linecap="round"/><line x1="20" y1="25" x2="36" y2="25" stroke="#cfe0da" stroke-width="2.4" stroke-linecap="round"/><line x1="20" y1="32" x2="30" y2="32" stroke="#cfe0da" stroke-width="2.4" stroke-linecap="round"/><path d="M44 34 v14 M44 48 l-6-6 M44 48 l6-6" stroke="#3f7d69" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><rect x="30" y="46" width="28" height="10" rx="3" fill="#e4f5ee" stroke="#3f7d69" stroke-width="1.8"/></svg>
+            <span class="step-num">Step 1</span>
+          </div>
+          <div>
+            <h3>Drop in the documents</h3>
+            <p>The offering memorandum (PDF) and the pro forma (Excel). The workbook is parsed
+            <strong>in your browser</strong> — only text leaves the machine.</p>
+          </div>
+        </div>
+        <div class="step reveal d1">
+          <div class="step-vis" aria-hidden="true">
+            <svg viewBox="0 0 64 64" fill="none"><rect x="10" y="10" width="32" height="40" rx="4" stroke="#5c6b67" stroke-width="2"/><line x1="16" y1="20" x2="36" y2="20" stroke="#cfe0da" stroke-width="2.4" stroke-linecap="round"/><circle cx="20" cy="30" r="2.2" fill="#63cda9"/><line x1="26" y1="30" x2="36" y2="30" stroke="#cfe0da" stroke-width="2.4" stroke-linecap="round"/><circle cx="20" cy="38" r="2.2" fill="#63cda9"/><line x1="26" y1="38" x2="36" y2="38" stroke="#cfe0da" stroke-width="2.4" stroke-linecap="round"/><circle cx="42" cy="42" r="10" stroke="#3f7d69" stroke-width="2.6"/><path d="M49 49 L57 57" stroke="#3f7d69" stroke-width="2.6" stroke-linecap="round"/></svg>
+            <span class="step-num">Step 2</span>
+          </div>
+          <div>
+            <h3>Extraction with receipts</h3>
+            <p>AI pulls ~30 screening fields — costs, contingency, leverage, NOI, rents, entitlement,
+            sponsor terms. Every value carries a <strong>confidence score and a citation</strong> back to the
+            document and page. It <strong>never guesses</strong>: a fact the documents don't state comes back
+            empty and is flagged for you.</p>
+          </div>
+        </div>
+        <div class="step reveal d2">
+          <div class="step-vis" aria-hidden="true">
+            <svg viewBox="0 0 64 64" fill="none"><rect x="8" y="14" width="22" height="30" rx="3" stroke="#5c6b67" stroke-width="2"/><rect x="34" y="14" width="22" height="30" rx="3" stroke="#5c6b67" stroke-width="2"/><line x1="13" y1="24" x2="25" y2="24" stroke="#cfe0da" stroke-width="2.2" stroke-linecap="round"/><line x1="39" y1="24" x2="51" y2="24" stroke="#cfe0da" stroke-width="2.2" stroke-linecap="round"/><line x1="13" y1="31" x2="25" y2="31" stroke="#63cda9" stroke-width="2.2" stroke-linecap="round"/><line x1="39" y1="31" x2="51" y2="31" stroke="#c2384a" stroke-width="2.2" stroke-linecap="round"/><path d="M27 52 l4 4 6-8" stroke="#3f7d69" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="32" cy="52" r="10" stroke="#b8860b" stroke-width="1.8" opacity=".6"/></svg>
+            <span class="step-num">Step 3</span>
+          </div>
+          <div>
+            <h3>The documents get cross-examined</h3>
+            <p>The OM and the pro forma should tell the same story. Every disagreement — NOI, unit
+            count, timeline, rents, capital structure — is listed with a severity tag. <strong>A deal's own
+            paperwork contradicting itself is a diligence signal no spreadsheet catches.</strong></p>
+          </div>
+        </div>
+        <div class="step reveal d3">
+          <div class="step-vis" aria-hidden="true">
+            <svg viewBox="0 0 64 64" fill="none"><rect x="10" y="10" width="34" height="44" rx="5" stroke="#5c6b67" stroke-width="2"/><path d="M17 22 l3 3 5-6" stroke="#3f7d69" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><line x1="29" y1="21" x2="38" y2="21" stroke="#cfe0da" stroke-width="2.2" stroke-linecap="round"/><path d="M17 34 l3 3 5-6" stroke="#3f7d69" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><line x1="29" y1="33" x2="38" y2="33" stroke="#cfe0da" stroke-width="2.2" stroke-linecap="round"/><path d="M38 44 l14-14 4 4-14 14-5 1z" fill="#e4f5ee" stroke="#3f7d69" stroke-width="1.8" stroke-linejoin="round"/></svg>
+            <span class="step-num">Step 4</span>
+          </div>
+          <div>
+            <h3>You verify, then it scores</h3>
+            <p>Review what was extracted, correct anything, answer what the documents couldn't.
+            <strong>Nothing is scored until you confirm.</strong></p>
+          </div>
+        </div>
+        <div class="step reveal">
+          <div class="step-vis" aria-hidden="true">
+            <svg viewBox="0 0 64 64" fill="none"><line x1="12" y1="54" x2="52" y2="54" stroke="#5c6b67" stroke-width="2.4" stroke-linecap="round"/><rect x="14" y="30" width="7" height="24" rx="1.5" fill="#63cda9"/><rect x="25" y="20" width="7" height="34" rx="1.5" fill="#63cda9"/><rect x="36" y="38" width="7" height="16" rx="1.5" fill="#e08a97"/><rect x="47" y="26" width="7" height="28" rx="1.5" fill="#63cda9"/><line x1="10" y1="34" x2="56" y2="34" stroke="#090e11" stroke-width="1.8" stroke-dasharray="4 3"/><path d="M36 30 l7 8 M43 30 l-7 8" stroke="#c2384a" stroke-width="2.2" stroke-linecap="round"/></svg>
+            <span class="step-num">Step 5</span>
+          </div>
+          <div>
+            <h3>Gate 1: ten hard kills, eight watch flags</h3>
+            <p>Character, entitlement, leverage, development spread, contingency, alignment, track
+            record, exit dependence, construction protection, and a stress test. <strong>Any single hard
+            kill fails the deal</strong> — strengths don't average away a fatal flaw. Flags accumulate into
+            conditional approval. Every check shows its <strong>margin to the line</strong>, and thin passes are
+            marked fragile.</p>
+            <div class="verdictrow">
+              <span class="v pass">PASS</span><span class="v cond">CONDITIONAL</span>
+              <span class="v fail">FAIL</span><span class="v review">REVIEW — missing data never passes</span>
+            </div>
+          </div>
+        </div>
+        <div class="step reveal d1">
+          <div class="step-vis" aria-hidden="true">
+            <svg viewBox="0 0 64 64" fill="none"><rect x="10" y="10" width="20" height="20" rx="3" fill="#fdf0f2" stroke="#5c6b67" stroke-width="1.8"/><rect x="34" y="10" width="20" height="20" rx="3" fill="#fdf6ec" stroke="#5c6b67" stroke-width="1.8"/><rect x="10" y="34" width="20" height="20" rx="3" fill="#f2f4f6" stroke="#5c6b67" stroke-width="1.8"/><rect x="34" y="34" width="20" height="20" rx="3" fill="#eefaf4" stroke="#3f7d69" stroke-width="2.2"/><circle cx="44" cy="44" r="3" fill="#3f7d69"/></svg>
+            <span class="step-num">Step 6</span>
+          </div>
+          <div>
+            <h3>The economy moves the bar</h3>
+            <p>Every week, eight economic signals — recession risk, inflation, growth, credit spreads,
+            the labor market — vote on the market regime, which sets a Green / Yellow / Red posture.
+            Posture <strong>tightens or loosens the thresholds automatically</strong>: the same deal can clear the
+            gate in a green week and fail it in a red one. Macro moves the bar; it never kills a deal
+            by itself.</p>
+            <div class="quad">
+              <div class="q stag"><b>Stagflation</b>rising prices, shrinking economy</div>
+              <div class="q hot"><b>Inflationary expansion</b>growth with heat</div>
+              <div class="q cold"><b>Deflationary contraction</b>recession territory</div>
+              <div class="q gold"><b>Goldilocks</b>growth, cooling prices</div>
+            </div>
+          </div>
+        </div>
+        <div class="step reveal d2">
+          <div class="step-vis" aria-hidden="true">
+            <svg viewBox="0 0 64 64" fill="none"><rect x="10" y="12" width="30" height="40" rx="4" stroke="#5c6b67" stroke-width="2"/><line x1="16" y1="22" x2="34" y2="22" stroke="#cfe0da" stroke-width="2.2" stroke-linecap="round"/><line x1="16" y1="30" x2="34" y2="30" stroke="#cfe0da" stroke-width="2.2" stroke-linecap="round"/><line x1="16" y1="38" x2="28" y2="38" stroke="#cfe0da" stroke-width="2.2" stroke-linecap="round"/><path d="M36 46 l14-14 5 5-14 14-6 1z" fill="#e4f5ee" stroke="#3f7d69" stroke-width="2"/><path d="M47 35 l5 5" stroke="#3f7d69" stroke-width="1.6"/></svg>
+            <span class="step-num">Step 7</span>
+          </div>
+          <div>
+            <h3>Judgment, on the record</h3>
+            <p>See something the model can't? Adjust any threshold for this deal — with a
+            <strong>required written reason</strong>. The rulebook's original verdict is kept alongside yours,
+            so every override is visible, attributed, and reversible. Manual control is never silent.</p>
+          </div>
+        </div>
+        <div class="step reveal d3">
+          <div class="step-vis" aria-hidden="true">
+            <svg viewBox="0 0 64 64" fill="none"><line x1="10" y1="54" x2="54" y2="54" stroke="#5c6b67" stroke-width="2.4" stroke-linecap="round"/><rect x="14" y="26" width="10" height="28" rx="2" fill="#63cda9"/><rect x="28" y="34" width="10" height="20" rx="2" fill="#c7d8d2"/><rect x="42" y="18" width="10" height="36" rx="2" fill="#c7d8d2"/><path d="M14 20 q14-10 38-6" stroke="#3f7d69" stroke-width="2" stroke-linecap="round" stroke-dasharray="4 3" fill="none"/></svg>
+            <span class="step-num">Step 8</span>
+          </div>
+          <div>
+            <h3>The market reality check</h3>
+            <p>The deal's returns stand next to what the S&amp;P 500 actually returned over one, three
+            and five years — and the loan rate the model assumes is checked against prevailing rates
+            (SOFR plus a typical spread). <strong>Returns that lean on financing nobody offers get called
+            out.</strong></p>
+          </div>
+        </div>
+        <div class="step reveal d4">
+          <div class="step-vis" aria-hidden="true">
+            <svg viewBox="0 0 64 64" fill="none"><line x1="14" y1="20" x2="50" y2="20" stroke="#cfe0da" stroke-width="3" stroke-linecap="round"/><circle cx="38" cy="20" r="4.5" fill="#3f7d69"/><line x1="14" y1="32" x2="50" y2="32" stroke="#cfe0da" stroke-width="3" stroke-linecap="round"/><circle cx="22" cy="32" r="4.5" fill="#3f7d69"/><line x1="14" y1="44" x2="50" y2="44" stroke="#cfe0da" stroke-width="3" stroke-linecap="round"/><circle cx="44" cy="44" r="4.5" fill="#63cda9"/></svg>
+            <span class="step-num">Step 9</span>
+          </div>
+          <div>
+            <h3>Your rulebook, not ours</h3>
+            <p>Every threshold, band, weight and stress parameter is <strong>editable configuration</strong> —
+            there isn't a single hard-coded number in the engine. Changes are saved as new versions;
+            past decisions always know which version judged them.</p>
+          </div>
+        </div>
+        <div class="step reveal">
+          <div class="step-vis" aria-hidden="true">
+            <svg viewBox="0 0 64 64" fill="none"><circle cx="26" cy="32" r="16" stroke="#5c6b67" stroke-width="2"/><path d="M26 22 v10 l7 5" stroke="#3f7d69" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M46 44 l4 4 8-10" stroke="#3f7d69" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M44 20 h14 M44 28 h10" stroke="#cfe0da" stroke-width="2.4" stroke-linecap="round"/></svg>
+            <span class="step-num">Step 10</span>
+          </div>
+          <div>
+            <h3>Back-test your own history</h3>
+            <p>Load past deals with their realized outcomes and see how today's rulebook would have
+            called each one — <strong>right calls, missed winners, and whether the book ran above or below
+            par</strong>. The gate earns trust by being scored against reality.</p>
+          </div>
+        </div>
+      </div>
     </div>
   </section>
 
-  <section>
-    <h2>Grounded in the evidence</h2>
-    <p class="sub">Why believe an "AI probability engine"? Because we graded the claim first.</p>
-    <p>The engine's design is checked against a cutoff-dated evidence map of financial-market
-    predictability — <b>49 claim families over a 198-study ledger</b>, each graded on a fixed
-    rubric (in-sample vs out-of-sample vs live, costs, replication). The risk core stands on the
-    best-established result in the literature (volatility forecastability); the claim types the
-    evidence rates as not established or ineffective are the ones this product deliberately
-    avoids. The map's own headline is the honest one: <b>zero</b> families reach "established
-    effective" without live execution — which is why the app reports probabilities with
-    uncertainty, not promised alpha. Browse it under the <b>Evidence</b> tab in the app, or
-    <a href="/evidence-network.html">explore the interactive evidence network</a>.</p>
+  <!-- THE BAR THAT MOVES -->
+  <section aria-labelledby="bar-h">
+    <div class="wrap">
+      <div class="sect-head reveal">
+        <h2 id="bar-h">The idea that runs through it: decisions you can defend</h2>
+        <p>Not a black-box score — a rulebook with receipts, applied under the economy you're actually in.</p>
+      </div>
+      <div class="honest-grid">
+        <div class="honest-copy reveal">
+          <h3>Hard kills don't average away</h3>
+          <p>A deal with a fatal flaw fails, <span class="k">no matter how strong everything else looks</span>.
+          Averaging lets a great story bury a broken covenant; a gate doesn't.</p>
+          <h3>Receipts, not vibes</h3>
+          <p>Every extracted number carries a <span class="k">confidence score and a citation</span> to the exact
+          document and page. If the paperwork contradicts itself, that contradiction is on the table before
+          any scoring happens.</p>
+          <h3>Missing data never passes</h3>
+          <p>Extraction returns nothing rather than guessing, and an unanswered field forces human review —
+          <span class="k">silence can't slip through the gate</span>.</p>
+          <h3>Judgment is welcome — and recorded</h3>
+          <p>Overrides require a written reason, and the rulebook's <span class="k">original verdict is kept
+          alongside yours</span>. Any past decision replays exactly: same inputs, same config version, same
+          macro posture, same answer.</p>
+        </div>
+        <div class="bar-card reveal d1" id="bar-card">
+          <h3>Macro moves the bar</h3>
+          <p class="sub">Illustrative: the same coverage check under each weekly posture — the Thresholds
+          screen shows your live rulebook.</p>
+          <div class="sigrow"><div class="lab"><span>Green posture — normal bar</span><b>baseline</b></div>
+            <div class="sigtrack"><div class="sigbar s-green" style="--w:56%"></div></div></div>
+          <div class="sigrow"><div class="lab"><span>Yellow posture — bar tightens</span><b>stricter</b></div>
+            <div class="sigtrack"><div class="sigbar s-yellow" style="--w:74%"></div></div></div>
+          <div class="sigrow"><div class="lab"><span>Red posture — bar tightens further</span><b>strictest</b></div>
+            <div class="sigtrack"><div class="sigbar s-red" style="--w:92%"></div></div></div>
+          <p class="sigfoot">The same deal can clear the gate in a green week and fail it in a red one —
+          and the decision record says which posture judged it. Macro moves the bar; only the deal's own
+          facts can kill it.</p>
+        </div>
+      </div>
+    </div>
   </section>
 
-  <div class="cta">
-    <h2>See it on a real deal</h2>
-    <p class="sub">The app ships with a recorded extraction of a real example deal — strong headline
-    returns that fail three hard kills, with six contradictions between its own documents.</p>
-    <a class="btn" href="/app">Open the app</a>&nbsp;&nbsp;
-    <a class="btn ghost" href="/app">Load the sample deal</a>
+  <!-- FOOTNOTES -->
+  <section aria-labelledby="notes-h">
+    <div class="wrap">
+      <div class="sect-head reveal">
+        <h2 id="notes-h">The rules the code enforces</h2>
+        <p>Not policies in a document — invariants in the build. Read this before you trust any verdict.</p>
+      </div>
+      <div class="notes-grid">
+        <div class="note reveal"><h3>Screening support, not investment advice</h3>
+          <p>Gate 1 is a screen: it exists to kill clearly-broken deals early and route the rest to human
+          diligence with the issues already on the table. It never commits capital.</p></div>
+        <div class="note reveal d1"><h3>Zero hardcoded thresholds</h3>
+          <p>Every tunable lives in versioned config, editable on the Thresholds screen. If a threshold were
+          a literal in the codebase, it would be a bug.</p></div>
+        <div class="note reveal d2"><h3>Every decision replayable</h3>
+          <p>Recorded with its inputs, config version, macro posture and adjustments — any past verdict can
+          be reproduced exactly.</p></div>
+        <div class="note reveal"><h3>Missing data never passes</h3>
+          <p>Extraction returns nothing rather than guessing, and an unanswered field forces human review —
+          silence can't slip through.</p></div>
+        <div class="note reveal d1"><h3>Your workbook stays in your browser</h3>
+          <p>The pro forma is parsed locally and never uploaded; deal drafts live in your browser. Extraction
+          reads text, not files.</p></div>
+        <div class="note reveal d2"><h3>A red test suite blocks the deploy</h3>
+          <p>Engine quality is enforced at build time by three golden suites — 62 checks covering the gate
+          logic, the macro layer and engine parity. If any check fails, the site cannot ship.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- EVIDENCE -->
+  <section aria-labelledby="evidence-h">
+    <div class="wrap">
+      <div class="sect-head reveal">
+        <h2 id="evidence-h">Grounded in the evidence</h2>
+        <p>Why believe an &#8220;AI probability engine&#8221;? Because we graded the claim first.</p>
+      </div>
+      <div class="note reveal" style="max-width:760px">
+        <p style="font-size:14px">The engine's design is checked against a cutoff-dated evidence map of
+        financial-market predictability — <strong>49 claim families over a 198-study ledger</strong>, each
+        graded on a fixed rubric (in-sample vs out-of-sample vs live, costs, replication). The risk core
+        stands on the best-established result in the literature (volatility forecastability); the claim
+        types the evidence rates as not established or ineffective are the ones this product deliberately
+        avoids. The map's own headline is the honest one: <strong>zero</strong> families reach
+        &#8220;established effective&#8221; without live execution — which is why the app reports
+        probabilities with uncertainty, not promised alpha. Browse it under the <strong>Evidence</strong>
+        tab in the app, or <a href="/evidence-network.html">explore the interactive evidence network</a>.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="cta-sect" aria-labelledby="cta-h">
+    <div class="wrap">
+      <div class="sect-head reveal" style="margin-left:auto;margin-right:auto;text-align:center">
+        <h2 id="cta-h">See it on a real deal</h2>
+        <p>The app ships with a recorded extraction of a real example deal — strong headline returns that
+        fail three hard kills, with six contradictions between its own documents.</p>
+      </div>
+      <p class="reveal d1" style="text-align:center;margin:6px 0 0"><a class="cta-btn" href="/app">Load the sample deal &#8594;</a><span class="cta-sub">Or open the app and drop in your own documents</span></p>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <a class="backlink" href="/app">Open the app &#8594;</a>
+    <div class="foot-disc">Connected Capital — institutional pilot. Deal diligence — Gate 1 screening &#183;
+    macro-aware thresholds &#183; auditable decisions. Screening support, not investment advice. Engine quality
+    is enforced at build time by three golden test suites (62 checks); a red suite blocks deployment.</div>
   </div>
+</footer>
 
-  <footer>
-    Connected Capital — institutional pilot. Screening support, not investment advice.
-    Engine quality is enforced at build time by three golden test suites (62 checks); a red suite blocks deployment.
-  </footer>
+<noscript><div style="text-align:center;padding:12px;color:#5c6b67;font-size:13px">JavaScript is off — the page still reads fine, but the animated figures stay static.</div></noscript>
 
-</div>
+<script>
+(function () {
+  'use strict';
+  var reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ---- reveal on scroll + figure triggers + counters ---- */
+  function countUp(el) {
+    var target = parseInt(el.getAttribute('data-n'), 10) || 0;
+    if (reduced || !window.requestAnimationFrame) { el.textContent = target.toLocaleString('en-US'); return; }
+    var t0 = null, DUR = 950;
+    function tick(ts) {
+      if (t0 === null) t0 = ts;
+      var k = Math.min(1, (ts - t0) / DUR);
+      var eased = 1 - Math.pow(1 - k, 3);
+      el.textContent = Math.round(target * eased).toLocaleString('en-US');
+      if (k < 1) requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  }
+
+  var counted = false;
+  function onReveal(el) {
+    el.classList.add('in');
+    if (!counted && el.querySelector && el.querySelector('.stat-num')) {
+      counted = true;
+      document.querySelectorAll('.stat-num').forEach(countUp);
+    }
+    if (el.id === 'bar-card') el.classList.add('bars-in');
+  }
+
+  var revealEls = document.querySelectorAll('.reveal');
+  if (reduced || !('IntersectionObserver' in window)) {
+    revealEls.forEach(onReveal);
+  } else {
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) {
+        if (en.isIntersecting) { onReveal(en.target); io.unobserve(en.target); }
+      });
+    }, { threshold: 0.15, rootMargin: '0px 0px -8% 0px' });
+    revealEls.forEach(function (el) { io.observe(el); });
+  }
+
+  /* ---- diagram tooltips (hover + keyboard focus) ---- */
+  var tip = document.getElementById('tip');
+  var wrapEl = document.getElementById('diagram-wrap');
+  if (tip && wrapEl) {
+    var hideT = null;
+    function showTip(node) {
+      if (hideT) { clearTimeout(hideT); hideT = null; }
+      var name = node.getAttribute('data-name') || '';
+      var text = node.getAttribute('data-tip') || '';
+      tip.innerHTML = '<strong></strong>';
+      tip.firstChild.textContent = name;
+      tip.appendChild(document.createTextNode(text));
+      tip.hidden = false;
+      var nb = node.getBoundingClientRect();
+      var wb = wrapEl.getBoundingClientRect();
+      var x = nb.left - wb.left + nb.width / 2;
+      var y = nb.top - wb.top;
+      var half = Math.min(140, tip.offsetWidth / 2 || 140);
+      x = Math.max(half + 4, Math.min(wb.width - half - 4, x));
+      tip.style.left = x + 'px';
+      if (y < 120) {
+        tip.style.top = (nb.bottom - wb.top + 10) + 'px';
+        tip.style.transform = 'translate(-50%, 0)';
+      } else {
+        tip.style.top = y + 'px';
+        tip.style.transform = '';
+      }
+    }
+    function hideTip() {
+      hideT = setTimeout(function () { tip.hidden = true; }, 60);
+    }
+    document.querySelectorAll('.node').forEach(function (n) {
+      n.addEventListener('mouseenter', function () { showTip(n); });
+      n.addEventListener('mouseleave', hideTip);
+      n.addEventListener('focus', function () { showTip(n); });
+      n.addEventListener('blur', hideTip);
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') tip.hidden = true;
+    });
+    window.addEventListener('scroll', function () { if (!tip.hidden) tip.hidden = true; }, { passive: true });
+  }
+})();
+</script>
 </body>
 </html>
