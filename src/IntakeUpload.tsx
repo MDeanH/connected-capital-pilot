@@ -191,8 +191,12 @@ export default function IntakeUpload({ onExtracted }: Props) {
         </div>
       )}
       <div className="iu-sample">
-        <button className="iu-sample-link" onClick={() => onExtracted(SAMPLE_EXTRACTION)}>
-          Load sample — recorded extraction of the Faithful Trails example documents
+        <button className="iu-sample-btn" onClick={() => onExtracted(SAMPLE_EXTRACTION)}>
+          <span className="iu-sample-big">New here? Load the sample deal →</span>
+          <span className="iu-sample-sub">
+            One click walks you through the whole flow — a recorded extraction of the
+            Faithful Trails example documents, no upload needed
+          </span>
         </button>
       </div>
     </div>
@@ -214,8 +218,11 @@ const CSS = `
 .iu-actions button{letter-spacing:.08em;font-size:12.5px}
 .iu-busy{font-size:.82rem;color:#3f7d69}
 .iu-err{margin-top:1.25rem;background:#fbecef;color:#c2384a;border:1px solid #f0c8d0;border-radius:10px;padding:.9rem 1.1rem;font-size:.85rem;line-height:1.5}
-.iu-sample{margin-top:1.75rem;border-top:1px solid var(--border,#dcebe7);padding-top:1rem}
-button.iu-sample-link{background:transparent;border:none;color:var(--muted,#5c6b67);text-transform:none;letter-spacing:0;font-size:.8rem;text-decoration:underline;padding:.2rem 0}
-button.iu-sample-link:hover{background:transparent;color:var(--text,#090e11)}
+.iu-sample{margin-top:1.75rem;border-top:1px solid var(--border,#dcebe7);padding-top:1.25rem}
+button.iu-sample-btn{display:block;width:100%;background:#63cda9;border:2px solid #63cda9;border-radius:12px;padding:1.1rem 1.5rem;text-align:center;box-shadow:0 6px 18px rgba(99,205,169,.35);transition:transform .15s ease,box-shadow .15s ease,background .15s,border-color .15s,color .15s}
+button.iu-sample-btn:hover{background:#090e11;border-color:#090e11;transform:translateY(-1px);box-shadow:0 9px 24px rgba(9,14,17,.25)}
+button.iu-sample-btn:hover .iu-sample-big,button.iu-sample-btn:hover .iu-sample-sub{color:#fff}
+.iu-sample-big{display:block;font-size:1.08rem;font-weight:700;letter-spacing:.06em;color:#090e11}
+.iu-sample-sub{display:block;margin-top:.4rem;font-size:.8rem;font-weight:500;text-transform:none;letter-spacing:0;line-height:1.5;color:#123a2d}
 @media(max-width:900px){.iu-drops{grid-template-columns:1fr}}
 `
