@@ -74,7 +74,7 @@ svg text{font-family:'Poppins',system-ui,sans-serif}
 .flowline.slow{animation-duration:1.5s}
 .flowline.green{stroke:var(--good)}
 @keyframes flowdash{to{stroke-dashoffset:-11.1}}
-.tip{position:absolute;z-index:5;max-width:280px;background:#11161f;color:#f3f5f8;font-size:12px;line-height:1.55;padding:10px 13px;border-radius:10px;pointer-events:none;box-shadow:0 8px 24px rgba(17,22,31,.25);transform:translate(-50%,calc(-100% - 10px))}
+.tip{position:absolute;z-index:5;width:max-content;max-width:280px;background:#11161f;color:#f3f5f8;font-size:12px;line-height:1.55;padding:10px 13px;border-radius:10px;pointer-events:none;box-shadow:0 8px 24px rgba(17,22,31,.25);transform:translate(-50%,calc(-100% - 10px))}
 .tip strong{display:block;font-family:'Manrope',sans-serif;font-size:12.5px;margin-bottom:3px;color:#fff}
 .tip[hidden]{display:none}
 .tip::after{content:"";position:absolute;left:50%;bottom:-5px;width:10px;height:10px;background:#11161f;transform:translateX(-50%) rotate(45deg)}
@@ -662,13 +662,18 @@ footer .wrap{display:flex;flex-direction:column;align-items:center;gap:14px;text
       var half = Math.min(140, tip.offsetWidth / 2 || 140);
       x = Math.max(half + 4, Math.min(wb.width - half - 4, x));
       tip.style.left = x + 'px';
-      /* if the node is near the top, flip the tooltip below it */
-      if (y < 120) {
-        tip.style.top = (nb.bottom - wb.top + 10) + 'px';
-        tip.style.transform = 'translate(-50%, 0)';
-      } else {
+      var tipH = tip.offsetHeight || 120;
+      if (y - tipH - 12 >= 0) {
+        /* room above the node — default placement */
         tip.style.top = y + 'px';
         tip.style.transform = '';
+      } else {
+        /* no room above (tall nodes near the top): drop below, but clamp
+           inside the diagram so the scroll container can't clip it */
+        var below = nb.bottom - wb.top + 10;
+        if (below + tipH > wb.height - 6) below = Math.max(6, wb.height - tipH - 6);
+        tip.style.top = below + 'px';
+        tip.style.transform = 'translate(-50%, 0)';
       }
     }
     function hideTip() {
