@@ -6,7 +6,15 @@
 [build.environment]
   NODE_VERSION = "20"
 
-# The app serves at the root; /app kept for old bookmarks
+# Landing page: the how-it-works explainer serves at the root (forced — the
+# built React index.html exists at /, so this must shadow it)
+[[redirects]]
+  from = "/"
+  to = "/how-it-works.html"
+  status = 200
+  force = true
+
+# The app lives at /app
 [[redirects]]
   from = "/app"
   to = "/index.html"
