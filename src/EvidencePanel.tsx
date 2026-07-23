@@ -1,9 +1,11 @@
 // Evidence tab — renders the market-predictability evidence map (49 family
 // verdicts over a 198-study ledger, cutoff 2026-07-14, v1.1 corrected) and the
 // engine ↔ evidence mapping, per reference/market-predictability-evidence/
-// APP-INTEGRATION.md. The JSON here is a build-time copy of the synced map;
-// correct upstream (MDeanH/financial-market-predictability-evidence) and
-// re-sync — never edit src/data/evidence-families.json directly.
+// APP-INTEGRATION.md. The JSON here is a generated copy of the synced map;
+// correct upstream (MDeanH/financial-market-predictability-evidence), re-sync,
+// then run reference/market-predictability-evidence/bake_evidence_network.py —
+// it writes this file. Never edit src/data/evidence-families.json directly
+// (`npm run gate:evidence` fails the build if it drifts from the source).
 import { useMemo, useState } from 'react'
 import familiesJson from './data/evidence-families.json'
 

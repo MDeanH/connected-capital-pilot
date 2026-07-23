@@ -13,6 +13,34 @@ benchmark, and does the improvement survive realistic implementation costs?**
 | [financial-market-predictability-evidence.csv](financial-market-predictability-evidence.csv) | Study ledger — 198 scoped claims, each a `market × target × horizon × predictor × method × benchmark` extraction with evidence-stage, result, point-in-time, cost, and replication fields |
 | [financial-market-predictability-families.json](financial-market-predictability-families.json) | 49 family-level effectiveness ratings (P/E/R/I/T/B scores 0–4, confidence A–D, verdict), each joined to its ledger rows via `evidence_ids` |
 
+## Keeping the app in sync
+
+The two data files above are the only source of truth. Three files in the app
+are **derived** from them, and `bake_evidence_network.py` writes all three:
+
+| Derived file | What it feeds |
+| --- | --- |
+| `evidence-network.html` (here) | The interactive network viz — graph JSON baked between the `GRAPH-DATA` markers |
+| `public/evidence-network.html` | The **served** copy of that viz (`/evidence-network.html`) |
+| `src/data/evidence-families.json` | The app's EVIDENCE tab (`src/EvidencePanel.tsx`) |
+
+After any correction to the CSV or families JSON — including a re-sync from
+upstream `MDeanH/financial-market-predictability-evidence` — run:
+
+```
+python3 bake_evidence_network.py
+```
+
+It is idempotent: a re-bake with no data change rewrites nothing (`unchanged`
+on every line) and leaves a clean `git diff`.
+
+`npm run build` fails if any derived copy has drifted (`npm run gate:evidence`
+→ `scripts/check-evidence-sync.ts`). The gate byte-compares the copies and
+checks the `meta.inputs_sha256` fingerprint the bake stamps into the payload
+against the current source files, so corrected data can never deploy behind a
+stale visualization. `python3 bake_evidence_network.py --check` does the same
+without writing.
+
 ## Headline (v1.1, corrected)
 
 - **Established effective: 0** — nothing in the public literature clears the
