@@ -1,9 +1,10 @@
 // Evidence-map sync gate. The evidence map has one source of truth —
 // reference/market-predictability-evidence/{families.json, evidence.csv} — and
-// three derived copies: the reference viz, the SERVED viz (public/), and the
-// EVIDENCE tab's JSON. bake_evidence_network.py writes all three; this gate
-// fails the build if any of them drifted, so a data correction can never ship
-// with a stale deployed visualization.
+// four derived copies: the reference viz, the viz served by the app (public/),
+// the standalone Netlify site (sites/evidence-map/index.html), and the EVIDENCE
+// tab's JSON. bake_evidence_network.py writes all four; this gate fails the
+// build if any of them drifted, so a data correction can never ship with a
+// stale deployed visualization.
 //
 // Deliberately Node-only (no Python in the Netlify build): it re-derives
 // nothing, it compares bytes and checks the inputs fingerprint that the bake
@@ -19,6 +20,7 @@ const FAMILIES = `${EV}financial-market-predictability-families.json`;
 const CSV = `${EV}financial-market-predictability-evidence.csv`;
 const REF_HTML = `${EV}evidence-network.html`;
 const PUBLIC_HTML = 'public/evidence-network.html';
+const STANDALONE_HTML = 'sites/evidence-map/index.html';
 const APP_FAMILIES = 'src/data/evidence-families.json';
 
 const START = '/*==GRAPH-DATA-START==*/';
@@ -35,11 +37,13 @@ const check = (name: string, ok: boolean, detail = '') => {
 
 console.log('EVIDENCE MAP SYNC:');
 
-// 1. The served viz must be the baked viz, byte for byte.
+// 1. Every published copy must be the baked viz, byte for byte.
 const refHtml = read(REF_HTML);
 const publicHtml = read(PUBLIC_HTML);
-check('served viz == baked viz', refHtml.equals(publicHtml),
+check('app-served viz == baked viz', refHtml.equals(publicHtml),
   `(${PUBLIC_HTML} vs ${REF_HTML})`);
+check('standalone site == baked viz', refHtml.equals(read(STANDALONE_HTML)),
+  `(${STANDALONE_HTML})`);
 
 // 2. The EVIDENCE tab's JSON must be the synced families file, byte for byte.
 const familiesBytes = read(FAMILIES);

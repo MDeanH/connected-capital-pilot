@@ -4,15 +4,17 @@
 Reads financial-market-predictability-families.json and
 financial-market-predictability-evidence.csv (same directory), builds the
 graph payload (family / study / asset-hub nodes plus evidence edges), and
-writes all three artifacts derived from that data:
+writes all four artifacts derived from that data:
 
   reference/market-predictability-evidence/evidence-network.html  (the source viz)
-  public/evidence-network.html                                    (the SERVED viz)
+  public/evidence-network.html                          (the viz served by the app)
+  sites/evidence-map/index.html                    (the standalone Netlify site)
   src/data/evidence-families.json                                 (the EVIDENCE tab)
 
-Writing all three here is the point: the served copy used to be a manual
+Writing all four here is the point: the served copy used to be a manual
 `cp`, so a re-bake after a data correction silently left the deployed
-visualization stale.
+visualization stale. Every new place the map gets published belongs on this
+list, or it becomes the next stale copy.
 
 Run after any correction to the CSV/JSON so everything re-syncs:
 
@@ -38,6 +40,7 @@ FAMILIES_JSON = HERE / "financial-market-predictability-families.json"
 EVIDENCE_CSV = HERE / "financial-market-predictability-evidence.csv"
 HTML_FILE = HERE / "evidence-network.html"
 PUBLIC_HTML = ROOT / "public" / "evidence-network.html"
+STANDALONE_HTML = ROOT / "sites" / "evidence-map" / "index.html"
 APP_FAMILIES = ROOT / "src" / "data" / "evidence-families.json"
 
 START_MARK = "/*==GRAPH-DATA-START==*/"
@@ -227,6 +230,7 @@ def artifacts():
     return size, [
         (HTML_FILE, baked_bytes),
         (PUBLIC_HTML, baked_bytes),
+        (STANDALONE_HTML, baked_bytes),
         (APP_FAMILIES, families_bytes),
     ]
 
