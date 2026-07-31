@@ -3,11 +3,18 @@
 The market-predictability evidence network, deployed on its own so it can be
 shared as a single link without handing anyone the Connected Capital pilot app.
 
-`index.html` **is** the whole site: one self-contained, dependency-free file
-(~252 KB) with the graph JSON baked in. No build step, no bundler, no
+Live: **https://market-predictability-evidence.netlify.app** (public link,
+`noindex`; Netlify site `market-predictability-evidence`, deliberately separate
+from the `ai-diligence-platform` pilot site).
+
+`public/index.html` **is** the whole site: one self-contained, dependency-free
+file (~252 KB) with the graph JSON baked in. No build step, no bundler, no
 functions, no environment variables, no network calls at runtime.
 
-## Do not edit index.html
+Only `public/` is published. This README and `netlify.toml` stay unpublished on
+purpose — the README names the private upstream repo and the pilot.
+
+## Do not edit public/index.html
 
 It is generated. Correct the data upstream
 (`MDeanH/financial-market-predictability-evidence`), re-sync into
@@ -28,8 +35,17 @@ corrected verdict can never ship behind a stale visualization.
 bash scripts/deploy-evidence-map.sh
 ```
 
-Manual directory deploy, never from git. The script refuses to run against the
-pilot site id, so a deploy here cannot touch the Connected Capital release.
+Manual directory deploy, never from git. Two safeguards are load-bearing:
+
+- **It refuses to run against the pilot site id**, so a deploy here cannot
+  touch the Connected Capital release.
+- **It deploys from a staging copy in a temp dir, not from this folder.** The
+  Netlify CLI resolves config by walking *up* from its working directory, so a
+  deploy run anywhere inside this repo finds the pilot's `netlify.toml` and
+  bundles the pilot's `netlify/functions`. That happened on the first deploy —
+  10 pilot serverless functions went live on this static site, and neither
+  `--dir`, `--functions`, nor `cd`-ing here prevented it. Staging outside the
+  repo leaves the CLI no parent config to find. Don't "simplify" this away.
 
 ## What the site contains
 

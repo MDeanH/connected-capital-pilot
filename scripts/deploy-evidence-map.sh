@@ -10,9 +10,10 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-DIR="sites/evidence-map"
+DIR="sites/evidence-map/public"                        # ONLY this folder is published
 PILOT_SITE_ID="90b76167-9ac0-4802-bbef-c8efbc5cb536"   # ai-diligence-platform — NEVER deploy here
-SITE_ID="${EVIDENCE_MAP_SITE_ID:-}"
+# market-predictability-evidence — the evidence map's own site
+SITE_ID="${EVIDENCE_MAP_SITE_ID:-1dd929b5-b16c-42de-bad4-13117a9f1a17}"
 
 if [[ -n "$SITE_ID" && "$SITE_ID" == "$PILOT_SITE_ID" ]]; then
   echo "REFUSING: EVIDENCE_MAP_SITE_ID is the Connected Capital pilot site." >&2
@@ -28,7 +29,10 @@ python3 reference/market-predictability-evidence/bake_evidence_network.py --chec
 
 NETLIFY="npx --yes netlify-cli@latest"
 
-if [[ -z "${NETLIFY_AUTH_TOKEN:-}" ]] && [[ ! -f "$HOME/.netlify/state.json" ]]; then
+# Ask the CLI whether it is authenticated rather than guessing where it keeps
+# credentials — the path is platform-specific (macOS: ~/Library/Preferences/
+# netlify/config.json, not ~/.netlify), and guessing wrong fails a working setup.
+if [[ -z "${NETLIFY_AUTH_TOKEN:-}" ]] && ! $NETLIFY api getCurrentUser --data '{}' >/dev/null 2>&1; then
   cat <<'EOF'
 
 Netlify CLI is not authenticated. One-time setup:
@@ -44,14 +48,33 @@ EOF
   exit 1
 fi
 
-if [[ -z "$SITE_ID" ]]; then
-  echo "==> No EVIDENCE_MAP_SITE_ID set — creating/linking a site interactively."
-  echo "    Choose 'Create & configure a new project'. Do NOT connect it to git."
-  $NETLIFY deploy --dir="$DIR" --prod
-else
-  echo "==> Deploying $DIR to site $SITE_ID (production)..."
-  $NETLIFY deploy --dir="$DIR" --prod --site="$SITE_ID"
-fi
+# Deploy from a STAGING COPY outside the repo. This is the whole trick, and it
+# is not optional: the Netlify CLI resolves project config by walking UP from
+# its working directory until it finds netlify.toml / .netlify/state.json. Run
+# anywhere inside this repo, it finds the pilot's config and bundles the
+# pilot's netlify/functions — 10 serverless functions went live on this static
+# site that way, and neither --dir, --functions, nor cd'ing into
+# sites/evidence-map stopped it, because the walk-up happens regardless.
+#
+# Staging in a temp dir gives the CLI no parent config to find: what is in the
+# staging dir is exactly what deploys.
+STAGE="$(mktemp -d)"
+trap 'rm -rf "$STAGE"' EXIT
+mkdir -p "$STAGE/public" "$STAGE/empty-functions"
+cp "$ROOT/$DIR"/* "$STAGE/public/"
+cp "$ROOT/sites/evidence-map/netlify.toml" "$STAGE/netlify.toml"
+
+echo "==> Staged for deploy (this is the complete published payload):"
+( cd "$STAGE/public" && ls -la )
+
+# --site is always explicit: the repo root is LINKED to the pilot site, so an
+# unqualified `netlify deploy` would target the client release.
+# --no-build is required, not cosmetic: without it the CLI runs framework
+# detection and stops on an interactive "Multiple possible build commands
+# found" prompt. Nothing here compiles.
+echo "==> Deploying to site $SITE_ID (production)..."
+cd "$STAGE"
+$NETLIFY deploy --dir=public --functions=empty-functions --no-build --prod --site="$SITE_ID"
 
 echo ""
 echo "==> Done. Re-run after any data correction + re-bake."
