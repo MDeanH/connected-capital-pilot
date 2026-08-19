@@ -30,6 +30,22 @@ export default async (req: Request, context: Context): Promise<Response> => {
     return data ? json(200, data) : json(404, { error: 'Deal not found' })
   }
 
+  if (req.method === 'DELETE' && id) {
+    // Deleting a deal removes its recorded decisions with it — a deliberate,
+    // gated admin action (the UI double-confirms). Extraction telemetry keeps
+    // its rows but drops the link; staged documents rows go with the deal.
+    const { error: e1, count: decisions } = await db.from('gate_decisions').delete({ count: 'exact' }).eq('deal_id', id)
+    if (e1) return json(500, { error: e1.message })
+    const { error: e2 } = await db.from('extractions').update({ deal_id: null }).eq('deal_id', id)
+    if (e2) return json(500, { error: e2.message })
+    const { error: e3 } = await db.from('deal_documents').delete().eq('deal_id', id)
+    if (e3) return json(500, { error: e3.message })
+    const { error: e4, count: deleted } = await db.from('deals').delete({ count: 'exact' }).eq('id', id)
+    if (e4) return json(500, { error: e4.message })
+    if (!deleted) return json(404, { error: 'Deal not found' })
+    return json(200, { ok: true, decisionsDeleted: decisions ?? 0 })
+  }
+
   let body: any = {}
   try {
     body = JSON.parse((await req.text()) || '{}')

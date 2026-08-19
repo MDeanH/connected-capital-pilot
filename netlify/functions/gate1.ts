@@ -47,8 +47,20 @@ async function listDecisions(): Promise<Response> {
   return json(200, { decisions })
 }
 
-export default async (req: Request, _context: Context): Promise<Response> => {
+export default async (req: Request, context: Context): Promise<Response> => {
   const url = new URL(req.url)
+  const decisionId = (context.params as any)?.id as string | undefined
+  if (decisionId) {
+    // DELETE /api/gate1/decisions/:id — removes ONE recorded decision. A
+    // deliberate, gated admin action (the UI confirms first); deal-level
+    // deletion (a deal plus all its decisions) lives on DELETE /api/deals/:id.
+    if (req.method !== 'DELETE') return new Response('Method not allowed', { status: 405 })
+    const db = serviceClient()
+    if (!db) return json(503, { error: 'Persistence not configured (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY)' })
+    const { error, count } = await db.from('gate_decisions').delete({ count: 'exact' }).eq('id', decisionId)
+    if (error) return json(500, { error: error.message })
+    return count ? json(200, { ok: true }) : json(404, { error: 'Decision not found' })
+  }
   if (url.pathname.endsWith('/decisions')) {
     if (req.method !== 'GET') return new Response('Method not allowed', { status: 405 })
     return listDecisions()
@@ -203,6 +215,6 @@ export default async (req: Request, _context: Context): Promise<Response> => {
 }
 
 export const config: Config = {
-  path: ['/api/gate1/preview', '/api/gate1/decide', '/api/gate1/decisions'],
+  path: ['/api/gate1/preview', '/api/gate1/decide', '/api/gate1/decisions', '/api/gate1/decisions/:id'],
   rateLimit: { windowSize: 60, windowLimit: 120, aggregateBy: 'ip' },
 }

@@ -1,8 +1,9 @@
 // Deal history — the durable, browsable record of past decisions. Reads the
-// append-only gate_decisions ledger via GET /api/gate1/decisions (newest
-// first, deal name joined). Read-only by design: decisions are never edited
-// or deleted here, and when persistence isn't configured the panel says so
-// honestly instead of showing fake rows.
+// gate_decisions ledger via GET /api/gate1/decisions (newest first, deal
+// name joined). Decisions are never EDITED — but a deal can be deleted
+// outright (removing its decisions with it), and an unlinked decision row
+// can be deleted individually; both double-confirm. When persistence isn't
+// configured the panel says so honestly instead of showing fake rows.
 import { useCallback, useEffect, useState } from 'react'
 import { Kicker, PostureChip } from './cc-ui'
 import { fmtNumber } from './format'
@@ -34,6 +35,7 @@ export default function DealHistory() {
   const [loading, setLoading] = useState(false)
   const [degraded, setDegraded] = useState(false)
   const [err, setErr] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -61,6 +63,28 @@ export default function DealHistory() {
 
   useEffect(() => { load() }, [load])
 
+  const deleteRow = useCallback(async (r: DecisionRow) => {
+    const name = r.deal_name ?? 'this deal'
+    const siblings = (rows ?? []).filter(x => r.deal_id && x.deal_id === r.deal_id).length
+    const msg = r.deal_id
+      ? `Delete the deal “${name}” and its ${siblings} recorded decision${siblings === 1 ? '' : 's'}?\n\nThis permanently removes them from the history. It cannot be undone.`
+      : `Delete this recorded decision for “${name}”?\n\nThis permanently removes it from the history. It cannot be undone.`
+    if (!window.confirm(msg)) return
+    setDeletingId(r.id)
+    setErr(null)
+    try {
+      const url = r.deal_id ? `/api/deals/${r.deal_id}` : `/api/gate1/decisions/${r.id}`
+      const resp = await fetch(url, { method: 'DELETE' })
+      const data = await resp.json().catch(() => ({}))
+      if (!resp.ok) throw new Error(data.error || `Delete failed (HTTP ${resp.status})`)
+      await load()
+    } catch (e: unknown) {
+      setErr(String((e as Error)?.message || e))
+    } finally {
+      setDeletingId(null)
+    }
+  }, [rows, load])
+
   return (
     <div className="dh-root">
       <style>{CSS}</style>
@@ -68,9 +92,9 @@ export default function DealHistory() {
         <Kicker>CONNECTED CAPITAL — DEAL HISTORY</Kicker>
         <h2>Every decision, on the record</h2>
         <p className="dh-lede">
-          The append-only ledger of recorded Gate 1 decisions — newest first, each stamped with the
-          rulebook version, macro posture and any judgment adjustments it was made under. Nothing
-          here is ever edited or deleted.
+          The ledger of recorded Gate 1 decisions — newest first, each stamped with the rulebook
+          version, macro posture and any judgment adjustments it was made under. Decisions are never
+          edited; a deal can be deleted outright, which removes its recorded decisions with it.
         </p>
         <div className="dh-actions">
           <button className="secondary" onClick={load} disabled={loading}>
@@ -110,7 +134,7 @@ export default function DealHistory() {
             <thead>
               <tr>
                 <th>Deal</th><th>Verdict</th><th>Posture</th><th>Kills</th><th>Flags</th>
-                <th>Rulebook</th><th>Adjustments</th><th>Decided</th>
+                <th>Rulebook</th><th>Adjustments</th><th>Decided</th><th aria-label="Actions"></th>
               </tr>
             </thead>
             <tbody>
@@ -132,6 +156,17 @@ export default function DealHistory() {
                   <td>v{r.threshold_config_version}</td>
                   <td>{r.overrides_count || '—'}</td>
                   <td title={r.decided_at}>{fmtDate(r.decided_at)}</td>
+                  <td>
+                    <button
+                      className="dh-delete"
+                      onClick={() => deleteRow(r)}
+                      disabled={deletingId !== null}
+                      title={r.deal_id ? 'Delete this deal and all its recorded decisions' : 'Delete this recorded decision'}
+                      aria-label={r.deal_id ? `Delete deal ${r.deal_name ?? ''}` : 'Delete decision'}
+                    >
+                      {deletingId === r.id ? '…' : 'DELETE'}
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -168,4 +203,8 @@ const CSS = `
 .dh-v-fail{color:#c2384a;border-color:#c2384a;background:rgba(194,56,74,.08)}
 .dh-v-review{color:#5c6b67;border-color:#9c9c9c;background:rgba(156,156,156,.12)}
 .dh-baseline{font-size:.72rem;color:var(--muted,#5c6b67);margin-top:.25rem}
+.dh-delete{font-size:9.5px;letter-spacing:.08em;font-weight:700;color:#c2384a;background:transparent;border:1px solid #f0c8d0;border-radius:6px;padding:3px 9px;cursor:pointer}
+.dh-delete:hover:not(:disabled){background:#fbecef}
+.dh-delete:disabled{opacity:.45;cursor:default}
+@media (max-width:700px){.dh-delete{font-size:12px}}
 `
