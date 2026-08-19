@@ -411,7 +411,8 @@ export default function DealIntake() {
           {extraction?.recorded && (
             <div className="di-recorded-note" role="note">
               Showing a recorded extraction of the sample deal documents (Faithful Trails OM v2 +
-              Okeechobee pro forma v18) — live extraction uses the same pipeline once the API key is configured.
+              Okeechobee pro forma v18) — upload your own documents on the Intake step to run the
+              same extraction pipeline live.
             </div>
           )}
           <IntakeReview
