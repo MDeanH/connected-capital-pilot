@@ -143,6 +143,7 @@ export function computeMacroSnapshot(input: MacroComputeInput): MacroSnapshot {
   // 3) Regime resolution: overrides beat degraded beats scored-candidate.
   let regime: Regime
   let pending: Regime | null = null
+  let pendingWins: number | null = null
   if (sahmTriggered || technicalRecession) {
     // "regardless" per spec: overrides also bypass hysteresis.
     regime = 'recession'
@@ -159,21 +160,26 @@ export function computeMacroSnapshot(input: MacroComputeInput): MacroSnapshot {
       regime = candidate // no history → adopt directly
     } else if (candidate === previous.regime) {
       regime = candidate // no change, clear any pending flip
-    } else if (macro.hysteresisWins <= 1 || candidate === previous.pending_regime) {
-      // The candidate has now persisted the required consecutive snapshots → flip.
-      // (pending_regime carries "one prior win"; with hysteresisWins=2 — the
-      // shipped default — this is exact. Larger values would need a win
-      // counter persisted on the snapshot.)
-      regime = candidate
     } else {
-      regime = previous.regime
-      pending = candidate
+      // Consecutive wins for this challenger, counting this snapshot. Rows
+      // persisted before pending_wins existed default to 1: a pending_regime
+      // alone always meant exactly one prior win.
+      const wins = candidate === previous.pending_regime ? (previous.pending_wins ?? 1) + 1 : 1
+      if (wins >= macro.hysteresisWins) {
+        // The candidate has now persisted the required consecutive snapshots → flip.
+        regime = candidate
+      } else {
+        regime = previous.regime
+        pending = candidate
+        pendingWins = wins
+      }
     }
   }
 
   if (input.forcedRegime) {
     regime = input.forcedRegime
     pending = null
+    pendingWins = null
   }
 
   // 4) Quadrant: core PCE yoy (inflation) × real GDP yoy (growth) vs config bands.
@@ -192,7 +198,9 @@ export function computeMacroSnapshot(input: MacroComputeInput): MacroSnapshot {
           ? 'stagflation'
           : 'deflationary_contraction'
   }
-  const quadrant: MacroQuadrant = { inflationYoy, growthYoy, label }
+  // Stamp the bands actually classified with, so the dashboard's crosshairs
+  // can never contradict the label after a config change.
+  const quadrant: MacroQuadrant = { inflationYoy, growthYoy, label, ...(bands ? { bands: { ...bands } } : {}) }
 
   // 5) Hurdle stack for the pilot fund's terms (5y lockup, development).
   const hs = macro.hurdleStack
@@ -215,6 +223,7 @@ export function computeMacroSnapshot(input: MacroComputeInput): MacroSnapshot {
     signals,
     regime,
     pending_regime: pending,
+    pending_wins: pendingWins,
     degraded,
     // Matrix row returned as-is ('*' fallback resolved by callers per asset class).
     postures: { ...macro.postureMatrix[regime] },

@@ -388,7 +388,11 @@ export default function ThresholdConfig({ active, draft, onDraftChange, onSave }
         {(working.macro.signals ?? []).length === 0 && (
           <p className="tc-muted">This config version carries no per-signal definitions to edit.</p>
         )}
-        {(working.macro.signals ?? []).map((sig, i) => (
+        {(working.macro.signals ?? []).map((sig, i) => {
+          // Engine band rule (macro.ts): high_is_bad grants a band at value ≤ bound,
+          // high_is_good at value ≥ bound — the shown comparator must match.
+          const cmp = sig.direction === 'high_is_good' ? '≥' : '≤'
+          return (
           <div className="tc-sig-row" key={sig.id}>
             <div className="tc-sig-name">
               {sig.label}
@@ -408,7 +412,7 @@ export default function ThresholdConfig({ active, draft, onDraftChange, onSave }
               />
             </label>
             <label className="tc-sig-field">
-              <span>green ≤</span>
+              <span>green {cmp}</span>
               <NumInput
                 key={`${inputKey}-sg-${sig.id}`}
                 value={sig.green}
@@ -417,7 +421,7 @@ export default function ThresholdConfig({ active, draft, onDraftChange, onSave }
               />
             </label>
             <label className="tc-sig-field">
-              <span>yellow ≤</span>
+              <span>yellow {cmp}</span>
               <NumInput
                 key={`${inputKey}-sy-${sig.id}`}
                 value={sig.yellow}
@@ -426,7 +430,8 @@ export default function ThresholdConfig({ active, draft, onDraftChange, onSave }
               />
             </label>
           </div>
-        ))}
+          )
+        })}
       </div>
 
       <p className="tc-footnote">

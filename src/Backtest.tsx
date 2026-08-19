@@ -21,13 +21,14 @@ interface RunRow extends BacktestRow {
   missing: number
 }
 
-type Call = 'right_block' | 'right_pass' | 'missed_winner' | 'let_through' | 'no_outcome'
+type Call = 'right_block' | 'right_pass' | 'missed_winner' | 'let_through' | 'indeterminate' | 'no_outcome'
 
 const CALL_META: Record<Call, { label: string; cls: string }> = {
   right_block: { label: 'RIGHT CALL — blocked an underperformer', cls: 'bt-good' },
   right_pass: { label: 'RIGHT CALL — passed a performer', cls: 'bt-good' },
   missed_winner: { label: 'MISSED WINNER — gate blocked, deal performed', cls: 'bt-warn' },
   let_through: { label: 'LET THROUGH — passed, underperformed', cls: 'bt-bad' },
+  indeterminate: { label: 'REVIEW — incomplete inputs, no call to grade', cls: 'bt-muted' },
   no_outcome: { label: 'no outcome data', cls: 'bt-muted' },
 }
 
@@ -82,8 +83,11 @@ function outcome(r: BacktestRow): { irr: number | null; usedNetLp: boolean } {
 }
 
 function judgeCall(verdict: GateVerdict, outcomeIrr: number | null, par: number): Call {
+  // REVIEW = required Gate 1 inputs missing — indeterminate, not a block, so it
+  // can never be graded right or wrong against the outcome.
+  if (verdict === 'REVIEW') return 'indeterminate'
   if (outcomeIrr === null) return 'no_outcome'
-  const blocked = verdict === 'FAIL' || verdict === 'REVIEW'
+  const blocked = verdict === 'FAIL'
   const performed = outcomeIrr >= par
   if (blocked && !performed) return 'right_block'
   if (!blocked && performed) return 'right_pass'
@@ -175,16 +179,19 @@ export default function Backtest({ parIrr }: Props) {
 
   const calls = (run ?? []).map(r => judgeCall(r.verdict, outcome(r).irr, parIrr))
   const rightCalls = calls.filter(c => c === 'right_block' || c === 'right_pass').length
-  const outcomes = calls.filter(c => c !== 'no_outcome').length
+  // "of Y" denominator: definite verdict AND known outcome — indeterminate
+  // (REVIEW) rows can't be graded, so they never count for or against the gate.
+  const outcomes = calls.filter(c => c !== 'no_outcome' && c !== 'indeterminate').length
   const passed = (run ?? []).filter(r => r.verdict === 'PASS' || r.verdict === 'CONDITIONAL')
-  const failed = (run ?? []).filter(r => r.verdict === 'FAIL' || r.verdict === 'REVIEW')
+  const failed = (run ?? []).filter(r => r.verdict === 'FAIL')
+  const reviews = (run ?? []).filter(r => r.verdict === 'REVIEW').length
   const avg = (xs: Array<number | null>) => {
     const v = xs.filter((x): x is number => x !== null)
     return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null
   }
   const avgPassed = avg(passed.map(r => r.realized_irr))
   const avgFailed = avg(failed.map(r => r.realized_irr))
-  const avgAll = avg((run ?? []).map(r => r.realized_irr))
+  const avgAll = avg((run ?? []).filter(r => r.verdict !== 'REVIEW').map(r => r.realized_irr))
   const anyNetLp = (run ?? []).some(r => r.verified_net_lp_return !== null)
   const avgNetPassed = avg(passed.map(r => r.verified_net_lp_return))
   const avgNetFailed = avg(failed.map(r => r.verified_net_lp_return))
@@ -247,10 +254,13 @@ export default function Backtest({ parIrr }: Props) {
           <div className="card bt-summary">
             <h3>The verdict on your history</h3>
             <div className="bt-stats">
-              <div><b>{run.length}</b> deals · gate passes <b>{passed.length}</b>, blocks <b>{failed.length}</b></div>
+              <div>
+                <b>{run.length}</b> deals · gate passes <b>{passed.length}</b>, blocks <b>{failed.length}</b>
+                {reviews > 0 && <>, review (incomplete inputs) <b>{reviews}</b></>}
+              </div>
               <div>Avg realized IRR — passed: <b>{pct(avgPassed)}</b> vs blocked: <b>{pct(avgFailed)}</b></div>
               {anyNetLp && <div>Avg verified net-to-LP — passed: <b>{pct(avgNetPassed)}</b> vs blocked: <b>{pct(avgNetFailed)}</b></div>}
-              <div>Right calls: <b>{rightCalls} of {outcomes}</b> deals with known outcomes</div>
+              <div>Right calls: <b>{rightCalls} of {outcomes}</b> deals with a definite verdict and known outcome</div>
               <div>
                 Your book overall: <b>{pct(avgAll)}</b> realized —{' '}
                 <b>{avgAll === null ? '—' : avgAll >= parIrr ? 'ABOVE PAR' : 'BELOW PAR'}</b> vs the {pct(parIrr)} benchmark

@@ -16,20 +16,36 @@ import { serviceClient } from './lib/supabase.ts'
 const json = (status: number, obj: unknown) =>
   new Response(JSON.stringify(obj), { status, headers: { 'Content-Type': 'application/json' } })
 
-async function listDecisions(): Promise<Response> {
+async function listDecisions(url: URL): Promise<Response> {
   const db = serviceClient()
   if (!db) return json(503, { error: 'Persistence not configured (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY)' })
-  const { data, error } = await db
+  // Cursor pagination: ?limit=<n> (default 100, hard cap 200) and
+  // ?before=<ISO timestamp> (strictly created_at < before). The raw `before`
+  // string goes to the query untouched so sub-millisecond precision survives.
+  const limitParam = url.searchParams.get('limit')
+  let limit = 100
+  if (limitParam !== null) {
+    const n = Number(limitParam)
+    if (!Number.isInteger(n) || n < 1) return json(400, { error: 'limit must be a positive integer' })
+    limit = Math.min(n, 200)
+  }
+  const before = url.searchParams.get('before')
+  if (before !== null && Number.isNaN(new Date(before).getTime())) {
+    return json(400, { error: 'before must be an ISO timestamp' })
+  }
+  let query = db
     .from('gate_decisions')
     .select(
       'id, created_at, deal_id, verdict, baseline_verdict, threshold_config_version, overrides, ' +
         'kills:result->kills, flag_pts:result->flagPoints, posture:result->>posture, ' +
         'input_name:inputs->>deal_name, deals(name)',
     )
-    .order('created_at', { ascending: false })
-    .limit(200)
+  if (before) query = query.lt('created_at', before)
+  // Fetch one row past the limit so hasMore is exact, then slice it off.
+  const { data, error } = await query.order('created_at', { ascending: false }).limit(limit + 1)
   if (error) return json(500, { error: error.message })
-  const decisions = (data ?? []).map((r: any) => ({
+  const hasMore = (data ?? []).length > limit
+  const decisions = (data ?? []).slice(0, limit).map((r: any) => ({
     id: r.id,
     decided_at: r.created_at,
     deal_id: r.deal_id,
@@ -44,7 +60,7 @@ async function listDecisions(): Promise<Response> {
     flag_pts: typeof r.flag_pts === 'number' ? r.flag_pts : null,
     overrides_count: Array.isArray(r.overrides) ? r.overrides.length : 0,
   }))
-  return json(200, { decisions })
+  return json(200, { decisions, hasMore })
 }
 
 export default async (req: Request, context: Context): Promise<Response> => {
@@ -63,7 +79,7 @@ export default async (req: Request, context: Context): Promise<Response> => {
   }
   if (url.pathname.endsWith('/decisions')) {
     if (req.method !== 'GET') return new Response('Method not allowed', { status: 405 })
-    return listDecisions()
+    return listDecisions(url)
   }
   if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 })
   const action = url.pathname.endsWith('/decide') ? 'decide' : 'preview'

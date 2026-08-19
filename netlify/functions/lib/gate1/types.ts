@@ -166,6 +166,8 @@ export interface MacroSignalReading {
 export interface MacroQuadrant {
   inflationYoy: number | null
   growthYoy: number | null
+  /** The quadrantBands the engine classified with (absent on old rows → display defaults). */
+  bands?: { inflationHotYoy: number; growthRecessionYoy: number }
   label:
     | 'inflationary_expansion'
     | 'disinflationary_expansion'
@@ -190,6 +192,8 @@ export interface MacroSnapshot {
   signals: MacroSignalReading[]
   regime: Regime
   pending_regime?: Regime | null
+  /** Consecutive snapshots pending_regime has won (absent on old rows → 1). */
+  pending_wins?: number | null
   degraded: boolean
   postures: Record<string, Posture>
   quadrant?: MacroQuadrant

@@ -112,14 +112,19 @@ function Sparkline({ signal }: { signal: MacroSignalReading }) {
 // Four-quadrant chart (THE feature)
 // ---------------------------------------------------------------------------
 
-// Display crosshair boundaries. These DEFAULTS mirror the engine's
-// default-config macro.quadrantBands (growthRecessionYoy = 0.0 → 0% growth,
-// inflationHotYoy = 0.025 → 2.5% inflation) — keep in sync with
-// netlify/functions/lib/gate1/default-config.json. The quadrant CLASSIFICATION
-// shown (snapshot.quadrant.label) always comes from the server config; these
-// lines are display geometry only.
-const GROWTH_BOUNDARY_PCT = 0.0
-const INFLATION_BOUNDARY_PCT = 2.5
+// Crosshair boundary DEFAULTS, used only for old snapshots that predate
+// quadrant.bands. They mirror the engine's default-config macro.quadrantBands
+// (growthRecessionYoy = 0.0 → 0% growth, inflationHotYoy = 0.025 → 2.5%
+// inflation) — keep in sync with netlify/functions/lib/gate1/default-config.json.
+// When the snapshot carries bands, the crosshairs draw from the bands the
+// server actually classified with.
+const DEFAULT_GROWTH_BOUNDARY_PCT = 0.0
+const DEFAULT_INFLATION_BOUNDARY_PCT = 2.5
+
+/** Boundary label: whole percents without a decimal, else one decimal. */
+function fmtBoundaryPct(v: number): string {
+  return Number.isInteger(v) ? v.toFixed(0) : v.toFixed(1)
+}
 
 function QuadrantChart({ quadrant }: { quadrant: MacroQuadrant | undefined }) {
   // Fixed display window (percent units): growth −4…+6, inflation −1…+8.
@@ -128,8 +133,11 @@ function QuadrantChart({ quadrant }: { quadrant: MacroQuadrant | undefined }) {
   const PL = 54, PR = 448, PT = 14, PB = 250
   const gx = (p: number) => PL + ((p - X0) / (X1 - X0)) * (PR - PL)
   const gy = (p: number) => PB - ((p - Y0) / (Y1 - Y0)) * (PB - PT)
-  const cx = gx(GROWTH_BOUNDARY_PCT)
-  const cy = gy(INFLATION_BOUNDARY_PCT)
+  // Engine bands are fractions (0.025 = 2.5%); this chart works in percent units.
+  const growthBoundaryPct = quadrant?.bands ? quadrant.bands.growthRecessionYoy * 100 : DEFAULT_GROWTH_BOUNDARY_PCT
+  const inflationBoundaryPct = quadrant?.bands ? quadrant.bands.inflationHotYoy * 100 : DEFAULT_INFLATION_BOUNDARY_PCT
+  const cx = gx(Math.max(X0, Math.min(X1, growthBoundaryPct)))
+  const cy = gy(Math.max(Y0, Math.min(Y1, inflationBoundaryPct)))
 
   const hasFix = quadrant != null && quadrant.growthYoy != null && quadrant.inflationYoy != null
   const growthPct = hasFix ? quadrant!.growthYoy! * 100 : null
@@ -165,8 +173,8 @@ function QuadrantChart({ quadrant }: { quadrant: MacroQuadrant | undefined }) {
         {/* crosshair boundaries */}
         <line x1={cx} y1={PT} x2={cx} y2={PB} className="md-quad-cross" />
         <line x1={PL} y1={cy} x2={PR} y2={cy} className="md-quad-cross" />
-        <text className="md-quad-bound" x={cx + 4} y={PB - 4} textAnchor="start">{GROWTH_BOUNDARY_PCT.toFixed(0)}% growth</text>
-        <text className="md-quad-bound" x={PR - 4} y={cy - 4} textAnchor="end">{INFLATION_BOUNDARY_PCT.toFixed(1)}% inflation</text>
+        <text className="md-quad-bound" x={cx + 4} y={PB - 4} textAnchor="start">{fmtBoundaryPct(growthBoundaryPct)}% growth</text>
+        <text className="md-quad-bound" x={PR - 4} y={cy - 4} textAnchor="end">{fmtBoundaryPct(inflationBoundaryPct)}% inflation</text>
 
         {/* axes + ticks */}
         <line x1={PL} y1={PT} x2={PL} y2={PB} className="md-quad-axis" />

@@ -61,9 +61,10 @@ export function impliedExitValue(fields: DealFields): number | null {
  *   (stabilized untrended NOI − annual debt service) / equity
  * where equity = total_equity ?? (total cost − loan).
  *
- * All-equity deals (loan 0 or unknown) return the unlevered NOI yield on
- * equity (equity = total_equity ?? total cost). Any missing input → null —
- * we never fake a number.
+ * All-equity deals (an EXPLICIT loan of 0) return the unlevered NOI yield on
+ * equity (equity = total_equity ?? total cost). A missing loan means the
+ * capital stack is unknown — null, as for any other missing input; we never
+ * fake a number.
  */
 export function dealCashOnCash(fields: DealFields): number | null {
   const noi = fields.stabilized_noi_untrended
@@ -71,9 +72,10 @@ export function dealCashOnCash(fields: DealFields): number | null {
   const loan = fields.construction_loan
 
   if (noi === null || noi === undefined) return null
+  if (loan === null || loan === undefined) return null
 
-  // Unlevered: no debt in the stack (or the loan is unknown → no debt service to model).
-  if (loan === null || loan === undefined || loan === 0) {
+  // Unlevered: explicitly no debt in the stack.
+  if (loan === 0) {
     const equity = fields.total_equity ?? cost
     if (equity === null || equity === undefined || equity <= 0) return null
     return noi / equity

@@ -1,6 +1,8 @@
 // Deal history — the durable, browsable record of past decisions. Reads the
 // gate_decisions ledger via GET /api/gate1/decisions (newest first, deal
-// name joined). Decisions are never EDITED — but a deal can be deleted
+// name joined, cursor-paged — LOAD OLDER appends pages via ?before=, and
+// REFRESH or a delete resets to the first page). Decisions are never
+// EDITED — but a deal can be deleted
 // outright (removing its decisions with it), and an unlinked decision row
 // can be deleted individually; both double-confirm. When persistence isn't
 // configured the panel says so honestly instead of showing fake rows.
@@ -32,7 +34,9 @@ function fmtDate(iso: string): string {
 
 export default function DealHistory() {
   const [rows, setRows] = useState<DecisionRow[] | null>(null)
+  const [hasMore, setHasMore] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [degraded, setDegraded] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
@@ -41,6 +45,7 @@ export default function DealHistory() {
     setLoading(true)
     setErr(null)
     setDegraded(false)
+    setHasMore(false)
     try {
       const r = await fetch('/api/gate1/decisions')
       const ct = r.headers.get('content-type') || ''
@@ -54,12 +59,38 @@ export default function DealHistory() {
       }
       if (data.error) throw new Error(data.error)
       setRows(Array.isArray(data.decisions) ? (data.decisions as DecisionRow[]) : [])
+      setHasMore(data.hasMore === true)
     } catch (e: unknown) {
       setErr(String((e as Error)?.message || e))
     } finally {
       setLoading(false)
     }
   }, [])
+
+  const loadMore = useCallback(async () => {
+    const oldest = rows?.[rows.length - 1]
+    if (!oldest) return
+    setLoadingMore(true)
+    setErr(null)
+    try {
+      const r = await fetch(`/api/gate1/decisions?before=${encodeURIComponent(oldest.decided_at)}`)
+      const ct = r.headers.get('content-type') || ''
+      if (!ct.includes('application/json'))
+        throw new Error('Decision history needs the deployed API — run `netlify dev` (plain vite has no persistence).')
+      const data = await r.json()
+      if (data.error) throw new Error(data.error)
+      const older = Array.isArray(data.decisions) ? (data.decisions as DecisionRow[]) : []
+      setRows(prev => {
+        const seen = new Set((prev ?? []).map(x => x.id))
+        return [...(prev ?? []), ...older.filter(d => !seen.has(d.id))]
+      })
+      setHasMore(data.hasMore === true)
+    } catch (e: unknown) {
+      setErr(String((e as Error)?.message || e))
+    } finally {
+      setLoadingMore(false)
+    }
+  }, [rows])
 
   useEffect(() => { load() }, [load])
 
@@ -171,6 +202,13 @@ export default function DealHistory() {
               ))}
             </tbody>
           </table>
+          {hasMore && (
+            <div className="dh-more">
+              <button className="secondary" onClick={loadMore} disabled={loadingMore || loading}>
+                {loadingMore ? 'LOADING…' : 'LOAD OLDER'}
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -206,5 +244,7 @@ const CSS = `
 .dh-delete{font-size:9.5px;letter-spacing:.08em;font-weight:700;color:#c2384a;background:transparent;border:1px solid #f0c8d0;border-radius:6px;padding:3px 9px;cursor:pointer}
 .dh-delete:hover:not(:disabled){background:#fbecef}
 .dh-delete:disabled{opacity:.45;cursor:default}
+.dh-more{display:flex;justify-content:center;padding:.9rem 0 .6rem}
+.dh-more button{letter-spacing:.08em;font-size:12px}
 @media (max-width:700px){.dh-delete{font-size:12px}}
 `

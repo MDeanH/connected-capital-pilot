@@ -93,10 +93,11 @@ export default function MarketComparison({ fields, market, benchmarks }: Props) 
   // ---- Financing check ----
   const modeled = fields.loan_interest_rate ?? null
   const loan = fields.construction_loan
-  // FRED rate series arrive as percent-point levels (3.53 = 3.53%) — normalize
-  // to decimals so the comparison against the deal's decimal loan rate is sane.
+  // FRED rate series arrive as percent-point levels (3.53 = 3.53%, 0.5 = 0.5%) —
+  // always divide by 100 so the comparison against the deal's decimal loan rate
+  // is sane. No magnitude guessing: a ZIRP-era 0.5 must not read as 50%.
   const sofrRaw = market?.sofr ?? null
-  const sofr = sofrRaw === null ? null : sofrRaw > 1 ? sofrRaw / 100 : sofrRaw
+  const sofr = sofrRaw === null ? null : sofrRaw / 100
   const spreadBps = benchmarks?.financingSpreadTypicalBps ?? null
   const prevailing = sofr !== null && spreadBps !== null ? sofr + spreadBps / 10000 : null
 

@@ -61,14 +61,23 @@ export default async (req: Request): Promise<Response> => {
   if (auth) passthrough['authorization'] = auth
   const cookie = req.headers.get('cookie')
   if (cookie) passthrough['cookie'] = cookie
-  const trigger = await fetch(`${origin}/api/extract-run`, {
-    method: 'POST',
-    headers: passthrough,
-    body: JSON.stringify({ extractionId: id }),
-  })
-  if (trigger.status >= 400) {
-    await store.setJSON(id, { status: 'error', error: `Could not start the extraction worker (HTTP ${trigger.status})` })
-    return json(502, { error: `Could not start the extraction worker (HTTP ${trigger.status})` })
+  let failure: string | null = null
+  try {
+    const trigger = await fetch(`${origin}/api/extract-run`, {
+      method: 'POST',
+      headers: passthrough,
+      body: JSON.stringify({ extractionId: id }),
+    })
+    if (trigger.status >= 400) failure = `Could not start the extraction worker (HTTP ${trigger.status})`
+  } catch (e) {
+    failure = `Could not start the extraction worker (${(e as Error)?.message ?? e})`
+  }
+  if (failure) {
+    // No worker will ever run to consume the staged documents — delete them
+    // here, or the full base64 OM sits in the store forever.
+    try { await store.delete(`payload-${id}`) } catch { /* best effort */ }
+    await store.setJSON(id, { status: 'error', error: failure })
+    return json(502, { error: failure })
   }
 
   return json(200, { extractionId: id, status: 'running' })

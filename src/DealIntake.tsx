@@ -195,6 +195,9 @@ export default function DealIntake() {
 
   const coerced = useMemo(() => coerceFields(fields), [fields])
   const canScore = !!coerced.asset_class
+  // Recording (not previewing) also needs a deal name — an unnamed ledger row
+  // could never be linked back to a deal.
+  const hasDealName = typeof coerced.deal_name === 'string' && !!coerced.deal_name.trim()
 
   // The live macro posture for this deal's asset class ('*' fallback) — macro
   // moves the bar automatically; Patel can override it on the Macro page.
@@ -237,7 +240,7 @@ export default function DealIntake() {
   }, [coerced, adjustments, step, canScore, livePosture, draftConfig])
 
   const recordDecision = async () => {
-    if (!canScore || deciding || draftConfig) return
+    if (!canScore || !hasDealName || deciding || draftConfig) return
     setDeciding(true)
     setDecision(null)
     try {
@@ -406,10 +409,20 @@ export default function DealIntake() {
                         putting a different verdict in the ledger than the one shown. */}
                     <button
                       onClick={recordDecision}
-                      disabled={deciding || !!draftConfig}
-                      title={draftConfig ? 'Draft thresholds are active — save the rulebook as a new version (or clear the draft) before recording' : undefined}
+                      disabled={deciding || !!draftConfig || !hasDealName}
+                      title={draftConfig
+                        ? 'Draft thresholds are active — save the rulebook as a new version (or clear the draft) before recording'
+                        : !hasDealName
+                          ? 'Enter a deal name on the review step — an unnamed decision cannot be linked to a deal'
+                          : undefined}
                     >
-                      {deciding ? 'RECORDING…' : draftConfig ? 'SAVE OR CLEAR DRAFT TO RECORD' : 'RECORD DECISION'}
+                      {deciding
+                        ? 'RECORDING…'
+                        : draftConfig
+                          ? 'SAVE OR CLEAR DRAFT TO RECORD'
+                          : hasDealName
+                            ? 'RECORD DECISION'
+                            : 'NAME THE DEAL TO RECORD'}
                     </button>
                     {decision && (
                       <span className={decision.persisted ? 'di-recorded' : 'di-warning'} role="status">
