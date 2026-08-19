@@ -82,7 +82,7 @@ const ENGINE_MAP: Array<{ component: string; family: string; verdict: string; us
     component: 'No national-market timing',
     family: 'eq-aggregate-valuation-macro',
     verdict: 'Not established',
-    use: "The engine's refusal to time the aggregate market is itself evidence-aligned.",
+    use: "The engine does not time the national market. Its only market-conditional input is the local housing-market prior below — capped, gated, and disclosed.",
   },
   {
     component: 'Document AI (extraction & synthesis, not stock-picking)',
@@ -97,10 +97,10 @@ const ENGINE_MAP: Array<{ component: string; family: string; verdict: string; us
     use: "The map's IS/POOS vocabulary gives the app's context-not-predictor discipline a citable standard.",
   },
   {
-    component: 'Conditional market prior (research, not yet live)',
+    component: 'Conditional market prior (live; capped ±2%/yr, gated)',
     family: 'method-tsfm',
     verdict: 'Not established',
-    use: 'Zero-shot TSFMs are rejected as return forecasters on public markets — but passed our pre-registered housing-index acceptance test (see research note below).',
+    use: 'Zero-shot TSFMs are rejected as return forecasters on public markets — this prior passed our pre-registered housing-index acceptance test, so it may tilt year-1 drift by at most ±2%/yr, amortized over the hold, and only while its backtest gate and freshness check pass (see research note below).',
   },
 ]
 
@@ -158,13 +158,19 @@ export default function EvidencePanel() {
       <div className="card ev-head">
         <h2>Evidence — why believe these probabilities?</h2>
         <div className="ev-muted">
-          A cutoff-dated public-web evidence map of financial-market predictability: every claim family
-          graded against a fixed rubric (in-sample vs pseudo-out-of-sample vs live, costs, replication).
-          The engine&rsquo;s design choices line up with what this evidence supports — and it deliberately
-          avoids the claim types the evidence rates as not established or ineffective. The map&rsquo;s own
-          headline is the honest one: <b>zero</b> families reach &ldquo;established effective&rdquo; without
-          live execution — which is exactly why this product reports probabilities with uncertainty, not
-          promised alpha.
+          Before asking anyone to trust an AI probability engine, we first graded the question
+          &ldquo;is this kind of prediction even possible?&rdquo; We collected a ledger of published
+          studies and graded {FAMILIES.length} claim families against it — {FAMILIES.length - 1} kinds of
+          prediction claims judged by the same rules (did it work only in hindsight, does it survive
+          real-world costs, has anyone reproduced it?), plus one methodology protocol. The engine leans on
+          the claim types with the strongest support — volatility forecasting (the best-supported result)
+          and a modestly supported income/value signal — plus one market-path prior that is disclosed as
+          research-grade: capped at ±2%/yr and applied only while it keeps passing its own pre-registered
+          backtest. It deliberately avoids what the evidence doesn&rsquo;t support: timing the overall
+          market has never been established, and AI stock-picking failed the tests it got. <b>Zero</b> of
+          the {FAMILIES.length} families earns the top grade (&ldquo;established effective&rdquo;) without
+          a live track record, which is why this app reports probabilities with uncertainty instead of
+          promised returns.
         </div>
         <div className="ev-stats">
           <div className="ev-stat"><b>{FAMILIES.length}</b><span>claim families</span></div>

@@ -4,6 +4,7 @@
 // Pure controlled form: state lives in DealIntake, raw values in, raw values out.
 import { Term } from './GlossaryTip'
 import { ConfidenceTag, SourceCite } from './cc-ui'
+import { fmtByKind } from './format'
 import { FIELD_GROUPS } from './deal-types'
 import type { DealFields, FieldDef, IntakeFormValues } from './deal-types'
 import type { ExtractedField } from '../netlify/functions/lib/gate1/fields'
@@ -30,6 +31,19 @@ function displayValue(f: FieldDef, v: string | number | boolean | null | undefin
     return String(v)
   }
   return v
+}
+
+/**
+ * Formatted echo of the current form value ("$2,000,000") for kinds a native
+ * number input can't punctuate. Null (unparseable/empty/other kinds) = no echo.
+ */
+function echoValue(f: FieldDef, v: string | number | boolean | null | undefined): string | null {
+  if (f.kind !== 'usd' && f.kind !== 'number' && f.kind !== 'months') return null
+  const raw = typeof v === 'string' ? v.trim() : v === null || v === undefined ? '' : String(v)
+  if (raw === '') return null
+  const pretty = fmtByKind(f.kind, typeof v === 'string' ? Number(v) : v)
+  // No echo when formatting adds nothing over the input's own digits ("3" → "3").
+  return pretty === null || pretty === raw ? null : pretty
 }
 
 function prettyOption(o: string): string {
@@ -104,6 +118,7 @@ export default function IntakeReview({ fields, onChange, missingKeys, meta }: Pr
               const isMissing = missing.has(f.key)
               const ex = meta?.[f.key]
               const level = confidenceLevel(ex)
+              const echo = echoValue(f, fields[f.key])
               return (
                 <div className={`ir-row${isMissing ? ' ir-missing' : ''}`} key={f.key}>
                   <label htmlFor={`ir-${f.key}`} className="ir-label">
@@ -123,6 +138,7 @@ export default function IntakeReview({ fields, onChange, missingKeys, meta }: Pr
                   <div className="ir-input">
                     <FieldInput f={f} value={displayValue(f, fields[f.key])} onChange={onChange} />
                     {f.kind === 'pct' && <span className="ir-suffix">%</span>}
+                    {echo !== null && <span className="ir-suffix">{echo}</span>}
                   </div>
                 </div>
               )
@@ -151,6 +167,6 @@ const CSS = `
 .ir-tag{margin-left:.5rem;display:inline-block;vertical-align:middle}
 .ir-input{flex:1 1 45%;display:flex;align-items:center;gap:.4rem;min-width:0}
 .ir-input input,.ir-input select{width:100%;min-width:0;font-size:.85rem;padding:.4rem .55rem}
-.ir-suffix{font-size:.8rem;color:#5c6b67;flex:0 0 auto}
+.ir-suffix{font-size:.8rem;color:#5c6b67;flex:0 0 auto;white-space:nowrap;font-variant-numeric:tabular-nums}
 @media(max-width:900px){.ir-grid{grid-template-columns:1fr}}
 `

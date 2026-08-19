@@ -6,6 +6,7 @@ import IntakeUpload from './IntakeUpload'
 import IntakeReview from './IntakeReview'
 import DealSnapshot from './DealSnapshot'
 import GateResults from './GateResults'
+import FinancialSummary from './FinancialSummary'
 import KpiScorecard from './KpiScorecard'
 import JudgmentPanel from './JudgmentPanel'
 import ConsistencyPanel from './ConsistencyPanel'
@@ -381,6 +382,7 @@ export default function DealIntake() {
                 <>
                   <GateResults response={lastResponse} onAdjust={handleAdjust} />
                   {extraction && <ConsistencyPanel discrepancies={extraction.discrepancies ?? []} />}
+                  <FinancialSummary fields={coerced} />
                   <KpiScorecard fields={coerced} response={lastResponse} benchmarks={benchmarks ?? undefined} />
                   <MarketComparison fields={coerced} market={macro?.market ?? null} benchmarks={benchmarks} />
                   <MarketPathCard location={typeof coerced.location === 'string' ? coerced.location : null} />

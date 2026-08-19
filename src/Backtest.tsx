@@ -58,6 +58,7 @@ function mk(name: string, ac: string, over: Partial<DealFields>, rIrr: number, r
       ...over,
     } as Record<string, string | number | boolean | null>,
     realized_irr: rIrr,
+    verified_net_lp_return: null,
     realized_equity_multiple: rEm,
     outcome_notes: notes,
   }
@@ -69,10 +70,21 @@ function toDealFields(raw: BacktestRow['fields']): DealFields {
   return out as unknown as DealFields
 }
 
-function judgeCall(verdict: GateVerdict, realizedIrr: number | null, par: number): Call {
-  if (realizedIrr === null) return 'no_outcome'
+/**
+ * The outcome figure a deal is judged on: realized gross IRR is primary; the
+ * verified net-to-LP return stands in ONLY when gross is missing. `usedNetLp`
+ * lets the table flag that fallback — a net figure judged against the gross
+ * par benchmark must never be silent.
+ */
+function outcome(r: BacktestRow): { irr: number | null; usedNetLp: boolean } {
+  if (r.realized_irr !== null) return { irr: r.realized_irr, usedNetLp: false }
+  return { irr: r.verified_net_lp_return, usedNetLp: r.verified_net_lp_return !== null }
+}
+
+function judgeCall(verdict: GateVerdict, outcomeIrr: number | null, par: number): Call {
+  if (outcomeIrr === null) return 'no_outcome'
   const blocked = verdict === 'FAIL' || verdict === 'REVIEW'
-  const performed = realizedIrr >= par
+  const performed = outcomeIrr >= par
   if (blocked && !performed) return 'right_block'
   if (!blocked && performed) return 'right_pass'
   if (blocked && performed) return 'missed_winner'
@@ -90,10 +102,12 @@ export default function Backtest({ parIrr }: Props) {
   const [busy, setBusy] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
   const [warnings, setWarnings] = useState<string[]>([])
+  // Raw input text per row index, so a half-typed "14." isn't reformatted mid-keystroke.
+  const [netEdit, setNetEdit] = useState<Record<number, string>>({})
   const fileInput = useRef<HTMLInputElement>(null)
 
   const takeFile = async (file: File) => {
-    setErr(null); setRun(null); setPostureCompare(null)
+    setErr(null); setRun(null); setPostureCompare(null); setNetEdit({})
     setBusy('Parsing workbook in your browser…')
     try {
       const { rows: parsed, warnings: w } = await parseBacktestWorkbook(await file.arrayBuffer())
@@ -101,6 +115,17 @@ export default function Backtest({ parIrr }: Props) {
     } catch (e) {
       setErr(String((e as Error).message ?? e))
     } finally { setBusy(null) }
+  }
+
+  // The one editable results column. Typed as a percent (14.9 → 0.149); rows
+  // and run share indices because evaluate() preserves order, so a re-run keeps edits.
+  const editNetLp = (i: number, text: string) => {
+    setNetEdit(prev => ({ ...prev, [i]: text }))
+    const n = parseFloat(text)
+    const frac = Number.isFinite(n) ? n / 100 : null
+    const put = <T extends BacktestRow>(xs: T[]): T[] => xs.map((r, j) => (j === i ? { ...r, verified_net_lp_return: frac } : r))
+    setRows(put)
+    setRun(rr => (rr ? put(rr) : rr))
   }
 
   const evaluate = async (deals: BacktestRow[], p: Posture): Promise<RunRow[]> => {
@@ -148,7 +173,7 @@ export default function Backtest({ parIrr }: Props) {
     } finally { setBusy(null) }
   }
 
-  const calls = (run ?? []).map(r => judgeCall(r.verdict, r.realized_irr, parIrr))
+  const calls = (run ?? []).map(r => judgeCall(r.verdict, outcome(r).irr, parIrr))
   const rightCalls = calls.filter(c => c === 'right_block' || c === 'right_pass').length
   const outcomes = calls.filter(c => c !== 'no_outcome').length
   const passed = (run ?? []).filter(r => r.verdict === 'PASS' || r.verdict === 'CONDITIONAL')
@@ -160,6 +185,9 @@ export default function Backtest({ parIrr }: Props) {
   const avgPassed = avg(passed.map(r => r.realized_irr))
   const avgFailed = avg(failed.map(r => r.realized_irr))
   const avgAll = avg((run ?? []).map(r => r.realized_irr))
+  const anyNetLp = (run ?? []).some(r => r.verified_net_lp_return !== null)
+  const avgNetPassed = avg(passed.map(r => r.verified_net_lp_return))
+  const avgNetFailed = avg(failed.map(r => r.verified_net_lp_return))
 
   return (
     <div className="bt-root">
@@ -177,7 +205,7 @@ export default function Backtest({ parIrr }: Props) {
           <button className="secondary" onClick={() => fileInput.current?.click()}>UPLOAD PAST DEALS (XLSX)</button>
           <input ref={fileInput} type="file" accept=".xlsx,.xlsm,.xls" style={{ display: 'none' }}
             onChange={e => { const f = e.target.files?.[0]; if (f) takeFile(f); e.target.value = '' }} />
-          <button className="bt-sample-link" onClick={() => { setRows(SAMPLE_HISTORY); setSource('fictional sample history'); setRun(null); setPostureCompare(null); setWarnings([]) }}>
+          <button className="bt-sample-link" onClick={() => { setRows(SAMPLE_HISTORY); setSource('fictional sample history'); setRun(null); setPostureCompare(null); setWarnings([]); setNetEdit({}) }}>
             Load fictional sample history
           </button>
         </div>
@@ -221,6 +249,7 @@ export default function Backtest({ parIrr }: Props) {
             <div className="bt-stats">
               <div><b>{run.length}</b> deals · gate passes <b>{passed.length}</b>, blocks <b>{failed.length}</b></div>
               <div>Avg realized IRR — passed: <b>{pct(avgPassed)}</b> vs blocked: <b>{pct(avgFailed)}</b></div>
+              {anyNetLp && <div>Avg verified net-to-LP — passed: <b>{pct(avgNetPassed)}</b> vs blocked: <b>{pct(avgNetFailed)}</b></div>}
               <div>Right calls: <b>{rightCalls} of {outcomes}</b> deals with known outcomes</div>
               <div>
                 Your book overall: <b>{pct(avgAll)}</b> realized —{' '}
@@ -233,12 +262,15 @@ export default function Backtest({ parIrr }: Props) {
               <thead>
                 <tr>
                   <th>Deal</th><th>Verdict</th><th>Kills</th><th>Flags</th>
-                  <th>Projected IRR</th><th>Realized IRR</th><th>Realized EM</th><th>The gate's call</th>
+                  <th>Projected IRR</th><th>Realized IRR</th>
+                  <th title="Net to the LP after fees/promote — fill only when verified; blank = unverified">Verified net LP</th>
+                  <th>Realized EM</th><th>The gate's call</th>
                 </tr>
               </thead>
               <tbody>
                 {run.map((r, i) => {
-                  const call = judgeCall(r.verdict, r.realized_irr, parIrr)
+                  const { irr: outcomeIrr, usedNetLp } = outcome(r)
+                  const call = judgeCall(r.verdict, outcomeIrr, parIrr)
                   return (
                     <tr key={i}>
                       <td>
@@ -250,8 +282,18 @@ export default function Backtest({ parIrr }: Props) {
                       <td>{r.flagPoints || '—'}</td>
                       <td>{pct((r.fields.projected_irr as number) ?? null)}</td>
                       <td>{pct(r.realized_irr)}</td>
+                      <td className="bt-netlp-cell">
+                        <input type="number" step="0.1" className="bt-netlp-input" placeholder="—"
+                          aria-label={`Verified net-to-LP return (%) — ${String(r.fields.deal_name ?? `row ${i + 1}`)}`}
+                          value={netEdit[i] ?? (r.verified_net_lp_return === null ? '' : String(Number((r.verified_net_lp_return * 100).toFixed(2))))}
+                          onChange={e => editNetLp(i, e.target.value)} />
+                        <span className="bt-netlp-unit">%</span>
+                      </td>
                       <td>{r.realized_equity_multiple === null ? '—' : `${r.realized_equity_multiple.toFixed(2)}x`}</td>
-                      <td><span className={`bt-call ${CALL_META[call].cls}`}>{CALL_META[call].label}</span></td>
+                      <td>
+                        <span className={`bt-call ${CALL_META[call].cls}`}>{CALL_META[call].label}</span>
+                        {usedNetLp && <span className="bt-netlp-chip" title="No realized gross IRR — this call judges the verified net-to-LP figure against the gross par benchmark">net LP</span>}
+                      </td>
                     </tr>
                   )
                 })}
@@ -302,6 +344,13 @@ button.bt-chip.bt-chip-on{background:var(--accent-soft,#e4f5ee);border-color:var
 .bt-v-conditional{color:#b8860b;border-color:#b8860b;background:rgba(184,134,11,.08)}
 .bt-v-fail{color:#c2384a;border-color:#c2384a;background:rgba(194,56,74,.08)}
 .bt-v-review{color:#5c6b67;border-color:#9c9c9c;background:rgba(156,156,156,.12)}
+.bt-netlp-cell{white-space:nowrap}
+input.bt-netlp-input{width:4.6rem;font-size:.83rem;padding:.25rem .4rem}
+/* keep the global 16px mobile input floor (stops iOS focus zoom) — this
+   selector outranks index.css's bare input rule inside the same media query */
+@media (max-width:700px){input.bt-netlp-input{font-size:16px}}
+.bt-netlp-unit{margin-left:.25rem;color:var(--muted,#5c6b67);font-size:.75rem}
+.bt-netlp-chip{display:inline-block;margin-left:.4rem;padding:1px 7px;font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;font-weight:700;color:#b8860b;border:1px solid #b8860b;background:rgba(184,134,11,.08);border-radius:999px;vertical-align:middle}
 .bt-call{font-size:.72rem;letter-spacing:.02em}
 .bt-call.bt-good{color:#3f7d69}
 .bt-call.bt-warn{color:#b8860b}

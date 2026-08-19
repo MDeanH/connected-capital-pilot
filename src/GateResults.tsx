@@ -92,7 +92,7 @@ function Row({ c, meta, onAdjust }: {
       {meta?.tip && <div style={{ marginTop: 6 }}>{meta.tip}</div>}
       {t && (
         <div style={{ marginTop: 6, opacity: 0.85 }}>
-          {fmtVal(c.id, t.base)} base ({t.source.posture} posture)
+          {fmtVal(c.id, t.base)} base ({t.source.posture === '*' ? 'all postures' : `${t.source.posture} posture`})
           {t.adjustment && <> · judgment: {fmtVal(c.id, t.adjustment.value)} — “{t.adjustment.reason}”</>}
         </div>
       )}

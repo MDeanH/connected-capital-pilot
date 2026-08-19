@@ -239,6 +239,8 @@ export async function workbookToCsvText(data: ArrayBuffer): Promise<{ sheets: Ar
 export interface BacktestRow {
   fields: Record<string, string | number | boolean | null>
   realized_irr: number | null
+  /** Net to the LP after fees/promote, hand-verified — null means unverified, not zero. */
+  verified_net_lp_return: number | null
   realized_equity_multiple: number | null
   outcome_notes: string | null
 }
@@ -276,6 +278,7 @@ export const BACKTEST_COLUMNS: Array<{ key: string; label: string }> = [
   { key: 'projected_irr', label: 'Projected IRR at underwriting (%)' },
   { key: 'projected_equity_multiple', label: 'Projected equity multiple at underwriting' },
   { key: 'realized_irr', label: 'REALIZED IRR (%)' },
+  { key: 'verified_net_lp_return', label: 'VERIFIED NET-TO-LP RETURN (%) — net to the LP after fees/promote; fill only when verified, blank = unverified' },
   { key: 'realized_equity_multiple', label: 'REALIZED equity multiple' },
   { key: 'outcome_notes', label: 'Outcome notes' },
 ]
@@ -283,10 +286,14 @@ export const BACKTEST_COLUMNS: Array<{ key: string; label: string }> = [
 const PCT_KEYS = new Set([
   'sponsor_coinvest_pct', 'hard_cost_contingency_pct', 'loan_interest_rate',
   'exit_cap_rate', 'market_cap_rate_today', 'projected_irr', 'realized_irr',
+  'verified_net_lp_return',
 ])
 const BOOL_KEYS = new Set([
   'sponsor_integrity_clear', 'site_fully_entitled', 'exit_dependent_single_refi',
   'has_gmp_or_bonded_gc', 'has_completion_guarantee',
+])
+const TEXT_KEYS = new Set([
+  'deal_name', 'asset_class', 'location', 'sponsor_name', 'outcome_notes',
 ])
 
 function coerceBacktestCell(key: string, v: unknown): string | number | boolean | null {
@@ -300,11 +307,14 @@ function coerceBacktestCell(key: string, v: unknown): string | number | boolean 
   if (typeof v === 'boolean') return v
   const n = Number(String(v).replace(/[$,%\s]/g, ''))
   if (Number.isFinite(n)) {
-    // Percent columns accept either 5 (meaning 5%) or 0.05 — normalize to decimal.
-    if (PCT_KEYS.has(key)) return n > 1 ? n / 100 : n
+    // Percent columns accept 5 / -8 (meaning 5%, −8%) or 0.05 — normalize to
+    // decimal. Math.abs so losing deals' negative returns normalize too.
+    if (PCT_KEYS.has(key)) return Math.abs(n) > 1 ? n / 100 : n
     return n
   }
-  return String(v)
+  // Text survives only in text columns. A numeric column with "pending"/"n/a"
+  // must become null (= unknown), never a string that reads as a known outcome.
+  return TEXT_KEYS.has(key) ? String(v) : null
 }
 
 /**
@@ -335,10 +345,11 @@ export async function parseBacktestWorkbook(data: ArrayBuffer): Promise<{ rows: 
       if (knownKeys.has(h)) rec[h] = coerceBacktestCell(h, raw[i])
     })
     if (!rec.deal_name) continue
-    const { realized_irr = null, realized_equity_multiple = null, outcome_notes = null, ...fields } = rec
+    const { realized_irr = null, verified_net_lp_return = null, realized_equity_multiple = null, outcome_notes = null, ...fields } = rec
     rows.push({
       fields,
       realized_irr: realized_irr as number | null,
+      verified_net_lp_return: verified_net_lp_return as number | null,
       realized_equity_multiple: realized_equity_multiple as number | null,
       outcome_notes: outcome_notes === null ? null : String(outcome_notes),
     })
@@ -367,12 +378,12 @@ export async function downloadBacktestTemplate() {
     construction_duration_months: 11, lease_up_months_assumed: 20, submarket_leaseup_months: 18,
     exit_dependent_single_refi: 'no', has_gmp_or_bonded_gc: 'yes', has_completion_guarantee: 'yes',
     guarantor_net_worth: 2000000, projected_irr: 16, projected_equity_multiple: 2.1,
-    realized_irr: 18.5, realized_equity_multiple: 2.3, outcome_notes: 'Sold year 6, above plan',
+    realized_irr: 18.5, verified_net_lp_return: 14.9, realized_equity_multiple: 2.3, outcome_notes: 'Sold year 6, above plan',
   }
   const example2: Record<string, unknown> = {
     ...example1, deal_name: 'EXAMPLE — Bayside Flats (delete me)', asset_class: 'multifamily',
     site_fully_entitled: 'no', hard_cost_contingency_pct: 3.5, sponsor_coinvest_pct: 2,
-    projected_irr: 21, realized_irr: 4.2, realized_equity_multiple: 1.1,
+    projected_irr: 21, realized_irr: 4.2, verified_net_lp_return: null, realized_equity_multiple: 1.1,
     outcome_notes: 'Rezoning delays + overruns — barely returned capital',
   }
   const ws = XLSX.utils.aoa_to_sheet([labels, keys, keys.map(k => example1[k] ?? ''), keys.map(k => example2[k] ?? '')])

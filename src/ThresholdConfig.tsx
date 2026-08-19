@@ -5,6 +5,7 @@
 // the proof.
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Term } from './GlossaryTip'
+import { fmtThreshold } from './format'
 import type { Gate1Config, ThresholdRow } from '../netlify/functions/lib/gate1/types'
 
 interface Props {
@@ -39,6 +40,16 @@ function clone(cfg: Gate1Config): Gate1Config {
 
 function Chip({ children, tone = 'neutral' }: { children: ReactNode; tone?: 'neutral' | 'amber' | 'green' }) {
   return <span className={`tc-chip tc-chip-${tone}`}>{children}</span>
+}
+
+/**
+ * Reader-friendly echo of a threshold value ("= $10,000,000" / "= 5%").
+ * Hidden when formatting adds nothing over the raw digits (e.g. "3").
+ */
+function ThresholdHint({ thresholdKey, value }: { thresholdKey: string; value: number }) {
+  const pretty = fmtThreshold(thresholdKey, value)
+  if (pretty === String(value)) return null
+  return <span className="tc-hint">= {pretty}</span>
 }
 
 /**
@@ -259,6 +270,7 @@ export default function ThresholdConfig({ active, draft, onDraftChange, onSave }
                     ariaLabel={`${key} for ${row.asset_class} / ${row.posture}`}
                     onCommit={v => edit(cfg => { cfg.thresholds[idx].value = v })}
                   />
+                  <ThresholdHint thresholdKey={row.key} value={row.value} />
                 </div>
               ))}
               {warn && <div className="tc-warn-text">{warn}</div>}
@@ -383,6 +395,7 @@ button.tc-btn.tc-btn-secondary{background:transparent;color:var(--cc-deep,#3f7d6
 .tc-row-label{font-size:.84rem;flex:1 1 260px}
 .tc-num{width:120px;padding:.38rem .55rem;border:1px solid var(--border,#dcebe7);border-radius:6px;
   font-size:.85rem;font-variant-numeric:tabular-nums;text-align:right}
+.tc-hint{font-size:.78rem;color:var(--muted,#5c6b67);font-variant-numeric:tabular-nums;white-space:nowrap}
 .tc-sig-row{display:flex;align-items:center;gap:1rem;padding:.55rem 0;flex-wrap:wrap}
 .tc-sig-row + .tc-sig-row{border-top:1px solid var(--border,#eef4f2)}
 .tc-sig-name{flex:1 1 240px;font-size:.85rem;font-weight:500;min-width:0}

@@ -54,7 +54,7 @@ export default function IntakeUpload({ onExtracted }: Props) {
 
   const takeXlsx = async (file: File) => {
     setErr(null)
-    if (!/\.(xlsx|xlsm|xls|csv)$/i.test(file.name)) { setErr('The pro forma must be a spreadsheet (.xlsx).'); return }
+    if (!/\.(xlsx|xlsm|xls|csv)$/i.test(file.name)) { setErr('The pro forma must be an Excel or CSV file (.xlsx, .xlsm, .xls, .csv).'); return }
     setBusy('Parsing pro forma in your browser…')
     try {
       const { sheets } = await workbookToCsvText(await file.arrayBuffer())
@@ -174,7 +174,7 @@ export default function IntakeUpload({ onExtracted }: Props) {
       </p>
       <div className="iu-drops">
         {zone('pdf', pdf, 'Offering memorandum — PDF', 'Drop the OM here, or click to browse', pdfInput, takePdf)}
-        {zone('xlsx', proforma, 'Pro forma — XLSX', 'Drop the pro forma here, or click to browse (parsed in your browser)', xlsInput, takeXlsx)}
+        {zone('xlsx', proforma, 'Pro forma — Excel or CSV', 'Drop the pro forma here, or click to browse (parsed in your browser)', xlsInput, takeXlsx)}
       </div>
       <div className="iu-actions">
         <button onClick={extract} disabled={(!pdf && !proforma) || !!busy}>
