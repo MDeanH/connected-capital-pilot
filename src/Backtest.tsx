@@ -21,6 +21,14 @@ interface RunRow extends BacktestRow {
   missing: number
 }
 
+// A run is stamped with the posture it was computed under: the results header
+// names it, and switching to a different posture CLEARS the run — GREEN
+// verdicts must never sit on screen while RED is selected.
+interface RunState {
+  rows: RunRow[]
+  posture: Posture
+}
+
 type Call = 'right_block' | 'right_pass' | 'missed_winner' | 'let_through' | 'indeterminate' | 'no_outcome'
 
 const CALL_META: Record<Call, { label: string; cls: string }> = {
@@ -101,7 +109,7 @@ export default function Backtest({ parIrr }: Props) {
   const [rows, setRows] = useState<BacktestRow[]>([])
   const [source, setSource] = useState<string | null>(null)
   const [posture, setPosture] = useState<Posture>('green')
-  const [run, setRun] = useState<RunRow[] | null>(null)
+  const [run, setRun] = useState<RunState | null>(null)
   const [postureCompare, setPostureCompare] = useState<Record<Posture, number> | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
@@ -121,15 +129,16 @@ export default function Backtest({ parIrr }: Props) {
     } finally { setBusy(null) }
   }
 
-  // The one editable results column. Typed as a percent (14.9 → 0.149); rows
-  // and run share indices because evaluate() preserves order, so a re-run keeps edits.
+  // The one editable results column. Typed as a percent (14.9 → 0.149). Edits
+  // belong to ROWS, not runs: rows and run share indices because evaluate()
+  // preserves order, so they survive a cleared run and ride into the next one.
   const editNetLp = (i: number, text: string) => {
     setNetEdit(prev => ({ ...prev, [i]: text }))
     const n = parseFloat(text)
     const frac = Number.isFinite(n) ? n / 100 : null
     const put = <T extends BacktestRow>(xs: T[]): T[] => xs.map((r, j) => (j === i ? { ...r, verified_net_lp_return: frac } : r))
     setRows(put)
-    setRun(rr => (rr ? put(rr) : rr))
+    setRun(rr => (rr ? { ...rr, rows: put(rr.rows) } : rr))
   }
 
   // Fallback for environments without /preview-batch — the vite dev bridge
@@ -187,7 +196,7 @@ export default function Backtest({ parIrr }: Props) {
     setBusy(`Running ${rows.length} deals through Gate 1 (${posture} posture)…`)
     setErr(null)
     try {
-      setRun(await evaluate(rows, posture))
+      setRun({ rows: await evaluate(rows, posture), posture })
       setPostureCompare(null)
     } catch (e) {
       setErr(String((e as Error).message ?? e))
@@ -211,22 +220,23 @@ export default function Backtest({ parIrr }: Props) {
     } finally { setBusy(null) }
   }
 
-  const calls = (run ?? []).map(r => judgeCall(r.verdict, outcome(r).irr, parIrr))
+  const runRows = run?.rows ?? []
+  const calls = runRows.map(r => judgeCall(r.verdict, outcome(r).irr, parIrr))
   const rightCalls = calls.filter(c => c === 'right_block' || c === 'right_pass').length
   // "of Y" denominator: definite verdict AND known outcome — indeterminate
   // (REVIEW) rows can't be graded, so they never count for or against the gate.
   const outcomes = calls.filter(c => c !== 'no_outcome' && c !== 'indeterminate').length
-  const passed = (run ?? []).filter(r => r.verdict === 'PASS' || r.verdict === 'CONDITIONAL')
-  const failed = (run ?? []).filter(r => r.verdict === 'FAIL')
-  const reviews = (run ?? []).filter(r => r.verdict === 'REVIEW').length
+  const passed = runRows.filter(r => r.verdict === 'PASS' || r.verdict === 'CONDITIONAL')
+  const failed = runRows.filter(r => r.verdict === 'FAIL')
+  const reviews = runRows.filter(r => r.verdict === 'REVIEW').length
   const avg = (xs: Array<number | null>) => {
     const v = xs.filter((x): x is number => x !== null)
     return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null
   }
   const avgPassed = avg(passed.map(r => r.realized_irr))
   const avgFailed = avg(failed.map(r => r.realized_irr))
-  const avgAll = avg((run ?? []).filter(r => r.verdict !== 'REVIEW').map(r => r.realized_irr))
-  const anyNetLp = (run ?? []).some(r => r.verified_net_lp_return !== null)
+  const avgAll = avg(runRows.filter(r => r.verdict !== 'REVIEW').map(r => r.realized_irr))
+  const anyNetLp = runRows.some(r => r.verified_net_lp_return !== null)
   const avgNetPassed = avg(passed.map(r => r.verified_net_lp_return))
   const avgNetFailed = avg(failed.map(r => r.verified_net_lp_return))
 
@@ -257,7 +267,8 @@ export default function Backtest({ parIrr }: Props) {
             <span className="bt-posture">
               Posture:
               {(['green', 'yellow', 'red'] as Posture[]).map(p => (
-                <button key={p} className={`bt-chip${posture === p ? ' bt-chip-on' : ''}`} onClick={() => setPosture(p)}>{p.toUpperCase()}</button>
+                <button key={p} className={`bt-chip${posture === p ? ' bt-chip-on' : ''}`} disabled={!!busy}
+                  onClick={() => { setPosture(p); if (run && run.posture !== p) setRun(null) }}>{p.toUpperCase()}</button>
               ))}
             </span>
             <button onClick={runBacktest} disabled={!!busy}>RUN BACKTEST</button>
@@ -286,10 +297,13 @@ export default function Backtest({ parIrr }: Props) {
       {run && (
         <>
           <div className="card bt-summary">
-            <h3>The verdict on your history</h3>
+            <h3>
+              The verdict on your history
+              <span className={`bt-run-posture bt-rp-${run.posture}`}>run under {run.posture.toUpperCase()} posture</span>
+            </h3>
             <div className="bt-stats">
               <div>
-                <b>{run.length}</b> deals · gate passes <b>{passed.length}</b>, blocks <b>{failed.length}</b>
+                <b>{run.rows.length}</b> deals · gate passes <b>{passed.length}</b>, blocks <b>{failed.length}</b>
                 {reviews > 0 && <>, review (incomplete inputs) <b>{reviews}</b></>}
               </div>
               <div>Avg realized IRR — passed: <b>{pct(avgPassed)}</b> vs blocked: <b>{pct(avgFailed)}</b></div>
@@ -312,7 +326,7 @@ export default function Backtest({ parIrr }: Props) {
                 </tr>
               </thead>
               <tbody>
-                {run.map((r, i) => {
+                {run.rows.map((r, i) => {
                   const { irr: outcomeIrr, usedNetLp } = outcome(r)
                   const call = judgeCall(r.verdict, outcomeIrr, parIrr)
                   return (
@@ -367,6 +381,11 @@ button.bt-chip.bt-chip-on{background:var(--accent-soft,#e4f5ee);border-color:var
 .bt-busy{margin-top:1rem;color:var(--accent,#3f7d69);font-size:.82rem}
 .bt-err{margin-top:1rem;background:#fbecef;color:#c2384a;border:1px solid #f0c8d0;border-radius:10px;padding:.8rem 1rem;font-size:.85rem}
 .bt-compare h3,.bt-summary h3{font-size:12px;letter-spacing:.08em;text-transform:uppercase;margin:0 0 .8rem;font-weight:600}
+.bt-summary h3{display:flex;align-items:center;gap:.7rem;flex-wrap:wrap}
+.bt-run-posture{font-size:10px;letter-spacing:.08em;font-weight:700;padding:2px 9px;border-radius:999px;border:1.5px solid}
+.bt-rp-green{color:#3f7d69;border-color:#3f7d69;background:rgba(63,125,105,.08)}
+.bt-rp-yellow{color:#b8860b;border-color:#b8860b;background:rgba(184,134,11,.08)}
+.bt-rp-red{color:#c2384a;border-color:#c2384a;background:rgba(194,56,74,.08)}
 .bt-muted{color:var(--muted,#5c6b67);font-size:.82rem}
 .bt-compare-row{display:flex;gap:1rem}
 .bt-compare-cell{flex:1;text-align:center;border-radius:10px;padding:1rem;border:1px solid var(--border,#dcebe7)}

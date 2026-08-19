@@ -1,6 +1,8 @@
 // Step 2 — verification of what the AI extracted from the deal documents.
 // Every field is editable (the analyst corrects the machine), carries a
-// confidence tag, and cites the document/page/quote it came from.
+// confidence tag, and cites the document/page/quote it came from. A corrected
+// field drops the model's provenance: "analyst-edited" replaces the confidence
+// chip and the citation is suppressed (it supports the original value only).
 // Pure controlled form: state lives in DealIntake, raw values in, raw values out.
 import { Term } from './GlossaryTip'
 import { ConfidenceTag, SourceCite } from './cc-ui'
@@ -90,10 +92,15 @@ function FieldInput({ f, value, onChange }: {
 
 export default function IntakeReview({ fields, onChange, missingKeys, meta }: Props) {
   const missing = new Set(missingKeys)
-  const missingLabels = FIELD_GROUPS
-    .flatMap(g => g.fields)
-    .filter(f => missing.has(f.key))
-    .map(f => f.label)
+  const allDefs = FIELD_GROUPS.flatMap(g => g.fields)
+  const missingLabels = allDefs.filter(f => missing.has(f.key)).map(f => f.label)
+
+  // Deal-level extraction quality, computed from the same per-field metadata
+  // the chips show — real counts, never an invented score. Live: corrections
+  // move a field from the confidence tally into analyst-corrected.
+  const answered = meta ? allDefs.filter(f => meta[f.key] && meta[f.key].value !== null) : []
+  const highCount = answered.filter(f => !meta![f.key].edited && meta![f.key].confidence >= 0.8).length
+  const editedCount = meta ? allDefs.filter(f => meta[f.key]?.edited).length : 0
 
   return (
     <div className="ir-root">
@@ -104,6 +111,14 @@ export default function IntakeReview({ fields, onChange, missingKeys, meta }: Pr
           Confirm or correct each value — the citations show where it came from. Fields the
           documents don't answer are flagged for you. Nothing is scored until you confirm.
         </p>
+        {meta && (
+          <p className="ir-summary">
+            The AI answered <b>{answered.length} of {allDefs.length}</b> fields
+            ({highCount} high confidence)
+            {editedCount > 0 && <> · <b>{editedCount}</b> analyst-corrected</>}
+            {missingLabels.length > 0 && <> · <b>{missingLabels.length}</b> unanswered by the documents</>}
+          </p>
+        )}
       </div>
       {missingLabels.length > 0 && (
         <div role="status" className="card ir-attention">
@@ -117,6 +132,7 @@ export default function IntakeReview({ fields, onChange, missingKeys, meta }: Pr
             {g.fields.map(f => {
               const isMissing = missing.has(f.key)
               const ex = meta?.[f.key]
+              const edited = !!ex?.edited
               const level = confidenceLevel(ex)
               const echo = echoValue(f, fields[f.key])
               return (
@@ -124,8 +140,9 @@ export default function IntakeReview({ fields, onChange, missingKeys, meta }: Pr
                   <label htmlFor={`ir-${f.key}`} className="ir-label">
                     {f.glossaryKey ? <Term k={f.glossaryKey}>{f.label}</Term> : f.label}
                     {isMissing && <span className="ir-tag"><ConfidenceTag level="missing" /></span>}
-                    {!isMissing && level && <span className="ir-tag"><ConfidenceTag level={level} /></span>}
-                    {ex?.source?.doc && (
+                    {!isMissing && edited && <span className="ir-tag"><span className="ir-edited">analyst-edited</span></span>}
+                    {!isMissing && !edited && level && <span className="ir-tag"><ConfidenceTag level={level} /></span>}
+                    {!edited && ex?.source?.doc && (
                       <span className="ir-cite">
                         <SourceCite
                           doc={ex.source.doc === 'om' ? 'OM' : 'Pro forma'}
@@ -155,6 +172,8 @@ const CSS = `
 .ir-head{margin-bottom:1.25rem}
 .ir-head h2{font-family:'Roboto',system-ui,sans-serif;font-weight:300;font-size:1.7rem;margin:0 0 .3rem;letter-spacing:-.01em}
 .ir-sub{color:#5c6b67;font-size:.88rem;line-height:1.6;max-width:640px;margin:0}
+.ir-summary{color:#3f7d69;font-size:.82rem;margin:.6rem 0 0;font-variant-numeric:tabular-nums}
+.ir-summary b{font-weight:600}
 .ir-cite{margin-left:.5rem;display:inline-block;vertical-align:middle}
 .ir-attention{background:#fbf3df;border-color:#f0e0b0;color:#5b4a16;font-size:.85rem;padding:1rem 1.25rem;margin-bottom:1.25rem;line-height:1.6}
 .ir-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1.5rem;align-items:start}
@@ -165,6 +184,7 @@ const CSS = `
 .ir-row.ir-missing{background:rgba(194,56,74,.07)}
 .ir-label{flex:1 1 55%;font-size:.85rem;font-weight:500;min-width:0}
 .ir-tag{margin-left:.5rem;display:inline-block;vertical-align:middle}
+.ir-edited{display:inline-block;font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;padding:1px 7px;border-radius:4px;border:1px solid currentColor;line-height:1.6;color:var(--muted,#5c6b67)}
 .ir-input{flex:1 1 45%;display:flex;align-items:center;gap:.4rem;min-width:0}
 .ir-input input,.ir-input select{width:100%;min-width:0;font-size:.85rem;padding:.4rem .55rem}
 .ir-suffix{font-size:.8rem;color:#5c6b67;flex:0 0 auto;white-space:nowrap;font-variant-numeric:tabular-nums}

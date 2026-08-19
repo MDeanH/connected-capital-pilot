@@ -20,7 +20,7 @@ import MarketPathCard from './MarketPathCard'
 import type { AvailableKey } from './JudgmentPanel'
 import type { ExtractionResult } from '../netlify/functions/lib/gate1/fields'
 import type { Gate1Config, MacroSnapshot, Regime } from '../netlify/functions/lib/gate1/types'
-import { ALL_FIELDS, REQUIRED_FIELD_KEYS } from './deal-types'
+import { ALL_FIELDS, ASSET_CLASSES, REQUIRED_FIELD_KEYS } from './deal-types'
 import type {
   DealFields,
   FieldKind,
@@ -77,6 +77,26 @@ function isFilled(form: IntakeFormValues, key: keyof DealFields): boolean {
   if (!f) return false
   const v = coerceValue(f.kind, form[key])
   return v !== null && v !== ''
+}
+
+/**
+ * Does the analyst's raw review value still equal the ORIGINALLY extracted one?
+ * Both sides run through coerceValue; pct compares at the input's 4-decimal
+ * display precision because a retyped percent round-trips one ulp off the
+ * extracted decimal ("1.8" → 0.018000000000000002 vs 0.018) and a plain ===
+ * would brand a restored value as edited.
+ */
+function matchesExtracted(
+  kind: FieldKind,
+  raw: string | number | boolean | null | undefined,
+  extracted: string | number | boolean | null,
+): boolean {
+  const a = coerceValue(kind, raw)
+  const b = coerceValue(kind, extracted)
+  if (kind === 'pct' && typeof a === 'number' && typeof b === 'number') {
+    return Number((a * 100).toFixed(4)) === Number((b * 100).toFixed(4))
+  }
+  return a === b
 }
 
 function loadSaved(): { fields: IntakeFormValues; adjustments: JudgmentAdjustment[]; step: Step; extraction: ExtractionResult | null } | null {
@@ -199,7 +219,9 @@ export default function DealIntake() {
   }, [fields, adjustments, step, extraction])
 
   const coerced = useMemo(() => coerceFields(fields), [fields])
-  const canScore = !!coerced.asset_class
+  // Membership, not truthiness: an asset class outside the registry must never
+  // reach the engine, where it would silently score under '*' fallback thresholds.
+  const canScore = typeof coerced.asset_class === 'string' && ASSET_CLASSES.includes(coerced.asset_class)
   // Recording (not previewing) also needs a deal name — an unnamed ledger row
   // could never be linked back to a deal.
   const hasDealName = typeof coerced.deal_name === 'string' && !!coerced.deal_name.trim()
@@ -301,6 +323,12 @@ export default function DealIntake() {
       const ex = result.fields[f.key]
       if (ex && ex.value !== null && ex.value !== undefined) values[f.key] = ex.value as never
     }
+    // An extracted class outside the registry (e.g. "hotel") would render the
+    // select unselected while still counting as filled — clear it so the
+    // required-field strip flags it and the analyst must pick a supported one.
+    if (typeof values.asset_class === 'string' && !ASSET_CLASSES.includes(values.asset_class)) {
+      values.asset_class = ''
+    }
     setFields(values)
     setExtraction(result)
     setAdjustments([])
@@ -308,6 +336,22 @@ export default function DealIntake() {
     setDecision(null)
     setPrefill(null)
     setStep('review')
+  }
+
+  // A correction must not wear the model's provenance: when the analyst's value
+  // no longer matches the originally extracted one, flag that field's metadata
+  // `edited` (IntakeReview then swaps the confidence chip for "analyst-edited"
+  // and drops the citation); restoring the original value clears the flag.
+  const handleFieldChange = (key: keyof DealFields, rawValue: string) => {
+    setFields(prev => ({ ...prev, [key]: rawValue }))
+    const def = ALL_FIELDS.find(f => f.key === key)
+    setExtraction(prev => {
+      const ex = prev?.fields[key]
+      if (!prev || !ex || ex.value === null || !def) return prev
+      const edited = !matchesExtracted(def.kind, rawValue, ex.value)
+      if (edited === !!ex.edited) return prev
+      return { ...prev, fields: { ...prev.fields, [key]: { ...ex, edited } } }
+    })
   }
 
   const handleAdjust = (thresholdKey: string, currentEffective: number) => {
@@ -372,13 +416,19 @@ export default function DealIntake() {
           )}
           <IntakeReview
             fields={fields}
-            onChange={(key, rawValue) => setFields(prev => ({ ...prev, [key]: rawValue }))}
+            onChange={handleFieldChange}
             missingKeys={missingKeys}
             meta={extraction?.fields}
           />
           <div className="di-stickybar">
             <span className="di-muted">{filledCount} of {ALL_FIELDS.length} fields confirmed</span>
-            <button onClick={() => setStep('results')} disabled={!canScore}>CONFIRM &amp; SCORE</button>
+            <button
+              onClick={() => setStep('results')}
+              disabled={!canScore}
+              title={canScore ? undefined : 'Pick an asset class (Deal & Sponsor) to score this deal'}
+            >
+              CONFIRM &amp; SCORE
+            </button>
           </div>
         </>
       )}

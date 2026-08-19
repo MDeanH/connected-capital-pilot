@@ -56,15 +56,23 @@ async function loadActiveConfig(db: Db): Promise<{ config: Gate1Config; version:
   return data ? { config: data.config as Gate1Config, version: data.version } : { config: DEFAULT_CONFIG, version: 0 }
 }
 
-/** Latest macro snapshot — best-effort: null on error or an empty table. */
-async function loadLatestSnapshot(db: Db): Promise<{ id: string; postures: Record<string, Posture> } | null> {
-  const { data } = await db
+const MACRO_UNAVAILABLE = 'Could not load the macro posture — try again'
+
+type SnapshotRef = { id: string; postures: Record<string, Posture> }
+
+// Latest macro snapshot. null = the query itself FAILED — same rule as the
+// config load: a transient failure must not read as "no snapshots" and score
+// (let alone record) under default green while the stored posture may be red,
+// so callers must 503. { snapshot: null } = genuinely empty table → defaults.
+async function loadLatestSnapshot(db: Db): Promise<{ snapshot: SnapshotRef | null } | null> {
+  const { data, error } = await db
     .from('macro_snapshots')
     .select('id, postures')
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle()
-  return data ? { id: data.id as string, postures: data.postures as Record<string, Posture> } : null
+  if (error) return null
+  return { snapshot: data ? { id: data.id as string, postures: data.postures as Record<string, Posture> } : null }
 }
 
 // POST /api/gate1/preview-batch — the Backtest path: a whole book in one
@@ -87,13 +95,15 @@ async function previewBatch(body: any): Promise<Response> {
   const db = serviceClient()
   let config: Gate1Config = DEFAULT_CONFIG
   let configVersion = 0
-  let snapshot: Awaited<ReturnType<typeof loadLatestSnapshot>> = null
+  let snapshot: SnapshotRef | null = null
   if (db) {
     const active = await loadActiveConfig(db)
     if (!active) return json(503, { error: RULEBOOK_UNAVAILABLE })
     config = active.config
     configVersion = active.version
-    snapshot = await loadLatestSnapshot(db)
+    const snap = await loadLatestSnapshot(db)
+    if (!snap) return json(503, { error: MACRO_UNAVAILABLE })
+    snapshot = snap.snapshot
   }
 
   const requested: Posture | undefined = body.posture || undefined
@@ -222,7 +232,9 @@ export default async (req: Request, context: Context): Promise<Response> => {
   let macroSnapshotId: string | null = null
   let postureSource = body.posture ? 'request' : 'default'
   if (db) {
-    const snapshot = await loadLatestSnapshot(db)
+    const snap = await loadLatestSnapshot(db)
+    if (!snap) return json(503, { error: MACRO_UNAVAILABLE })
+    const snapshot = snap.snapshot
     if (snapshot) {
       const p = snapshot.postures[fields.asset_class] ?? snapshot.postures['*']
       if (p && !body.posture) {

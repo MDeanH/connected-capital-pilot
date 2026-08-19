@@ -48,6 +48,12 @@ export interface ExtractedField {
   value: string | number | boolean | null
   confidence: number
   source: { doc: 'om' | 'proforma' | null; page: number | null; quote: string | null }
+  /**
+   * Set client-side when the analyst's review value no longer matches `value` —
+   * the confidence/citation above describe the ORIGINAL extraction, not the
+   * correction. Never produced by the extractor itself.
+   */
+  edited?: boolean
 }
 
 export interface Discrepancy {

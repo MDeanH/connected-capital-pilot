@@ -11,6 +11,10 @@ import { SAMPLE_EXTRACTION } from './sample-extraction'
 import type { ExtractionResult } from '../netlify/functions/lib/gate1/fields'
 
 const MAX_PDF_BYTES = 3_300_000 // base64 inflates ~4/3; keep the body under the 4.5MB guard
+// The background worker legitimately runs up to 15 minutes on a full document
+// pass — the client must poll at least that long, or a live job gets reported
+// dead and a resubmit burns a second model call on the same documents.
+const POLL_DEADLINE_MS = 15.5 * 60_000
 
 interface Props {
   onExtracted: (result: ExtractionResult) => void
@@ -35,6 +39,9 @@ export default function IntakeUpload({ onExtracted }: Props) {
   const [proforma, setProforma] = useState<PickedSheets | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
+  // Extraction id kept after a poll deadline — the job may still be running,
+  // so CHECK AGAIN resumes polling this id instead of paying for a resubmit.
+  const [pendingId, setPendingId] = useState<string | null>(null)
   const omInput = useRef<HTMLInputElement>(null)
   const xlsInput = useRef<HTMLInputElement>(null)
 
@@ -79,6 +86,35 @@ export default function IntakeUpload({ onExtracted }: Props) {
     }
   }
 
+  // Polls /api/extractions/:id until done, error, or the deadline. The cadence
+  // backs off as time passes — a ten-minute extraction has no use for a 3s
+  // loop. Hitting the deadline is NOT a failure: the id stays resumable.
+  const pollExtraction = async (extractionId: string) => {
+    const started = Date.now()
+    while (Date.now() - started < POLL_DEADLINE_MS) {
+      const elapsed = Date.now() - started
+      const secs = Math.round(elapsed / 1000)
+      const clock = secs < 90 ? `${secs}s` : `${Math.floor(secs / 60)}m ${String(secs % 60).padStart(2, '0')}s`
+      setBusy(`Deep-reading the documents — extracting ~30 cited fields (${clock})…`)
+      const wait = elapsed < 60_000 ? 3000 : elapsed < 5 * 60_000 ? 6000 : 12_000
+      await new Promise(res => setTimeout(res, wait))
+      const p = await fetch(`/api/extractions/${extractionId}`)
+      if (!p.ok) continue
+      const data = await p.json()
+      if (data.status === 'done') {
+        setPendingId(null)
+        onExtracted(data as ExtractionResult)
+        return
+      }
+      if (data.status === 'error') {
+        setPendingId(null)
+        throw new Error(data.error ?? 'Extraction failed')
+      }
+    }
+    setPendingId(extractionId)
+    throw new Error('No result yet after 15 minutes — the extraction may still be running in the background. CHECK AGAIN below keeps watching the same job; resubmitting would start a new extraction from scratch.')
+  }
+
   // Deployed extraction runs as a BACKGROUND function (a full document pass
   // exceeds the sync window): we generate the id, get a bodyless 202, and poll
   // /api/extractions/:id. The local dev bridge answers synchronously with the
@@ -87,6 +123,7 @@ export default function IntakeUpload({ onExtracted }: Props) {
     if (!om && !proforma) return
     setBusy('Sending documents…')
     setErr(null)
+    setPendingId(null) // a fresh submission supersedes any resumable job
     try {
       const extractionId = crypto.randomUUID()
       const r = await fetch('/api/extract', {
@@ -116,22 +153,21 @@ export default function IntakeUpload({ onExtracted }: Props) {
       }
 
       // 202 (background) — poll for the result.
-      const started = Date.now()
-      const GIVE_UP_MS = 5 * 60_000
-      while (Date.now() - started < GIVE_UP_MS) {
-        const secs = Math.round((Date.now() - started) / 1000)
-        setBusy(`Deep-reading the documents — extracting ~30 cited fields (${secs}s)…`)
-        await new Promise(res => setTimeout(res, 3000))
-        const p = await fetch(`/api/extractions/${extractionId}`)
-        if (!p.ok) continue
-        const data = await p.json()
-        if (data.status === 'done') {
-          onExtracted(data as ExtractionResult)
-          return
-        }
-        if (data.status === 'error') throw new Error(data.error ?? 'Extraction failed')
-      }
-      throw new Error('Extraction timed out after 5 minutes — try again or load the recorded sample')
+      await pollExtraction(extractionId)
+    } catch (e) {
+      setErr(String((e as Error).message ?? e))
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  // RESUME path: restart polling for the deadline-lapsed job — same id, no
+  // second model call.
+  const checkAgain = async (id: string) => {
+    setErr(null)
+    setBusy('Checking the extraction…')
+    try {
+      await pollExtraction(id)
     } catch (e) {
       setErr(String((e as Error).message ?? e))
     } finally {
@@ -211,6 +247,12 @@ export default function IntakeUpload({ onExtracted }: Props) {
           )}
         </div>
       )}
+      {pendingId && !busy && (
+        <div className="iu-resume">
+          <button className="secondary" onClick={() => checkAgain(pendingId)}>CHECK AGAIN</button>
+          <span className="iu-resume-note">keeps watching the submitted extraction — does not start a new one</span>
+        </div>
+      )}
       <div className="iu-sample">
         <button className="iu-sample-btn" onClick={() => onExtracted(SAMPLE_EXTRACTION)}>
           <span className="iu-sample-big">New here? Load the sample deal →</span>
@@ -239,6 +281,9 @@ const CSS = `
 .iu-actions button{letter-spacing:.08em;font-size:12.5px}
 .iu-busy{font-size:.82rem;color:#3f7d69}
 .iu-err{margin-top:1.25rem;background:#fbecef;color:#c2384a;border:1px solid #f0c8d0;border-radius:10px;padding:.9rem 1.1rem;font-size:.85rem;line-height:1.5}
+.iu-resume{margin-top:1rem;display:flex;align-items:center;gap:.9rem;flex-wrap:wrap}
+.iu-resume button{letter-spacing:.08em;font-size:12px}
+.iu-resume-note{font-size:.78rem;color:var(--muted,#5c6b67)}
 .iu-sample{margin-top:1.75rem;border-top:1px solid var(--border,#dcebe7);padding-top:1.25rem}
 button.iu-sample-btn{display:block;width:100%;background:#63cda9;border:2px solid #63cda9;border-radius:12px;padding:1.1rem 1.5rem;text-align:center;box-shadow:0 6px 18px rgba(99,205,169,.35);transition:transform .15s ease,box-shadow .15s ease,background .15s,border-color .15s,color .15s}
 button.iu-sample-btn:hover{background:#090e11;border-color:#090e11;transform:translateY(-1px);box-shadow:0 9px 24px rgba(9,14,17,.25)}

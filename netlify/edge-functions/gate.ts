@@ -5,8 +5,14 @@
 // privileged state fails CLOSED: if a site has SUPABASE_SERVICE_ROLE_KEY and
 // no PILOT_PASSWORD, every /api/* path returns 503 until the password is set,
 // so deletes, rulebook writes, macro overrides and the deal ledger can never
-// be publicly reachable. Operator order: set PILOT_PASSWORD on a site BEFORE
-// giving that site Supabase credentials; if you see the 503, set it now.
+// be publicly reachable. Likewise for paid model spend: ANTHROPIC_API_KEY on
+// an open site 503s the extraction paths (/api/extract, /api/extract-run,
+// /api/extractions/*) unless the operator explicitly opts in by setting
+// PUBLIC_EXTRACTION=allow (the public client site's rate-limited demo runs
+// with that opt-in). Operator order: set PILOT_PASSWORD on a site BEFORE
+// giving that site Supabase credentials; if you see either 503, set
+// PILOT_PASSWORD now — or, for a deliberately public extraction demo,
+// set PUBLIC_EXTRACTION=allow.
 //
 // Why a login PAGE and not HTTP Basic Auth: many environments (in-app
 // browsers, webviews, some Edge/Windows setups) never show the native Basic
@@ -97,6 +103,22 @@ export default async (request: Request, context: Context) => {
         JSON.stringify({
           error:
             "API disabled: privileged integrations require PILOT_PASSWORD — this site has SUPABASE_SERVICE_ROLE_KEY configured but no gate password. Set PILOT_PASSWORD on this site to re-enable the API.",
+        }),
+        { status: 503, headers: { "Content-Type": "application/json" } },
+      );
+    }
+    // Same fail-closed default for paid model spend: an Anthropic key on an
+    // open site must not leave extraction publicly invocable by accident.
+    // PUBLIC_EXTRACTION=allow is the explicit opt-in for a public demo.
+    if (
+      Netlify.env.get("ANTHROPIC_API_KEY") &&
+      Netlify.env.get("PUBLIC_EXTRACTION") !== "allow" &&
+      (pathname === "/api/extract" || pathname === "/api/extract-run" || pathname.startsWith("/api/extractions"))
+    ) {
+      return new Response(
+        JSON.stringify({
+          error:
+            "Extraction disabled: paid extraction on an open site requires PILOT_PASSWORD — this site has ANTHROPIC_API_KEY configured but no gate password. Set PILOT_PASSWORD, or set PUBLIC_EXTRACTION=allow to deliberately run extraction publicly.",
         }),
         { status: 503, headers: { "Content-Type": "application/json" } },
       );

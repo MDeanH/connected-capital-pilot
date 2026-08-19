@@ -1,3 +1,4 @@
+import { EXTRACT_FIELDS } from './fields'
 import type {
   CheckDef,
   CheckResult,
@@ -10,6 +11,24 @@ import type {
 } from './types'
 
 /**
+ * Undefined → null for every registry field: a workbook that OMITS a column
+ * must evaluate as MISSING (→ REVIEW), not as a failing boolean or a NaN
+ * seeping through derivations. Non-finite numbers normalize to null too.
+ * String fields stay as-is — no check null-gates them.
+ */
+export function normalizeDealFields(fields: DealFields): DealFields {
+  const out: DealFields = { ...fields }
+  for (const def of EXTRACT_FIELDS) {
+    if (def.kind === 'string') continue
+    const v = out[def.key]
+    if (v === undefined || (typeof v === 'number' && !Number.isFinite(v))) {
+      ;(out as Record<keyof DealFields, unknown>)[def.key] = null
+    }
+  }
+  return out
+}
+
+/**
  * Gate 1: 10 hard kills + 8 watch flags. Pure — no I/O, no Date, no literals:
  * every threshold comes from `resolved` (config × posture × judgment adjustments).
  *
@@ -18,10 +37,11 @@ import type {
  * above = FAIL.
  */
 export function evaluateGate1(
-  fields: DealFields,
+  rawFields: DealFields,
   resolved: Record<string, ResolvedThreshold>,
   config: Gate1Config,
 ): GateResult {
+  const fields = normalizeDealFields(rawFields)
   const d = derive(fields)
   const fragilePct = resolved['fragile_margin_pct']?.effective ?? 0.1
 
@@ -159,6 +179,9 @@ function runCheck(
     comparator: '<=' | '>=',
     fmt: (n: number) => string,
   ): CheckResult => {
+    // A non-finite value is a derivation over degenerate inputs (e.g. 0/0) —
+    // report missing, never let a NaN comparison read as a silent failure.
+    if (value !== null && !Number.isFinite(value)) value = null
     if (value === null || threshold === null)
       return { ...base, threshold, comparator, status: 'missing', value, valueDisplay: 'missing', margin: null }
     const margin = comparator === '<=' ? threshold.effective - value : value - threshold.effective
