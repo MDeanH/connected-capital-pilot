@@ -80,3 +80,4 @@ data/*.csv
 !data/README.md
 # BEA raw zip (population source for ingest_permits.py)
 data/*.zip
+deno.lock
