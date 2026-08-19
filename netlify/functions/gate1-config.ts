@@ -124,15 +124,17 @@ export function configShapeError(c: any): string | null {
   // posture and reject any hole. The shipped default passes mechanically:
   // each canonical key has a ('*','*') row or ('*',posture) rows covering
   // all three postures.
-  const resolves = (key: string, assetClass: string, posture: Posture): boolean => {
+  const pickRowMirror = (key: string, assetClass: string, posture: string): any => {
     const candidates = (c.thresholds as any[]).filter((r) => r.key === key)
-    return Boolean(
+    return (
       candidates.find((r) => r.asset_class === assetClass && r.posture === posture) ??
       candidates.find((r) => r.asset_class === '*' && r.posture === posture) ??
       candidates.find((r) => r.asset_class === assetClass && r.posture === '*') ??
-      candidates.find((r) => r.asset_class === '*' && r.posture === '*'),
+      candidates.find((r) => r.asset_class === '*' && r.posture === '*')
     )
   }
+  const resolves = (key: string, assetClass: string, posture: Posture): boolean =>
+    Boolean(pickRowMirror(key, assetClass, posture))
   for (const ch of c.checks) {
     for (const key of CHECK_THRESHOLD_KEYS[ch.id as keyof typeof CHECK_THRESHOLD_KEYS]) {
       if (!rowKeys.has(key)) {
@@ -146,6 +148,36 @@ export function configShapeError(c: any): string | null {
         }
       }
     }
+  }
+  // rents_vs_comps (lib/gate1/engine.ts) trips on rentPremium > flag and
+  // DOUBLES the flag points when it also exceeds severe (tripped && severe).
+  // If the RESOLVED severe sits below the RESOLVED flag in some context, every
+  // deal past the flag line is automatically past the severe line too — every
+  // ordinarily-flagged deal is double-flagged, and the intended single-flag
+  // band between the two disappears. The two keys resolve independently per
+  // (asset_class, posture) — e.g. a class-scoped severe row can undercut a
+  // global flag row — so the ordering must hold for the resolved PAIR in every
+  // supported context, not merely row-by-row.
+  for (const assetClass of SUPPORTED_ASSET_CLASSES) {
+    for (const posture of POSTURES) {
+      const flagRow = pickRowMirror('rent_premium_flag', assetClass, posture)
+      const severeRow = pickRowMirror('rent_premium_severe', assetClass, posture)
+      if (flagRow && severeRow && severeRow.value < flagRow.value) {
+        return `rent_premium_severe resolves to ${severeRow.value}, below rent_premium_flag ${flagRow.value}, for (${assetClass}, ${posture}) — the engine doubles flag points when a deal exceeds BOTH thresholds, so a severe threshold below the flag threshold double-flags every ordinarily-flagged deal in that context; the resolved severe must be >= the resolved flag`
+      }
+    }
+  }
+  // Back-testing (src/Backtest.tsx fetchParForVersion) and the intake par
+  // display (src/DealIntake.tsx) read this version's par IRR as the literal
+  // ('*', '*') irr_benchmark row — NOT through the pickRow fallback chain —
+  // so per-context coverage cannot substitute for the global row. An active
+  // config without it makes every backtest run refuse to grade ("rulebook vN
+  // has no '*','*' irr_benchmark row"). The shipped default carries exactly
+  // this row.
+  if (!(c.thresholds as any[]).some(
+    (r) => r.key === 'irr_benchmark' && r.asset_class === '*' && r.posture === '*',
+  )) {
+    return `thresholds needs an irr_benchmark row scoped ('*', '*') — backtest grading reads exactly that row as this version's par IRR (it does not fall back through scoped rows), so an active config without it makes back-testing refuse to grade every run`
   }
   const vb = c.verdictBands
   if (!vb || typeof vb.passMaxFlagPts !== 'number' || !Number.isFinite(vb.passMaxFlagPts) ||
@@ -229,6 +261,34 @@ export function configShapeError(c: any): string | null {
   if (weightSum <= 0) {
     return 'macro signal weights sum to 0 — at least one signal weight must be positive, or every regime score is 0/0'
   }
+  // computeMacroSnapshot (lib/gate1/macro.ts) hard-codes three signal ROLES by
+  // exact id — they are engine-consumed, not free-form config:
+  //   'sahm'     → the hard recession override compares its VALUE as a level
+  //                against the published 0.5 Sahm trigger (transform 'level');
+  //   'gdp'      → the quadrant reads its value as yoy real-GDP growth, and
+  //                its raw series drives the technical-recession override
+  //                (transform 'yoy');
+  //   'core_pce' → the quadrant reads its value as yoy inflation
+  //                (transform 'yoy').
+  // Renaming one of these ids silently DISABLES the override / blanks the
+  // quadrant to 'unknown' (find() by id just misses), and flipping a transform
+  // feeds the wrong units into those hard-coded comparisons — e.g. sahm-as-yoy
+  // breaks the 0.5pp trigger, gdp-as-level misclassifies the quadrant. So the
+  // three roles are pinned here.
+  const ENGINE_SIGNAL_ROLES = [
+    { id: 'sahm', transform: 'level', role: 'the Sahm-rule hard recession override compares its value, as a level, against the published 0.5 trigger' },
+    { id: 'gdp', transform: 'yoy', role: 'the quadrant reads its value as yoy real-GDP growth (and its raw series drives the technical-recession override)' },
+    { id: 'core_pce', transform: 'yoy', role: 'the quadrant reads its value as yoy inflation' },
+  ] as const
+  for (const need of ENGINE_SIGNAL_ROLES) {
+    const s = m.signals.find((x: any) => x && x.id === need.id)
+    if (!s) {
+      return `macro signals must include id "${need.id}" — the macro engine (lib/gate1/macro.ts) consumes that exact id: ${need.role}. Without it that engine behavior is silently disabled`
+    }
+    if (s.transform !== need.transform) {
+      return `macro signal "${need.id}" must have transform "${need.transform}" (got ${JSON.stringify(s.transform)}) — the macro engine consumes it by role: ${need.role}, so any other transform feeds the wrong units into that hard-coded comparison`
+    }
+  }
   for (const [id, w] of Object.entries(m.signalWeights)) {
     if (!finite(w) || (w as number) < 0) {
       return `macro signalWeights["${id}"] must be a finite number >= 0`
@@ -287,6 +347,21 @@ export function configShapeError(c: any): string | null {
     if (!rec || typeof rec !== 'object' || Array.isArray(rec) ||
         !Object.values(rec).every((v) => finite(v))) {
       return `macro hurdleStack ${key} must be an object of finite numbers`
+    }
+  }
+  // The every-over-finite check above passes vacuously on {} — but
+  // computeMacroSnapshot (lib/gate1/macro.ts) reads the pilot fund's hurdle
+  // as complexityBpsByStrategy['development'] ?? 0 and regimeBps[regime] ?? 0:
+  // a missing entry never fails, it silently contributes 0 bps and UNDERSTATES
+  // the hurdle every deal is judged against. So the engine-consumed entries
+  // are required: the 'development' strategy (the pilot fund's hard-coded
+  // strategy) and every canonical regime.
+  if (!('development' in hs.complexityBpsByStrategy)) {
+    return `macro hurdleStack complexityBpsByStrategy needs a "development" entry — the macro engine reads the pilot fund's complexity premium from exactly that key (complexityBpsByStrategy['development'] ?? 0), so without it the hurdle is silently understated by the whole complexity premium`
+  }
+  for (const regime of REGIMES) {
+    if (!(regime in hs.regimeBps)) {
+      return `macro hurdleStack regimeBps is missing regime "${regime}" — the macro engine reads regimeBps[activeRegime] ?? 0, so a missing regime silently contributes 0 bps and understates the hurdle whenever that regime is active; it must cover exactly ${REGIMES.join(', ')}`
     }
   }
   return null

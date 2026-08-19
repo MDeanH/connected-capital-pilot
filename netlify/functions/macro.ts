@@ -74,6 +74,14 @@ async function latestStored(
   return { stored: { row: data, snapshot: (data.snapshot ?? data) as MacroSnapshot } }
 }
 
+// Shared freshness rule: a stored snapshot still prevails (via /latest) —
+// and its manual readings still carry into a new override — only while it is
+// at most MAX_SNAPSHOT_AGE_DAYS old.
+const isFreshStored = (stored: { row: any; snapshot: MacroSnapshot }): boolean => {
+  const recordedAt = Date.parse(stored.row.created_at ?? stored.snapshot.week_of ?? '')
+  return Number.isFinite(recordedAt) && Date.now() - recordedAt <= MAX_SNAPSHOT_AGE_DAYS * 86_400_000
+}
+
 /** Fetch every configured FRED series (signals + market ids) and compute a snapshot. */
 async function computeLive(
   config: Gate1Config,
@@ -140,14 +148,52 @@ export default async (req: Request, _context: Context): Promise<Response> => {
     // unaffected (it bypasses scoring); signal-only overrides score against
     // the automatic baseline, so manual chains can never stack wins.
     let previous: MacroSnapshot | null = null
+    // Manual-reading lifetime rule: a reading entered for a manual-entry
+    // signal (fred: null, e.g. ISM) persists across later manual overrides
+    // and expires at the next AUTOMATIC snapshot — macro-cron passes no
+    // manualValues to its compute, so the weekly auto row stores those
+    // signals as null and nothing carries from it (confirmed in
+    // macro-cron.ts). Without this carry, a later regime-only override would
+    // replace the prevailing snapshot and silently drop previously-entered
+    // readings (ISM → NO DATA), contradicting the dashboard's "hold until
+    // next Monday's automatic snapshot" copy. Readings carry only from the
+    // newest stored snapshot while it is still fresh enough to prevail
+    // (isFreshStored — /latest's own bound): a snapshot /latest already
+    // refuses to serve must not resurrect its readings. Only ids the ACTIVE
+    // config marks manual-entry carry — a manual correction of a live FRED
+    // feed stays a one-snapshot judgment.
+    const carried: Record<string, number> = {}
     if (db) {
-      const latest = await latestStored(db, { source: 'auto' })
-      if (!latest) return json(503, { error: STORED_UNAVAILABLE })
-      previous = latest.stored?.snapshot ?? null
+      const latestAuto = await latestStored(db, { source: 'auto' })
+      if (!latestAuto) return json(503, { error: STORED_UNAVAILABLE })
+      previous = latestAuto.stored?.snapshot ?? null
+      // Any-source lookup: the newest row is what /latest serves. If it is an
+      // auto row its manual-config signals are already null (see above), so
+      // the carry is naturally empty — expiry needs no special case. A failed
+      // read 503s: silently skipping the carry would drop readings, which is
+      // the exact bug this exists to prevent.
+      const latestAny = await latestStored(db)
+      if (!latestAny) return json(503, { error: STORED_UNAVAILABLE })
+      if (latestAny.stored && isFreshStored(latestAny.stored)) {
+        for (const sig of latestAny.stored.snapshot.signals ?? []) {
+          if (manualSignalIds.includes(sig.id) && typeof sig.value === 'number' && Number.isFinite(sig.value)) {
+            carried[sig.id] = sig.value
+          }
+        }
+      }
     }
+    // Request values win over carried ones. Clearing semantics: an explicit
+    // null (or non-numeric) entry in signalValues overrides the carried
+    // number, computeMacroSnapshot ignores the non-finite value (the signal
+    // reads NO DATA), and the persisted snapshot stores it as null — so the
+    // cleared reading does not carry into later overrides either.
+    const requested: Record<string, unknown> =
+      body.signalValues && typeof body.signalValues === 'object' ? body.signalValues : {}
     const snapshot = await computeLive(active.config, {
       previous,
-      manualValues: body.signalValues && typeof body.signalValues === 'object' ? body.signalValues : undefined,
+      // computeMacroSnapshot validates per-entry (finite numbers only), which
+      // is what makes the null/garbage clearing path above safe to pass through.
+      manualValues: { ...carried, ...requested } as Record<string, number>,
       forcedRegime: body.regime as Regime | undefined,
       source: 'manual',
       note: body.note.trim(),
@@ -208,9 +254,7 @@ export default async (req: Request, _context: Context): Promise<Response> => {
     if (!latest) return json(503, { error: STORED_UNAVAILABLE })
     const stored = latest.stored
     if (stored) {
-      const recordedAt = Date.parse(stored.row.created_at ?? stored.snapshot.week_of ?? '')
-      const fresh = Number.isFinite(recordedAt) && Date.now() - recordedAt <= MAX_SNAPSHOT_AGE_DAYS * 86_400_000
-      if (fresh) {
+      if (isFreshStored(stored)) {
         // manualSignalIds is best-effort here: it rides from the ACTIVE config
         // (the snapshot's readings can't say whether a feed exists), and a
         // failed rulebook read must not 503 a perfectly good stored snapshot —

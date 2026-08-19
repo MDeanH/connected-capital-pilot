@@ -75,8 +75,13 @@ export default async (req: Request, context: Context): Promise<Response> => {
     if (body.fields !== undefined) patch.fields = body.fields
     if (body.status !== undefined) patch.status = String(body.status).slice(0, 40)
     if (body.name !== undefined) patch.name = String(body.name).slice(0, 200)
-    const { error } = await db.from('deals').update(patch).eq('id', id)
-    return error ? json(500, { error: error.message }) : json(200, { ok: true })
+    // Ask for the matched row back: Supabase's update matches zero rows
+    // WITHOUT error, so a valid-but-nonexistent id (e.g. a concurrently
+    // deleted deal) used to return ok:true and the client believed the edit
+    // persisted. No row back → 404, same shape as GET /deals/:id.
+    const { data, error } = await db.from('deals').update(patch).eq('id', id).select('id').maybeSingle()
+    if (error) return json(500, { error: error.message })
+    return data ? json(200, { ok: true }) : json(404, { error: 'Deal not found' })
   }
 
   return new Response('Method not allowed', { status: 405 })

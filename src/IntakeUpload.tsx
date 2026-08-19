@@ -16,6 +16,41 @@ const MAX_PDF_BYTES = 3_300_000 // base64 inflates ~4/3; keep the body under the
 // dead and a resubmit burns a second model call on the same documents.
 const POLL_DEADLINE_MS = 15.5 * 60_000
 
+// The pending extraction id also lives in localStorage, not just component
+// state: a tab navigation or refresh mid-job would otherwise strand a
+// still-running 15-minute extraction into a paid resubmit. The id is safe to
+// store — it is a client-minted random UUID that contains no deal data; the
+// extracted content stays server-side until a poll returns it. A stored record
+// older than the worker's window is useless (the job is terminal by then), so
+// restore only inside ~16 minutes of the submission.
+const PENDING_STORE_KEY = 'cc_pending_extraction_v1'
+const PENDING_RESTORE_WINDOW_MS = 16 * 60_000
+
+function readStoredPendingId(): string | null {
+  try {
+    const raw = localStorage.getItem(PENDING_STORE_KEY)
+    if (raw) {
+      const rec = JSON.parse(raw) as { id?: unknown; submittedAt?: unknown }
+      const age = Date.now() - Date.parse(String(rec?.submittedAt ?? ''))
+      if (
+        typeof rec?.id === 'string' && /^[a-z0-9-]{8,64}$/i.test(rec.id) &&
+        Number.isFinite(age) && age >= 0 && age < PENDING_RESTORE_WINDOW_MS
+      ) {
+        return rec.id
+      }
+      localStorage.removeItem(PENDING_STORE_KEY) // stale or malformed — clean up
+    }
+  } catch { /* localStorage unavailable (private mode etc.) — resume degrades to in-memory */ }
+  return null
+}
+
+function writeStoredPending(id: string | null) {
+  try {
+    if (id) localStorage.setItem(PENDING_STORE_KEY, JSON.stringify({ id, submittedAt: new Date().toISOString() }))
+    else localStorage.removeItem(PENDING_STORE_KEY)
+  } catch { /* storage unavailable — component state still covers this tab */ }
+}
+
 interface Props {
   onExtracted: (result: ExtractionResult) => void
 }
@@ -43,8 +78,20 @@ export default function IntakeUpload({ onExtracted }: Props) {
   // accepts the submission and cleared ONLY on a terminal result (done/error
   // from the API) — so neither the poll deadline nor a thrown poll failure can
   // strand a live job. CHECK AGAIN resumes polling this id instead of paying
-  // for a resubmit.
-  const [pendingId, setPendingId] = useState<string | null>(null)
+  // for a resubmit. Initialized from localStorage so a refresh or tab
+  // navigation mid-job restores the affordance instead of stranding the job.
+  const [pendingId, setPendingId] = useState<string | null>(readStoredPendingId)
+  // True while pendingId came from storage (a previous page load) rather than
+  // this session's own submission — drives honest resume copy: the job MAY
+  // still be running, or may have finished/failed while we weren't watching.
+  const [pendingRestored, setPendingRestored] = useState<boolean>(() => pendingId !== null)
+  // Terminal outcomes clear both state and storage — the one place that
+  // decides "nothing left to resume".
+  const clearPending = () => {
+    setPendingId(null)
+    setPendingRestored(false)
+    writeStoredPending(null)
+  }
   const omInput = useRef<HTMLInputElement>(null)
   const xlsInput = useRef<HTMLInputElement>(null)
 
@@ -105,26 +152,39 @@ export default function IntakeUpload({ onExtracted }: Props) {
       setBusy(`Deep-reading the documents — extracting ~30 cited fields (${clock})…`)
       const wait = elapsed < 60_000 ? 3000 : elapsed < 5 * 60_000 ? 6000 : 12_000
       await new Promise(res => setTimeout(res, wait))
-      let data: any
+      let data: any = null
+      let expired = false
       try {
         const p = await fetch(`/api/extractions/${extractionId}`)
-        if (!p.ok) continue // transient server-side hiccup — keep polling
-        data = await p.json()
+        expired = p.status === 410
+        if (!p.ok && !expired) continue // transient server-side hiccup — keep polling
+        data = await p.json().catch(() => null)
+        if (data === null && !expired) continue // body wasn't JSON — transient, keep polling
       } catch {
-        continue // fetch rejected or the body wasn't JSON — transient, keep polling
+        continue // fetch rejected — transient, keep polling
+      }
+      if (expired) {
+        // The server expired this record (results are retained 7 days; a stuck
+        // job's stub 1 day) — terminal: there is nothing left to watch, so
+        // don't keep offering CHECK AGAIN for it.
+        clearPending()
+        throw new Error(data?.error ?? 'Extraction result expired')
       }
       if (data.status === 'done') {
-        setPendingId(null)
+        clearPending()
         // Carry the extraction id into app state: the decide call needs it to
         // link the persisted extractions row (whose PK is this id) to the deal.
         onExtracted({ ...(data as ExtractionResult), extractionId })
         return
       }
       if (data.status === 'error') {
-        setPendingId(null)
+        clearPending()
         throw new Error(data.error ?? 'Extraction failed')
       }
     }
+    // Deadline lapse is non-terminal: keep the id resumable in state. Storage
+    // already holds it from the 202 acceptance (with the true submittedAt), so
+    // no re-write here — re-stamping would wrongly extend the restore window.
     setPendingId(extractionId)
     throw new Error('No result yet after 15 minutes — the extraction may still be running in the background. CHECK AGAIN below keeps watching the same job; resubmitting would start a new extraction from scratch.')
   }
@@ -137,7 +197,7 @@ export default function IntakeUpload({ onExtracted }: Props) {
     if (!om && !proforma) return
     setBusy('Sending documents…')
     setErr(null)
-    setPendingId(null) // a fresh submission supersedes any resumable job
+    clearPending() // a fresh submission supersedes any resumable job (state AND storage)
     try {
       const extractionId = crypto.randomUUID()
       const r = await fetch('/api/extract', {
@@ -171,9 +231,12 @@ export default function IntakeUpload({ onExtracted }: Props) {
       // 202 (background) — the submission is accepted and the worker is
       // running, so the id becomes resumable NOW, before the first poll:
       // whatever non-terminal way the polling below exits (deadline, or an
-      // unexpected throw), CHECK AGAIN can pick this job back up. Only a
-      // terminal done/error from the API clears it.
+      // unexpected throw), CHECK AGAIN can pick this job back up — including
+      // from a fresh page load, via the localStorage record written here. Only
+      // a terminal done/error from the API clears it.
       setPendingId(extractionId)
+      setPendingRestored(false)
+      writeStoredPending(extractionId)
       await pollExtraction(extractionId)
     } catch (e) {
       setErr(String((e as Error).message ?? e))
@@ -271,7 +334,11 @@ export default function IntakeUpload({ onExtracted }: Props) {
       {pendingId && !busy && (
         <div className="iu-resume">
           <button className="secondary" onClick={() => checkAgain(pendingId)}>CHECK AGAIN</button>
-          <span className="iu-resume-note">keeps watching the submitted extraction — does not start a new one</span>
+          <span className="iu-resume-note">
+            {pendingRestored
+              ? 'an extraction submitted from this browser a few minutes ago may still be running — CHECK AGAIN picks it back up instead of starting (and paying for) a new one'
+              : 'keeps watching the submitted extraction — does not start a new one'}
+          </span>
         </div>
       )}
       <div className="iu-sample">
