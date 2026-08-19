@@ -23,7 +23,18 @@ import { serviceClient } from './lib/supabase.ts'
 const REGIME_KEYS: Record<Regime, true> = { soft_landing: true, stagflation: true, recession: true }
 const REGIMES = Object.keys(REGIME_KEYS) as Regime[]
 const POSTURE_KEYS: Record<Posture, true> = { green: true, yellow: true, red: true }
+const POSTURES = Object.keys(POSTURE_KEYS) as Posture[]
 const EXECUTABLE_IDS = new Set<string>(EXECUTABLE_CHECK_IDS)
+
+// The supported asset-class registry — mirrors SUPPORTED_ASSET_CLASSES in
+// netlify/functions/gate1.ts, ASSET_CLASSES in src/deal-types.ts, and the
+// asset_class extraction hint in lib/gate1/fields.ts (keep all four in sync;
+// asset classes are plain strings in types.ts, so unlike Regime/Posture there
+// is no union type for tsc to pin this mirror against). Threshold rows scoped
+// to a class outside this list can never match a real deal — gate1.ts 400s any
+// asset_class not in this registry — so such a row is dead weight at best and,
+// combined with the resolvability rule below, evidence of a typo'd config.
+const SUPPORTED_ASSET_CLASSES = ['rv_specialty', 'multifamily', 'industrial', 'retail', 'office']
 
 /**
  * A saved config becomes the ACTIVE rulebook for every evaluation — a
@@ -85,16 +96,54 @@ export function configShapeError(c: any): string | null {
         typeof r.key !== 'string' || typeof r.value !== 'number' || !Number.isFinite(r.value)) {
       return 'every threshold row needs asset_class, posture, key and a finite numeric value'
     }
+    // Row scope must be resolvable: pickRow (lib/gate1/thresholds.ts) matches
+    // asset_class/posture by string equality, so a row scoped to an unknown
+    // class or a misspelled posture (e.g. 'gren') exists in the config — and
+    // satisfies a bare presence check — yet can never be selected for any real
+    // deal. Reject the row itself, naming its scope.
+    if (r.asset_class !== '*' && !SUPPORTED_ASSET_CLASSES.includes(r.asset_class)) {
+      return `threshold row for "${r.key}" is scoped to unknown asset class "${r.asset_class}" — asset_class must be '*' or one of: ${SUPPORTED_ASSET_CLASSES.join(', ')}`
+    }
+    if (r.posture !== '*' && !(r.posture in POSTURE_KEYS)) {
+      return `threshold row for "${r.key}" is scoped to unknown posture "${r.posture}" — posture must be '*' or one of: ${POSTURES.join(', ')}`
+    }
   }
   // Row presence keys off the engine's CANONICAL key set (what runCheck's
   // t('...') calls actually dereference), not the declared thresholdKeys —
   // the two are equal by the rule above, but the canonical set is the ground
   // truth for what evaluation will read.
   const rowKeys = new Set<string>(c.thresholds.map((r: any) => r.key))
+  // Presence somewhere is NOT resolvability: resolveThresholds (pickRow in
+  // lib/gate1/thresholds.ts) resolves each key per (asset_class, posture)
+  // through the chain (class, posture) → ('*', posture) → (class, '*') →
+  // ('*', '*'). A key supplied only for, say, (rv_specialty, green) passes a
+  // bare presence check, yet every other class/posture combination resolves
+  // nothing — runCheck then reads a null threshold, the check goes 'missing',
+  // and complete deals in those combinations verdict REVIEW. So mirror the
+  // chain here for every canonical key × every supported class × every
+  // posture and reject any hole. The shipped default passes mechanically:
+  // each canonical key has a ('*','*') row or ('*',posture) rows covering
+  // all three postures.
+  const resolves = (key: string, assetClass: string, posture: Posture): boolean => {
+    const candidates = (c.thresholds as any[]).filter((r) => r.key === key)
+    return Boolean(
+      candidates.find((r) => r.asset_class === assetClass && r.posture === posture) ??
+      candidates.find((r) => r.asset_class === '*' && r.posture === posture) ??
+      candidates.find((r) => r.asset_class === assetClass && r.posture === '*') ??
+      candidates.find((r) => r.asset_class === '*' && r.posture === '*'),
+    )
+  }
   for (const ch of c.checks) {
     for (const key of CHECK_THRESHOLD_KEYS[ch.id as keyof typeof CHECK_THRESHOLD_KEYS]) {
       if (!rowKeys.has(key)) {
         return `check "${ch.id}" needs threshold key "${key}" (its engine case reads it) but thresholds has no row for it`
+      }
+      for (const assetClass of SUPPORTED_ASSET_CLASSES) {
+        for (const posture of POSTURES) {
+          if (!resolves(key, assetClass, posture)) {
+            return `check "${ch.id}" threshold key "${key}" resolves no row for (${assetClass}, ${posture}) — the engine's fallback chain (class, posture) → ('*', posture) → (class, '*') → ('*', '*') finds nothing, so complete deals in that combination would verdict REVIEW; add a row covering it (an ('*', '*') row covers everything)`
+          }
+        }
       }
     }
   }
@@ -185,7 +234,14 @@ export function configShapeError(c: any): string | null {
       return `macro signalWeights["${id}"] must be a finite number >= 0`
     }
   }
-  if (!finite(m.minVotes) || m.minVotes < 1) return 'macro minVotes must be a finite number >= 1'
+  // computeMacroSnapshot (lib/gate1/macro.ts) flags a snapshot degraded when
+  // voted.length < minVotes, and voted.length can never exceed the configured
+  // signal count — so a minVotes above m.signals.length permanently degrades
+  // every future snapshot. Cap it at the signal count (and require an integer:
+  // it is compared against a count).
+  if (!Number.isInteger(m.minVotes) || m.minVotes < 1 || m.minVotes > m.signals.length) {
+    return `macro minVotes must be an integer between 1 and ${m.signals.length} (the configured signal count) — got ${JSON.stringify(m.minVotes)}; a minVotes above the signal count can never be met, so every future snapshot would be degraded`
+  }
   if (!finite(m.hysteresisWins) || m.hysteresisWins < 1) {
     return 'macro hysteresisWins must be a finite number >= 1'
   }

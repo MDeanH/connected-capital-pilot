@@ -19,7 +19,7 @@ import DealHistory from './DealHistory'
 import MarketPathCard from './MarketPathCard'
 import LoginCard from './LoginCard'
 import UsersPanel from './UsersPanel'
-import { authFetch, useIdentity, type AdminFlag } from './auth'
+import { authFetch, supabase, useIdentity, INTAKE_STATE_KEY, CONFIG_DRAFT_KEY, type AdminFlag } from './auth'
 import type { AvailableKey } from './JudgmentPanel'
 import type { ExtractionResult } from '../netlify/functions/lib/gate1/fields'
 import type { Gate1Config, MacroSnapshot, Regime } from '../netlify/functions/lib/gate1/types'
@@ -36,8 +36,10 @@ import type {
 type Step = 'intake' | 'review' | 'results' | 'thresholds' | 'macro' | 'backtest' | 'evidence' | 'deals' | 'users'
 const STEP_IDS: Step[] = ['intake', 'review', 'results', 'thresholds', 'macro', 'backtest', 'evidence', 'deals', 'users']
 
-const LS_KEY = 'cc_deal_intake_v1'
-const LS_DRAFT_KEY = 'cc_config_draft_v1'
+// Working-state storage keys live in auth.ts (one definition — signOut clears
+// them there); local aliases keep the call sites readable.
+const LS_KEY = INTAKE_STATE_KEY
+const LS_DRAFT_KEY = CONFIG_DRAFT_KEY
 
 // Matches the crypto.randomUUID() extraction ids IntakeUpload mints — only a
 // UUID-shaped id ever became the extractions row's PK server-side, so only
@@ -125,11 +127,27 @@ function matchesExtracted(
   return a === b
 }
 
-function loadSaved(): { fields: IntakeFormValues; adjustments: JudgmentAdjustment[]; step: Step; extraction: ExtractionResult | null; dealId: string | null } | null {
+type SavedIntake = { fields: IntakeFormValues; adjustments: JudgmentAdjustment[]; step: Step; extraction: ExtractionResult | null; dealId: string | null }
+
+/**
+ * Restore the persisted working state — but only for the identity that saved
+ * it. The payload is origin-wide localStorage, so on a shared browser it would
+ * otherwise hand the previous analyst's confidential deal (fields, citations,
+ * dealId) to whoever signs in next. A payload stamped with a different owner —
+ * or an owned payload read while signed out — is DISCARDED outright (removed,
+ * never re-stamped). Legacy payloads without a stamp read as anonymous
+ * (owner null), so auth-off deployments restore exactly as before.
+ */
+function loadSaved(owner: string | null): SavedIntake | null {
   try {
     const raw = localStorage.getItem(LS_KEY)
     if (!raw) return null
     const p = JSON.parse(raw)
+    const savedOwner: string | null = typeof p.owner === 'string' ? p.owner : null
+    if (savedOwner !== owner) {
+      localStorage.removeItem(LS_KEY)
+      return null
+    }
     return {
       fields: p.fields && typeof p.fields === 'object' ? p.fields : {},
       adjustments: Array.isArray(p.adjustments) ? p.adjustments : [],
@@ -143,7 +161,13 @@ function loadSaved(): { fields: IntakeFormValues; adjustments: JudgmentAdjustmen
 }
 
 export default function DealIntake() {
-  const [saved] = useState(loadSaved)
+  // Auth-off builds (no Supabase client) resolve identity synchronously —
+  // always anonymous — so the saved state restores right here in the
+  // initializers, exactly as it always has. Auth-capable builds start empty:
+  // the owner isn't known until the async session restore settles, and
+  // restoring before then would flash (and re-stamp) the previous analyst's
+  // confidential deal. They hydrate in the identity-gated effect below.
+  const [saved] = useState(() => (supabase === null ? loadSaved(null) : null))
   const [fields, setFields] = useState<IntakeFormValues>(() => saved?.fields ?? {})
   const [adjustments, setAdjustments] = useState<JudgmentAdjustment[]>(() => saved?.adjustments ?? [])
   const [step, setStep] = useState<Step>(() => saved?.step ?? 'intake')
@@ -185,6 +209,61 @@ export default function DealIntake() {
   // legacy visibility: every gated control renders exactly as before auth.
   const identity = useIdentity()
   const isAdmin: AdminFlag = identity.authEnabled === true ? identity.role === 'admin' : 'auth-off'
+
+  // --- Owner-gated hydration of the persisted working state ----------------
+  // hydratedRef: true once the owner-checked restore has run (immediately on
+  // auth-off builds, where the initializers restored synchronously). The save
+  // effect is gated on it so an empty pre-hydration render can never clobber
+  // the stored payload. ownerRef: the identity the CURRENT in-memory state
+  // belongs to — saves stamp this (never the live identity) so another
+  // account's data can't be re-labelled inside a sign-in/out transition tick.
+  const hydratedRef = useRef(supabase === null)
+  const ownerRef = useRef<string | null>(null)
+
+  const applyLoaded = (s: SavedIntake | null) => {
+    setFields(s?.fields ?? {})
+    setAdjustments(s?.adjustments ?? [])
+    setStep(s?.step ?? 'intake')
+    setExtraction(s?.extraction ?? null)
+    setDealId(s?.dealId ?? null)
+    // Derived per-deal state must not survive an identity reset either.
+    setLastResponse(null)
+    setDecision(null)
+    setPrefill(null)
+  }
+
+  useEffect(() => {
+    if (!identity.sessionReady) return // owner unknown — do not touch storage yet
+    const owner = identity.userId
+    if (!hydratedRef.current) {
+      // First hydration on an auth-capable build, now that the session
+      // restore settled and the owner is definitive.
+      hydratedRef.current = true
+      ownerRef.current = owner
+      const s = loadSaved(owner)
+      if (s) applyLoaded(s)
+      return
+    }
+    if (owner === ownerRef.current) return
+    const prev = ownerRef.current
+    ownerRef.current = owner
+    if (prev === null) {
+      // Anonymous work, then sign-in: the same human at the keyboard — keep
+      // the in-memory state and re-stamp the stored payload as theirs now, so
+      // it survives a reload under the signed-in identity.
+      try {
+        localStorage.setItem(LS_KEY, JSON.stringify({ owner, fields, adjustments, step, extraction, dealId }))
+      } catch { /* storage full/blocked — non-fatal */ }
+      return
+    }
+    // Signed out (or the account changed): the on-screen state belongs to the
+    // previous account — reset it and restore whatever the new identity owns
+    // (sign-out already cleared the keys; expiry leaves a payload loadSaved
+    // now discards). The config draft re-loads the same way.
+    applyLoaded(loadSaved(owner))
+    setDraft(loadDraft())
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- state reads are the render's own; re-running on them would be a no-op behind the owner guard
+  }, [identity.sessionReady, identity.userId])
 
   const fetchMacro = useCallback(async () => {
     setMacroLoading(true)
@@ -273,9 +352,13 @@ export default function DealIntake() {
   }, [activeConfig])
 
   // Persist the working state so a refresh never loses the analyst's inputs.
+  // Stamped with the owning identity (ownerRef — see hydration above) and
+  // gated until the owner-checked restore has run, so a pre-hydration render
+  // never clobbers the stored payload with an empty one.
   useEffect(() => {
+    if (!hydratedRef.current) return
     try {
-      localStorage.setItem(LS_KEY, JSON.stringify({ fields, adjustments, step, extraction, dealId }))
+      localStorage.setItem(LS_KEY, JSON.stringify({ owner: ownerRef.current, fields, adjustments, step, extraction, dealId }))
     } catch { /* storage full/blocked — non-fatal */ }
   }, [fields, adjustments, step, extraction, dealId])
 
@@ -570,7 +653,13 @@ export default function DealIntake() {
           {!canScore && <div className="card di-muted">Pick an asset class on the review step to score this deal.</div>}
           {canScore && (
             <>
-              <MacroStrip snapshot={macro} />
+              {/* Same posture the gates score under: this deal's asset class,
+                  '*' fallback — never the '*' posture beside a class-specific
+                  verdict (canScore guarantees asset_class is a valid string). */}
+              <MacroStrip
+                snapshot={macro}
+                assetClass={typeof coerced.asset_class === 'string' ? coerced.asset_class : undefined}
+              />
               {draftConfig && (
                 <div className="di-draft-note" role="note">
                   Scoring against your DRAFT thresholds (v{activeConfig?.version ?? 0} + edits) — decisions can't

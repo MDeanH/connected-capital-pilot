@@ -47,11 +47,30 @@ export type Role = 'admin' | 'analyst'
  */
 export type AdminFlag = boolean | 'auth-off'
 
+/**
+ * localStorage keys holding an analyst's confidential working state (deal
+ * intake draft, rulebook draft). Owned here so signOut can clear them and
+ * DealIntake can stamp/gate them from one definition — the payloads are
+ * origin-wide, so on a shared browser they must never outlive the account
+ * that wrote them.
+ */
+export const INTAKE_STATE_KEY = 'cc_deal_intake_v1'
+export const CONFIG_DRAFT_KEY = 'cc_config_draft_v1'
+
 export interface IdentityState {
   /** False only while the initial session restore / role probe is in flight. */
   ready: boolean
+  /**
+   * True once the initial session restore settled (immediately when auth is
+   * unconfigured) — the earliest point at which userId is definitive. Unlike
+   * `ready` it does NOT wait for the role probe (a network call), so state
+   * keyed to the user's identity can hydrate without that extra round trip.
+   */
+  sessionReady: boolean
   /** Signed-in email, or null when signed out (or auth unconfigured). */
   email: string | null
+  /** Signed-in Supabase user id, or null when signed out (or auth unconfigured). */
+  userId: string | null
   /** Resolved role; null while signed out, probing, or when the account has no active profile. */
   role: Role | null
   /**
@@ -143,7 +162,9 @@ export function useIdentity(): IdentityState {
 
   return {
     ready: restored && !probing,
+    sessionReady: restored,
     email: session?.user?.email ?? null,
+    userId,
     role: userId ? role : null,
     authEnabled,
   }
@@ -190,5 +211,13 @@ export async function signOut(): Promise<void> {
   // Roles can change between sessions (promotion, disable) — never carry a
   // verdict across a sign-out.
   roleCache.clear()
+  // The intake draft + config draft are this analyst's confidential working
+  // state — clear them outright so the next account (or a signed-out visitor)
+  // on a shared browser never sees the deal or appends decisions to it.
+  for (const k of [INTAKE_STATE_KEY, CONFIG_DRAFT_KEY]) {
+    try {
+      localStorage.removeItem(k)
+    } catch { /* storage blocked — non-fatal */ }
+  }
   await supabase.auth.signOut()
 }

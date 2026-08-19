@@ -274,7 +274,7 @@ function VoteTally({ signals, regime }: { signals: MacroSignalReading[]; regime:
 // Compact strip (results page)
 // ---------------------------------------------------------------------------
 
-export function MacroStrip({ snapshot }: { snapshot: MacroSnapshot | null }) {
+export function MacroStrip({ snapshot, assetClass }: { snapshot: MacroSnapshot | null; assetClass?: string }) {
   if (!snapshot) {
     return (
       <span className="md-strip">
@@ -283,7 +283,13 @@ export function MacroStrip({ snapshot }: { snapshot: MacroSnapshot | null }) {
       </span>
     )
   }
-  const posture: Posture | undefined = snapshot.postures['*'] ?? Object.values(snapshot.postures)[0]
+  // Posture resolution mirrors scoring (DealIntake's livePosture): the deal's
+  // asset class first, '*' fallback — so with an asset-specific override the
+  // strip can never show a different colour than the gates actually ran under.
+  // Without an assetClass the legacy '*'-first read stands.
+  const posture: Posture | undefined = assetClass
+    ? snapshot.postures[assetClass] ?? snapshot.postures['*']
+    : snapshot.postures['*'] ?? Object.values(snapshot.postures)[0]
   const notPersisted = (snapshot as { persisted?: boolean }).persisted === false
   const qLabel = snapshot.quadrant?.label
   return (
