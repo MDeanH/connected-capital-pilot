@@ -164,9 +164,10 @@ export default function DealHistory() {
             you see on the results step.
           </p>
           <p>
-            With persistence on, every recorded decision lands here as an append-only row — deal,
+            With persistence on, every recorded decision lands here as a row that is never edited — deal,
             verdict, rulebook version, macro posture and judgment adjustments — replayable exactly and
-            browsable as the fund's history of old deals.
+            browsable as the fund's history of old deals. Deals (and their decisions) can be deleted,
+            but a decision is never silently altered.
           </p>
         </div>
       )}

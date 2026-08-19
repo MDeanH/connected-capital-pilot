@@ -56,7 +56,7 @@ export default function IntakeUpload({ onExtracted }: Props) {
       return
     }
     if (isPdf && file.size > MAX_PDF_BYTES) {
-      setErr(`"${file.name}" is ${(file.size / 1e6).toFixed(1)}MB — compress the OM below ~3MB for sync extraction.`)
+      setErr(`"${file.name}" is ${(file.size / 1e6).toFixed(1)}MB — compress the OM below ~3MB — larger files exceed the submission limit.`)
       return
     }
     setBusy(isPdf ? 'Reading offering memorandum…' : 'Converting offering memorandum to text in your browser…')

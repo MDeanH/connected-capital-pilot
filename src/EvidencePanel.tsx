@@ -73,9 +73,10 @@ const ENGINE_MAP: Array<{ component: string; family: string; verdict: string; us
     use: 'Direct citation for why appraisal/NAV smoothing must be removed before risk estimates mean anything. The pilot uses transaction-based indices, which sidesteps NAV smoothing.',
   },
   {
+    // Two families, two verdicts — rendered as one badge each (split on ' · ').
     component: 'Yield edge (±0.30%/yr, within-state percentile)',
     family: 'eq-value · rates-carry-roll (analogues)',
-    verdict: 'Promising',
+    verdict: 'Supported pre-live · Promising',
     use: "The app's one return predictor is an income/value-type signal — the family type with the strongest support in the map. Cap and transparency match the map's cost/decay warnings.",
   },
   {
@@ -92,9 +93,9 @@ const ENGINE_MAP: Array<{ component: string; family: string; verdict: string; us
   },
   {
     component: 'Crime-as-context, permits headwind',
-    family: 'protocol (association vs forecast)',
+    family: 'method-eval-integrity',
     verdict: 'Methodology — not rated',
-    use: "The map's IS/POOS vocabulary gives the app's context-not-predictor discipline a citable standard.",
+    use: "The map's evaluation-integrity family — its in-sample-association vs out-of-sample-forecast distinction — gives the app's context-not-predictor discipline a citable standard.",
   },
   {
     component: 'Conditional market prior (live; capped ±2%/yr, gated)',
@@ -125,6 +126,7 @@ const CSS = `
 .ev-detail dt { font-weight: 700; font-size: 0.68rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); margin-top: 0.5rem; }
 .ev-detail dd { margin: 0.15rem 0 0; }
 .ev-map td:first-child { font-weight: 600; width: 26%; }
+.ev-verdicts { display: flex; flex-wrap: wrap; gap: 4px; }
 .ev-links { display: flex; gap: 0.75rem; flex-wrap: wrap; }
 .ev-links a { font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; font-weight: 500; color: var(--accent); text-decoration: none; border: 1px solid var(--border); border-radius: 6px; padding: 6px 12px; }
 `
@@ -194,7 +196,11 @@ export default function EvidencePanel() {
               <tr key={m.component}>
                 <td>{m.component}</td>
                 <td><code style={{ fontSize: '0.78rem' }}>{m.family}</code></td>
-                <td><VerdictBadge verdict={m.verdict} /></td>
+                <td>
+                  <div className="ev-verdicts">
+                    {m.verdict.split(' · ').map(v => <VerdictBadge key={v} verdict={v} />)}
+                  </div>
+                </td>
                 <td>{m.use}</td>
               </tr>
             ))}

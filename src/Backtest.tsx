@@ -251,6 +251,9 @@ export default function Backtest({ parIrr }: Props) {
           each one — on par, above, or below. Par is the house <Term k="irr">IRR</Term> benchmark
           ({pct(parIrr)}), and every deal runs through the exact engine live intake uses.
         </p>
+        <p className="bt-lede-note">
+          Draft thresholds don't apply here — back-tests always run the saved active rulebook.
+        </p>
         <div className="bt-actions">
           <button className="secondary" onClick={() => downloadBacktestTemplate()}>DOWNLOAD TEMPLATE</button>
           <button className="secondary" onClick={() => fileInput.current?.click()}>UPLOAD PAST DEALS (XLSX)</button>
@@ -369,6 +372,7 @@ const CSS = `
 .bt-hero{padding:2.5rem}
 .bt-hero h2{font-family:'Roboto',system-ui,sans-serif;font-weight:300;font-size:1.9rem;margin:.5rem 0 .4rem;letter-spacing:-.01em}
 .bt-lede{color:var(--muted,#5c6b67);font-size:.9rem;max-width:640px;line-height:1.6;margin:0 0 1.5rem}
+.bt-lede-note{color:var(--muted,#5c6b67);font-size:.78rem;max-width:640px;line-height:1.5;margin:-1rem 0 1.5rem}
 .bt-actions{display:flex;gap:.9rem;flex-wrap:wrap;align-items:center}
 .bt-actions button{letter-spacing:.08em;font-size:12px}
 button.bt-sample-link{background:transparent;border:none;color:var(--muted,#5c6b67);text-transform:none;letter-spacing:0;font-size:.8rem;text-decoration:underline;padding:.2rem 0}

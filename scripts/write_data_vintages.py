@@ -70,11 +70,30 @@ def main():
         ],
     }
     OUT.write_text(json.dumps(vintages, separators=(",", ":")))
-    print(f"Wrote {OUT}:")
+    print(f"Wrote {OUT}{tracked_note(OUT)}:")
     for d in vintages["datasets"]:
         print(f"  {d['id']:10s} vintage={d['vintage']}")
 
     update_landing_page(vintages)
+
+
+def tracked_note(path: Path) -> str:
+    """' (untracked in git — not shipped from this branch)' if git doesn't track path.
+
+    The parent line tracks and deploys both JSON manifests this script writes;
+    the deal-product line (cc-data-merge) removed them. Saying which case we're
+    in keeps a rebake's output honest on either line.
+    """
+    import subprocess
+
+    try:
+        r = subprocess.run(
+            ["git", "-C", str(ROOT), "ls-files", "--error-unmatch", str(path.relative_to(ROOT))],
+            capture_output=True,
+        )
+        return "" if r.returncode == 0 else " (untracked in git — not shipped from this branch)"
+    except Exception:
+        return ""
 
 
 def update_landing_page(vintages: dict):
@@ -104,7 +123,9 @@ def update_landing_page(vintages: dict):
     except Exception:
         stats["contextMarkets"] = None
     stats["vintagesTracked"] = len(vintages["datasets"])
-    (ROOT / "public/site-stats.json").write_text(json.dumps(stats, separators=(",", ":")))
+    stats_out = ROOT / "public/site-stats.json"
+    stats_out.write_text(json.dumps(stats, separators=(",", ":")))
+    print(f"Wrote {stats_out}{tracked_note(stats_out)}")
 
     page = ROOT / "public" / "how-it-works.html"
     if not page.exists():
@@ -119,11 +140,29 @@ def update_landing_page(vintages: dict):
         ("markets with the 8-dataset", stats["contextMarkets"]),
         ("dataset vintages tracked", stats["vintagesTracked"]),
     ]
+
+    # Anchor absence must be LOUD, never a silent "already in sync". The
+    # deal-product line's hero shows engine stats, not data stats — there the
+    # right outcome is an explicit skip. A PARTIAL match means the page was
+    # edited out from under us: fail the rebake and name the missing anchors.
+    def anchor_pat(label: str) -> re.Pattern:
+        return re.compile(r'data-n="(\d+)">([\d,]+)(</div>\s*<div class="stat-lbl">' + re.escape(label) + ")")
+
+    present = [label for label, _ in anchors if anchor_pat(label).search(s)]
+    if not present:
+        print("landing page carries no data-stat anchors (deal-product line) — hero patching skipped")
+        return
+    if len(present) < len(anchors):
+        missing = [label for label, _ in anchors if label not in present]
+        import sys
+        sys.exit(f"ERROR: landing page has SOME data-stat anchors but not all — missing: {missing}. "
+                 "Fix public/how-it-works.html (or this script's anchor list) before rebaking.")
+
     old_vals: dict[str, int] = {}
     for label, new in anchors:
         if not new:
             continue
-        pat = re.compile(r'data-n="(\d+)">([\d,]+)(</div>\s*<div class="stat-lbl">' + re.escape(label) + ")")
+        pat = anchor_pat(label)
         m = pat.search(s)
         if m:
             old_vals[label] = int(m.group(1))

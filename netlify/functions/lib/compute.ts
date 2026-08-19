@@ -7,7 +7,10 @@ import metros from './metros.json';
 import marketEdge from './market-edge.json';
 import marketPath from './market-path.json';
 
-const MACRO = { mortgage30y: 6.48, caseShillerYoy: 0.67, asof: '2026-03-31' };
+// Parent-line /api/score machinery: these macro figures are a pinned snapshot
+// (asof 2026-03-31), NOT a live feed. The `note` field ships in every response
+// so no consumer can mistake them for current data.
+const MACRO = { mortgage30y: 6.48, caseShillerYoy: 0.67, asof: '2026-03-31', note: 'fixed reference vintage — not live' };
 type Baseline = { label: string; ppy: number; returns: number[] };
 // ~895 real Zillow metro return histories + the named national baselines (Case-Shiller etc.).
 const BASELINES: Record<string, Baseline> = {

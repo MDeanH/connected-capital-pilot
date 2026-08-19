@@ -125,7 +125,12 @@ export default async (request: Request, context: Context) => {
     }
     return context.next();
   }
-  if (pathname === "/" || pathname === "/how-it-works.html") return context.next();
+  if (
+    pathname === "/" ||
+    pathname === "/how-it-works.html" ||
+    // Shareable research exhibit (published-study metadata only), linked from the open landing page.
+    pathname === "/evidence-network.html"
+  ) return context.next();
 
   const want = await sessionToken(password);
 

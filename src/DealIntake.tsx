@@ -240,6 +240,14 @@ export default function DealIntake() {
     return { coc, irr, equityMultiple: em, financingSpreadTypicalBps: spread }
   }, [activeConfig, draftConfig])
 
+  // Backtest par comes from the ACTIVE config only — backtest rows are scored
+  // server-side under the active rulebook (no configOverride is sent), so a
+  // draft-aware par would grade verdicts against thresholds they never ran under.
+  const activeParIrr = useMemo(() => {
+    const cfg = activeConfig?.config
+    return cfg?.thresholds.find(t => t.key === 'irr_benchmark' && t.asset_class === '*' && t.posture === '*')?.value ?? 0.12
+  }, [activeConfig])
+
   // Persist the working state so a refresh never loses the analyst's inputs.
   useEffect(() => {
     try {
@@ -568,7 +576,7 @@ export default function DealIntake() {
       )}
 
       {/* BACKTEST — run past deals through the current rulebook */}
-      {step === 'backtest' && <Backtest parIrr={benchmarks?.irr ?? 0.12} />}
+      {step === 'backtest' && <Backtest parIrr={activeParIrr} />}
 
       {/* EVIDENCE — the predictability evidence map behind the engine's design */}
       {step === 'evidence' && <EvidencePanel />}

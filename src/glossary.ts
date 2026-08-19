@@ -161,7 +161,7 @@ export const GLOSSARY: Record<string, GlossaryEntry> = {
   judgment_adjustment: {
     term: 'Judgment adjustment',
     short: 'A per-deal manual change to a threshold, with a required written reason.',
-    long: 'Always logged: every adjustment records who moved which threshold, by how much, and why.',
+    long: 'Always logged: every adjustment records which threshold moved, by how much, and why.',
   },
   cash_on_cash: {
     term: 'Cash-on-cash',

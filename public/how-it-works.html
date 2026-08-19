@@ -166,8 +166,8 @@ footer .wrap{display:flex;flex-direction:column;align-items:center;gap:14px;text
     <p style="text-align:center;margin:26px 0 6px"><a class="cta-btn" href="/app">Try it with the sample deal &#8594;</a><span class="cta-sub">One click loads a recorded extraction of a real example deal &middot; no upload needed</span></p>
     <div class="stats" role="list">
       <div class="stat reveal" role="listitem"><div class="stat-num" data-n="18">18</div><div class="stat-lbl">screening checks — 10 hard kills + 8 watch flags</div></div>
-      <div class="stat reveal d1" role="listitem"><div class="stat-num" data-n="30">30</div><div class="stat-lbl">extracted fields, every one cited to its page</div></div>
-      <div class="stat reveal d2" role="listitem"><div class="stat-num" data-n="8">8</div><div class="stat-lbl">live economic signals vote on the regime weekly</div></div>
+      <div class="stat reveal d1" role="listitem"><div class="stat-num" data-n="30">30</div><div class="stat-lbl">extracted fields — every stated value cited to its source</div></div>
+      <div class="stat reveal d2" role="listitem"><div class="stat-num" data-n="8">8</div><div class="stat-lbl">economic signals vote on the regime weekly</div></div>
       <div class="stat reveal d3" role="listitem"><div class="stat-num" data-n="62">62</div><div class="stat-lbl">engine tests gate every deploy — a red suite blocks it</div></div>
       <div class="stat reveal d4" role="listitem"><div class="stat-num" data-n="0">0</div><div class="stat-lbl">hardcoded thresholds — the whole rulebook is editable config</div></div>
     </div>
@@ -178,7 +178,7 @@ footer .wrap{display:flex;flex-direction:column;align-items:center;gap:14px;text
     <div class="wrap">
       <div class="sect-head reveal">
         <h2 id="flow-h">The pipeline: documents &#8594; receipts &#8594; rulebook &#8594; decision</h2>
-        <p>One deal, five minutes, no blank forms. Hover over — or tab to — any node for what it does.</p>
+        <p>One deal, one sitting, no blank forms. Hover over — or tab to — any node for what it does.</p>
       </div>
       <div class="diagram-card reveal">
         <div class="diagram-scroll">
@@ -201,7 +201,7 @@ footer .wrap{display:flex;flex-direction:column;align-items:center;gap:14px;text
               <path class="edge" d="M250 186 C 288 186, 285 136, 320 136"/>
               <path class="flowline slow" d="M250 96 C 288 96, 285 116, 320 116"/>
               <path class="flowline local slow" style="animation-delay:-.4s" d="M250 186 C 288 186, 285 136, 320 136"/>
-              <text class="elabel" x="256" y="80">PDF text</text>
+              <text class="elabel" x="256" y="80">OM (PDF or text)</text>
               <text class="elabel" x="256" y="212">parsed in your browser</text>
 
               <!-- extraction -> cross-exam -> review (vertical) -->
@@ -209,7 +209,7 @@ footer .wrap{display:flex;flex-direction:column;align-items:center;gap:14px;text
               <path class="flowline" d="M425 152 L425 196"/>
               <path class="edge" marker-end="url(#arr)" d="M425 260 L425 304"/>
               <path class="flowline" style="animation-delay:-.5s" d="M425 260 L425 304"/>
-              <text class="elabel" x="436" y="178">every value cited</text>
+              <text class="elabel" x="436" y="178">every stated value cited</text>
               <text class="elabel" x="436" y="286">discrepancies listed</text>
 
               <!-- review -> rulebook -->
@@ -229,19 +229,19 @@ footer .wrap{display:flex;flex-direction:column;align-items:center;gap:14px;text
               <text class="elabel" x="847" y="262" transform="rotate(-90 847 262)" text-anchor="middle">HTTPS &#183; JSON</text>
 
               <!-- DOCUMENT NODES -->
-              <g class="node" tabindex="0" role="img" aria-label="Offering memorandum, PDF: the sponsor's own story of the deal. Its text goes to extraction, and every extracted value cites the page it came from." data-name="Offering memorandum — PDF" data-tip="The sponsor&#8217;s own story of the deal. Its text goes to extraction, and every extracted value carries a citation back to the page it came from.">
+              <g class="node" tabindex="0" role="img" aria-label="Offering memorandum, PDF, Word or text: the sponsor's own story of the deal. It goes to extraction as the PDF itself or as extracted text, and every stated value is cited back to its source — with a page number for PDF OMs." data-name="Offering memorandum — PDF / Word / text" data-tip="The sponsor&#8217;s own story of the deal. It goes to extraction as the PDF itself (so citations carry page numbers) or as text for Word and plain-text files, and every stated value carries a citation back to its source.">
                 <rect x="20" y="72" width="230" height="48" rx="10" fill="#fff" stroke="#dcebe7"/>
                 <text class="nname" x="34" y="92">Offering memorandum</text>
-                <text class="nsub" x="34" y="109">PDF &#183; the sponsor&#8217;s pitch</text>
+                <text class="nsub" x="34" y="109">PDF / Word / text &#183; the sponsor&#8217;s pitch</text>
               </g>
-              <g class="node" tabindex="0" role="img" aria-label="Pro forma, Excel: the sponsor's numbers. The workbook is parsed entirely in your browser — only extracted text leaves the machine." data-name="Pro forma — XLSX" data-tip="The sponsor&#8217;s numbers. The workbook is parsed entirely in your browser — only text leaves the machine, never the file.">
+              <g class="node" tabindex="0" role="img" aria-label="Pro forma, Excel or CSV: the sponsor's numbers. The workbook is parsed entirely in your browser — only its extracted text leaves the machine, never the file." data-name="Pro forma — Excel / CSV" data-tip="The sponsor&#8217;s numbers. The workbook is parsed entirely in your browser — only its text leaves the machine, never the file.">
                 <rect x="20" y="162" width="230" height="48" rx="10" fill="#eef2ff" stroke="#c9d4f5"/>
                 <text class="nname" x="34" y="182">Pro forma</text>
-                <text class="nsub" x="34" y="199">XLSX &#183; parsed locally, never uploaded</text>
+                <text class="nsub" x="34" y="199">Excel / CSV &#183; never leaves your browser</text>
               </g>
 
               <!-- EXTRACTION NODES -->
-              <g class="node" tabindex="0" role="img" aria-label="AI extraction with receipts: about 30 screening fields — costs, contingency, leverage, NOI, rents, entitlement, sponsor terms — each with a confidence score and a citation. It never guesses: missing facts come back empty and flagged." data-name="AI extraction — with receipts" data-tip="~30 screening fields — costs, contingency, leverage, NOI, rents, entitlement, sponsor terms — each with a confidence score and a page citation. It never guesses: a fact the documents don&#8217;t state comes back empty and flagged.">
+              <g class="node" tabindex="0" role="img" aria-label="AI extraction with receipts: about 30 screening fields — costs, contingency, leverage, NOI, rents, entitlement, sponsor terms — each with a confidence score and a source citation. It never guesses: missing facts come back empty and flagged." data-name="AI extraction — with receipts" data-tip="~30 screening fields — costs, contingency, leverage, NOI, rents, entitlement, sponsor terms — each with a confidence score and a source citation. It never guesses: a fact the documents don&#8217;t state comes back empty and flagged.">
                 <rect x="320" y="88" width="210" height="64" rx="12" fill="#fff" stroke="#dcebe7"/>
                 <text class="nname" x="336" y="114">AI extraction</text>
                 <text class="nsub" x="336" y="132">~30 fields &#183; confidence + citations</text>
@@ -270,29 +270,30 @@ footer .wrap{display:flex;flex-direction:column;align-items:center;gap:14px;text
                 <text class="nname" x="628" y="214">Versioned thresholds</text>
                 <text class="nsub" x="628" y="232">your rulebook &#183; zero hardcoded</text>
               </g>
-              <g class="node" tabindex="0" role="img" aria-label="Macro posture: every week eight economic signals vote on the market regime, which sets a Green, Yellow or Red posture. Posture tightens or loosens the thresholds automatically; it never kills a deal by itself." data-name="Macro posture" data-tip="Every week, eight economic signals — recession risk, inflation, growth, credit spreads, the labor market — vote on the regime, setting a Green / Yellow / Red posture that tightens or loosens the thresholds. Macro moves the bar; it never kills a deal by itself.">
+              <g class="node" tabindex="0" role="img" aria-label="Macro posture: every week eight economic signals — seven live feeds plus one analyst-entered PMI — vote on the market regime, which sets a Green, Yellow or Red posture. Posture tightens or loosens the thresholds automatically; it never kills a deal by itself." data-name="Macro posture" data-tip="Every week, eight economic signals — seven live feeds plus one analyst-entered PMI — vote on the regime, setting a Green / Yellow / Red posture that tightens or loosens the thresholds. Macro moves the bar; it never kills a deal by itself.">
                 <rect x="612" y="268" width="206" height="54" rx="11" fill="#fff" stroke="#dcebe7"/>
                 <text class="nname" x="628" y="290">Macro posture</text>
                 <text class="nsub" x="628" y="308">8 signals &#183; Green / Yellow / Red</text>
               </g>
-              <g class="node" tabindex="0" role="img" aria-label="Decision record: every decision is stamped with its inputs, config version, macro posture and any judgment adjustments — so any past verdict can be replayed exactly." data-name="Decision record" data-tip="Every decision is stamped with its inputs, config version, macro posture and any judgment adjustments — so any past verdict can be replayed exactly, and every override is visible and attributed.">
+              <g class="node" tabindex="0" role="img" aria-label="Decision record: every decision is stamped with its inputs, config version, macro posture and any judgment adjustments — so any past verdict can be replayed exactly." data-name="Decision record" data-tip="Every decision is stamped with its inputs, config version, macro posture and any judgment adjustments — so any past verdict can be replayed exactly, and every override is visible and reasoned.">
                 <rect x="612" y="344" width="206" height="54" rx="11" fill="#fff" stroke="#dcebe7"/>
                 <text class="nname" x="628" y="366">Decision record</text>
-                <text class="nsub" x="628" y="384">replayable &#183; overrides attributed</text>
+                <text class="nsub" x="628" y="384">replayable &#183; overrides with reasons</text>
               </g>
 
               <!-- APP GROUP -->
-              <g class="node" tabindex="0" role="img" aria-label="The app: Intake, Review, Results, then Thresholds, Macro and Backtest. The pro forma parses locally; deal drafts stay in your browser." data-name="The app — your browser" data-tip="The product: Intake &#8594; Review &#8594; Results, plus the Thresholds editor, the weekly Macro dashboard and Backtest. The pro forma parses locally and deal drafts stay in your browser.">
+              <g class="node" tabindex="0" role="img" aria-label="The app: eight screens — Intake, Review, Results (with the Judgment panel for overrides), Thresholds, Macro, Backtest, Evidence and Deals. The pro forma parses locally; deal drafts stay in your browser." data-name="The app — your browser" data-tip="The product: Intake &#8594; Review &#8594; Results (with the Judgment panel for overrides), plus the Thresholds editor, the weekly Macro dashboard, Backtest, the Evidence research verdicts and the Deals decision history. The pro forma parses locally and deal drafts stay in your browser.">
                 <rect x="880" y="60" width="220" height="352" rx="16" fill="#fbfdfc" stroke="#dcebe7"/>
                 <text class="nsub" x="896" y="84" style="letter-spacing:.1em">INTAKE &#8594; REVIEW &#8594; RESULTS</text>
                 <rect x="894" y="98" width="192" height="30" rx="9" fill="#e4f5ee" stroke="#bcdcce"/>
                 <text class="chiptxt" x="906" y="117" style="fill:#3f7d69;font-weight:600">Intake — drop the documents</text>
-                <rect x="894" y="140" width="192" height="30" rx="9" fill="#fff" stroke="#dcebe7"/><text class="chiptxt" x="906" y="159">Review — verify the receipts</text>
-                <rect x="894" y="182" width="192" height="30" rx="9" fill="#fff" stroke="#dcebe7"/><text class="chiptxt" x="906" y="201">Results — verdict + margins</text>
-                <rect x="894" y="224" width="192" height="30" rx="9" fill="#fff" stroke="#dcebe7"/><text class="chiptxt" x="906" y="243">Thresholds — edit the rulebook</text>
-                <rect x="894" y="266" width="192" height="30" rx="9" fill="#fff" stroke="#dcebe7"/><text class="chiptxt" x="906" y="285">Macro — the weekly posture</text>
-                <rect x="894" y="308" width="192" height="30" rx="9" fill="#fff" stroke="#dcebe7"/><text class="chiptxt" x="906" y="327">Backtest — score the rulebook</text>
-                <rect x="894" y="350" width="192" height="30" rx="9" fill="#fff" stroke="#dcebe7"/><text class="chiptxt" x="906" y="369">Judgment — overrides w/ reasons</text>
+                <rect x="894" y="136" width="192" height="30" rx="9" fill="#fff" stroke="#dcebe7"/><text class="chiptxt" x="906" y="155">Review — verify the receipts</text>
+                <rect x="894" y="174" width="192" height="30" rx="9" fill="#fff" stroke="#dcebe7"/><text class="chiptxt" x="906" y="193">Results — verdict + judgment</text>
+                <rect x="894" y="212" width="192" height="30" rx="9" fill="#fff" stroke="#dcebe7"/><text class="chiptxt" x="906" y="231">Thresholds — edit the rulebook</text>
+                <rect x="894" y="250" width="192" height="30" rx="9" fill="#fff" stroke="#dcebe7"/><text class="chiptxt" x="906" y="269">Macro — the weekly posture</text>
+                <rect x="894" y="288" width="192" height="30" rx="9" fill="#fff" stroke="#dcebe7"/><text class="chiptxt" x="906" y="307">Backtest — score the rulebook</text>
+                <rect x="894" y="326" width="192" height="30" rx="9" fill="#fff" stroke="#dcebe7"/><text class="chiptxt" x="906" y="345">Evidence — research verdicts</text>
+                <rect x="894" y="364" width="192" height="30" rx="9" fill="#fff" stroke="#dcebe7"/><text class="chiptxt" x="906" y="383">Deals — decision history</text>
               </g>
             </svg>
             <div class="tip" id="tip" hidden aria-hidden="true"></div>
@@ -300,8 +301,8 @@ footer .wrap{display:flex;flex-direction:column;align-items:center;gap:14px;text
         </div>
         <div class="diagram-legend">
           <span><i style="background:var(--accent)"></i>deal data flow</span>
-          <span><i style="background:var(--local)"></i>parsed in your browser — the file never leaves</span>
-          <span>Extraction sends text, not files; decisions record with their config version and macro posture.</span>
+          <span><i style="background:var(--local)"></i>pro forma parsed in your browser — the workbook never leaves</span>
+          <span>The OM goes to extraction as a PDF or as text; decisions record with their config version and macro posture.</span>
         </div>
       </div>
     </div>
@@ -312,7 +313,7 @@ footer .wrap{display:flex;flex-direction:column;align-items:center;gap:14px;text
     <div class="wrap">
       <div class="sect-head reveal">
         <h2 id="journey-h">The flow, step by step</h2>
-        <p>One deal, five minutes, no blank forms.</p>
+        <p>One deal, one sitting, no blank forms.</p>
       </div>
       <div class="steps">
         <div class="step reveal">
@@ -322,8 +323,10 @@ footer .wrap{display:flex;flex-direction:column;align-items:center;gap:14px;text
           </div>
           <div>
             <h3>Drop in the documents</h3>
-            <p>The offering memorandum (PDF) and the pro forma (Excel). The workbook is parsed
-            <strong>in your browser</strong> — only text leaves the machine.</p>
+            <p>The offering memorandum (PDF, Word or text) and the pro forma (Excel or CSV). The workbook
+            is parsed <strong>in your browser</strong> — only its extracted text is sent, never the file. The
+            OM goes to extraction as the PDF itself (so citations can carry page numbers) or as text for
+            Word and plain-text files.</p>
           </div>
         </div>
         <div class="step reveal d1">
@@ -334,9 +337,10 @@ footer .wrap{display:flex;flex-direction:column;align-items:center;gap:14px;text
           <div>
             <h3>Extraction with receipts</h3>
             <p>AI pulls ~30 screening fields — costs, contingency, leverage, NOI, rents, entitlement,
-            sponsor terms. Every value carries a <strong>confidence score and a citation</strong> back to the
-            document and page. It <strong>never guesses</strong>: a fact the documents don't state comes back
-            empty and is flagged for you.</p>
+            sponsor terms. Every stated value carries a <strong>confidence score and a citation</strong> to its
+            source — document, page (for PDF OMs) and verbatim quote. It <strong>never guesses</strong>: a fact
+            the documents don't state comes back empty and is flagged for you. Extraction usually takes a
+            few minutes (up to ~15 for very large documents).</p>
           </div>
         </div>
         <div class="step reveal d2">
@@ -387,8 +391,9 @@ footer .wrap{display:flex;flex-direction:column;align-items:center;gap:14px;text
           </div>
           <div>
             <h3>The economy moves the bar</h3>
-            <p>Every week, eight economic signals — recession risk, inflation, growth, credit spreads,
-            the labor market — vote on the market regime, which sets a Green / Yellow / Red posture.
+            <p>Every week, eight economic signals — seven live feeds plus one analyst-entered PMI, covering
+            recession risk, inflation, growth, credit spreads and the labor market — vote on the market
+            regime, which sets a Green / Yellow / Red posture.
             Posture <strong>tightens or loosens the thresholds automatically</strong>: the same deal can clear the
             gate in a green week and fail it in a red one. Macro moves the bar; it never kills a deal
             by itself.</p>
@@ -409,7 +414,7 @@ footer .wrap{display:flex;flex-direction:column;align-items:center;gap:14px;text
             <h3>Judgment, on the record</h3>
             <p>See something the model can't? Adjust any threshold for this deal — with a
             <strong>required written reason</strong>. The rulebook's original verdict is kept alongside yours,
-            so every override is visible, attributed, and reversible. Manual control is never silent.</p>
+            so every override is visible, reasoned, and reversible. Manual control is never silent.</p>
           </div>
         </div>
         <div class="step reveal d3">
@@ -466,9 +471,9 @@ footer .wrap{display:flex;flex-direction:column;align-items:center;gap:14px;text
           <p>A deal with a fatal flaw fails, <span class="k">no matter how strong everything else looks</span>.
           Averaging lets a great story bury a broken covenant; a gate doesn't.</p>
           <h3>Receipts, not vibes</h3>
-          <p>Every extracted number carries a <span class="k">confidence score and a citation</span> to the exact
-          document and page. If the paperwork contradicts itself, that contradiction is on the table before
-          any scoring happens.</p>
+          <p>Every stated number carries a <span class="k">confidence score and a citation</span> to its
+          source — document, page (for PDF OMs) and verbatim quote. If the paperwork contradicts itself,
+          that contradiction is on the table before any scoring happens.</p>
           <h3>Missing data never passes</h3>
           <p>Extraction returns nothing rather than guessing, and an unanswered field forces human review —
           <span class="k">silence can't slip through the gate</span>.</p>
@@ -516,8 +521,9 @@ footer .wrap{display:flex;flex-direction:column;align-items:center;gap:14px;text
           <p>Extraction returns nothing rather than guessing, and an unanswered field forces human review —
           silence can't slip through.</p></div>
         <div class="note reveal d1"><h3>Your workbook stays in your browser</h3>
-          <p>The pro forma is parsed locally and never uploaded; deal drafts live in your browser. Extraction
-          reads text, not files.</p></div>
+          <p>The pro forma workbook is parsed locally and only its text is sent; deal drafts live in your
+          browser. The OM goes to extraction as the PDF itself (so citations carry page numbers) or as
+          text for Word and plain-text files.</p></div>
         <div class="note reveal d2"><h3>A red test suite blocks the deploy</h3>
           <p>Engine quality is enforced at build time by three golden suites — 62 checks covering the gate
           logic, the macro layer and engine parity. If any check fails, the site cannot ship.</p></div>
