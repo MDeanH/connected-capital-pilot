@@ -12,7 +12,7 @@
 
 import type { Config, Context } from '@netlify/functions'
 import { requireAdmin } from './lib/auth.ts'
-import { CHECK_THRESHOLD_KEYS, EXECUTABLE_CHECK_IDS } from './lib/gate1/engine.ts'
+import { CHECK_KINDS, CHECK_THRESHOLD_KEYS, EXECUTABLE_CHECK_IDS } from './lib/gate1/engine.ts'
 import { DEFAULT_CONFIG } from './lib/gate1/preview.ts'
 import type { Posture, Regime } from './lib/gate1/types.ts'
 import { serviceClient } from './lib/supabase.ts'
@@ -35,6 +35,21 @@ const EXECUTABLE_IDS = new Set<string>(EXECUTABLE_CHECK_IDS)
 // asset_class not in this registry — so such a row is dead weight at best and,
 // combined with the resolvability rule below, evidence of a typo'd config.
 const SUPPORTED_ASSET_CLASSES = ['rv_specialty', 'multifamily', 'industrial', 'retail', 'office']
+
+// Macro-only posture classes: asset classes that can never head a deal
+// (gate1.ts 400s them at intake, and no threshold row may scope to them) but
+// legitimately carry postures in the macro postureMatrix. They exist because
+// the macro dashboard renders EVERY entry of the active regime's posture row
+// as a posture chip (src/MacroDashboard.tsx maps Object.entries(
+// snapshot.postures)) — the shipped default's recession row keeps
+// 'private_credit' and 'secondaries' at yellow purely as macro-overview
+// postures for those strategies, and golden-macro.ts pins private_credit
+// staying yellow in a recession. Every other non-deal key is rejected as a
+// typo below: a misspelled deal class (e.g. 'multifamly') would otherwise
+// activate fine while every consumer (postures[asset_class] ??
+// postures['*']) silently falls back to '*' for the class the author meant
+// to scope.
+const MACRO_ONLY_POSTURE_CLASSES = ['private_credit', 'secondaries']
 
 // The pilot fund's lockup term — mirrors PILOT_LOCKUP_YEARS in
 // lib/gate1/macro.ts (a module-private constant there; keep in sync like the
@@ -99,6 +114,17 @@ export function configShapeError(c: any): string | null {
       return `duplicate check id "${ch.id}" — each check may appear at most once`
     }
     seenCheckIds.add(ch.id)
+    // A check's kill/flag KIND is pilot spec, not an editable knob: the engine
+    // executes either kind generically (runCheck derives failStatus from
+    // def.kind; evaluateGate1 rolls only kind === 'kill' failures up to an
+    // unconditional FAIL), so a config re-kinding e.g. sponsor_integrity as
+    // 'flag' would validate and activate — silently downgrading a hard kill to
+    // a few flag points. The canonical kind per id lives in the engine's
+    // registry (CHECK_KINDS, lib/gate1/engine.ts) and must match exactly.
+    const canonicalKind = CHECK_KINDS[ch.id as keyof typeof CHECK_KINDS]
+    if (ch.kind !== canonicalKind) {
+      return `check "${ch.id}" is canonically a ${canonicalKind} (CHECK_KINDS in lib/gate1/engine.ts) but is configured as a ${ch.kind} — a check's kill/flag kind is pinned by the pilot spec, not configurable`
+    }
     // The engine dereferences label and thresholdKeys on every check (see
     // lib/gate1/engine.ts runCheck) — a check without them crashes evaluation.
     if (typeof ch.label !== 'string' ||
@@ -119,6 +145,17 @@ export function configShapeError(c: any): string | null {
     if (declaredSorted.length !== canonicalSorted.length ||
         declaredSorted.some((k, i) => k !== canonicalSorted[i])) {
       return `check "${ch.id}" declares thresholdKeys [${(ch.thresholdKeys as string[]).join(', ')}] but its engine case consumes exactly [${canonicalKeys.join(', ')}] — the declared list must match`
+    }
+    // flagPoints only means anything on a flag: the engine zeroes a kill's
+    // flagPoints unconditionally (runCheck: kind === 'flag' ? flagPoints ?? 1
+    // : 0), so a kill carrying flagPoints is dead config the editor would
+    // still display as though the kill scored points. Rule: flagPoints may be
+    // supplied only on 'flag' checks (where it must be a positive finite
+    // number; omitted, the engine defaults it to 1); on a 'kill' any supplied
+    // flagPoints is rejected. The shipped default passes mechanically: its
+    // kills carry no flagPoints and its flags all carry flagPoints: 1.
+    if (ch.kind === 'kill' && ch.flagPoints !== undefined) {
+      return `check "${ch.id}" is a kill but supplies flagPoints — kills contribute no flag points (the engine zeroes them unconditionally), so flagPoints is only accepted on 'flag' checks`
     }
     if (ch.flagPoints !== undefined &&
         (typeof ch.flagPoints !== 'number' || !Number.isFinite(ch.flagPoints) || ch.flagPoints <= 0)) {
@@ -146,11 +183,23 @@ export function configShapeError(c: any): string | null {
       .join(', ')} — every executable check must be configured (an omitted check silently vanishes from every evaluation; disabling a check would be an explicit toggle, which does not exist, not omission)`
   }
   if (!Array.isArray(c.thresholds)) return 'thresholds must be an array'
+  const seenRowScopes = new Set<string>()
   for (const r of c.thresholds) {
     if (!r || typeof r.asset_class !== 'string' || typeof r.posture !== 'string' ||
         typeof r.key !== 'string' || typeof r.value !== 'number' || !Number.isFinite(r.value)) {
       return 'every threshold row needs asset_class, posture, key and a finite numeric value'
     }
+    // pickRow (lib/gate1/thresholds.ts) selects the FIRST row matching each
+    // step of its fallback chain — with two rows on the same (key,
+    // asset_class, posture) only the first in the array ever affects scoring,
+    // while the editor shows both and nothing surfaces which one is live. The
+    // tuple must be unique. (JSON.stringify as the set key: the fields are
+    // arbitrary strings, so no join character is collision-safe.)
+    const scope = JSON.stringify([r.key, r.asset_class, r.posture])
+    if (seenRowScopes.has(scope)) {
+      return `duplicate threshold row: key "${r.key}" scoped (${r.asset_class}, ${r.posture}) appears more than once — only the first row in the array would ever affect scoring while the editor shows both, so each (key, asset_class, posture) may appear at most once`
+    }
+    seenRowScopes.add(scope)
     // Row scope must be resolvable: pickRow (lib/gate1/thresholds.ts) matches
     // asset_class/posture by string equality, so a row scoped to an unknown
     // class or a misspelled posture (e.g. 'gren') exists in the config — and
@@ -420,6 +469,18 @@ export function configShapeError(c: any): string | null {
       return `macro postureMatrix "${regime}" must map asset classes to posture strings`
     }
     for (const [asset, p] of Object.entries(row)) {
+      // Keys are consumed by string equality (postures[asset_class] ??
+      // postures['*'] in gate1.ts, DealIntake.tsx, MacroDashboard.tsx), so a
+      // misspelled key never errors — it just never matches, and the class it
+      // was meant to scope silently takes the '*' posture instead. Only three
+      // kinds of key can ever be read on purpose: the '*' fallback, a
+      // supported deal asset class, and the documented macro-only posture
+      // classes above. Reject anything else by name.
+      if (asset !== '*' &&
+          !SUPPORTED_ASSET_CLASSES.includes(asset) &&
+          !MACRO_ONLY_POSTURE_CLASSES.includes(asset)) {
+        return `macro postureMatrix "${regime}" has unknown asset class key "${asset}" — keys must be '*', a supported deal asset class (${SUPPORTED_ASSET_CLASSES.join(', ')}), or a macro-only posture class (${MACRO_ONLY_POSTURE_CLASSES.join(', ')}); a misspelled key activates fine but every consumer falls back to the '*' posture for the class it was meant to scope`
+      }
       if (typeof p !== 'string' || !(p in POSTURE_KEYS)) {
         return `macro postureMatrix "${regime}" maps "${asset}" to ${JSON.stringify(p)} — postures must be "green", "yellow" or "red"`
       }

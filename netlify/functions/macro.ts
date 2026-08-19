@@ -166,7 +166,14 @@ export default async (req: Request, _context: Context): Promise<Response> => {
     if (db) {
       const latestAuto = await latestStored(db, { source: 'auto' })
       if (!latestAuto) return json(503, { error: STORED_UNAVAILABLE })
-      previous = latestAuto.stored?.snapshot ?? null
+      // Same freshness bound as /latest (isFreshStored): with the weekly cron
+      // dead past MAX_SNAPSHOT_AGE_DAYS, /latest already refuses the stale auto
+      // row — seeding hysteresis from it here would let an override retain its
+      // obsolete regime (degraded fallback / pending_wins) and then PREVAIL as
+      // the newest fresh row. When the weekly chain is broken, hysteresis
+      // restarts from live evidence: previous = null.
+      previous =
+        latestAuto.stored && isFreshStored(latestAuto.stored) ? latestAuto.stored.snapshot : null
       // Any-source lookup: the newest row is what /latest serves. If it is an
       // auto row its manual-config signals are already null (see above), so
       // the carry is naturally empty — expiry needs no special case. A failed

@@ -216,6 +216,43 @@ export const CHECK_THRESHOLD_KEYS: Record<(typeof EXECUTABLE_CHECK_IDS)[number],
   completion_guarantee: ['guarantor_net_worth_min_pct'],
 }
 
+/**
+ * Canonical kill/flag KIND per check id — the pilot spec's 10 hard kills +
+ * 8 watch flags, pinned as data. KEEP IN SYNC with the spec and the shipped
+ * default-config.json (which configures exactly these kinds) — a plain
+ * switch offers nothing to derive this from mechanically. The Record type
+ * over EXECUTABLE_CHECK_IDS makes tsc fail if this registry and the id
+ * registry ever disagree on the id set; the VALUES are what the comment
+ * discipline protects.
+ *
+ * Why it exists: the engine executes either kind generically — runCheck
+ * derives failStatus from def.kind and evaluateGate1 rolls only
+ * kind === 'kill' failures up to an unconditional FAIL — so a config that
+ * re-kinds e.g. sponsor_integrity as 'flag' would validate and activate,
+ * silently downgrading a hard kill to a few flag points. gate1-config.ts
+ * therefore requires every configured check's kind to equal this registry's.
+ */
+export const CHECK_KINDS: Record<(typeof EXECUTABLE_CHECK_IDS)[number], CheckDef['kind']> = {
+  sponsor_integrity: 'kill',
+  site_entitled: 'kill',
+  single_exit_refi: 'kill',
+  ltc_max: 'kill',
+  dev_spread_min: 'kill',
+  contingency_min: 'kill',
+  coinvest_min: 'kill',
+  track_record: 'kill',
+  gmp_required: 'kill',
+  mini_stress: 'kill',
+  yoc_vs_benchmark: 'flag',
+  exit_cap_vs_market: 'flag',
+  interest_reserve: 'flag',
+  land_basis: 'flag',
+  rents_vs_comps: 'flag',
+  absorption: 'flag',
+  profit_margin: 'flag',
+  completion_guarantee: 'flag',
+}
+
 function runCheck(
   def: CheckDef,
   f: DealFields,

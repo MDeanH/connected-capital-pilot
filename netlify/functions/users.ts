@@ -72,8 +72,25 @@ export default async (req: Request, context: Context): Promise<Response> => {
     const { error: profileError } = await db.from('profiles').insert({ id: created.user.id, email, role })
     if (profileError) {
       // No orphans: an auth user without a profile could never sign in usefully
-      // yet would block re-creating the email — best-effort roll back.
-      await db.auth.admin.deleteUser(created.user.id).catch(() => {})
+      // yet would block re-creating the email — roll back, and CHECK the result:
+      // deleteUser resolves { error } rather than throwing, so ignoring it
+      // reported a simple failure while the orphaned auth user squatted on the
+      // email and made every retry fail with "already registered".
+      let cleanupFailure: string | null = null
+      try {
+        const { error: deleteError } = await db.auth.admin.deleteUser(created.user.id)
+        if (deleteError) cleanupFailure = deleteError.message
+      } catch (e) {
+        cleanupFailure = e instanceof Error ? e.message : String(e)
+      }
+      if (cleanupFailure) {
+        return json(500, {
+          error:
+            `Failed to create profile: ${profileError.message}. Rollback also failed (${cleanupFailure}) — ` +
+            `${email} is now an orphaned auth user in Supabase Auth (id ${created.user.id}) with no profile; ` +
+            `it must be deleted manually in Supabase before this email can be created again.`,
+        })
+      }
       return json(500, { error: `Failed to create profile: ${profileError.message}` })
     }
     return json(201, { id: created.user.id, email, role, disabled: false })

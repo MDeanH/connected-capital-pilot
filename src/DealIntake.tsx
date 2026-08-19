@@ -343,6 +343,61 @@ export default function DealIntake() {
     return { coc, irr, equityMultiple: em, financingSpreadTypicalBps: spread }
   }, [activeConfig, draftConfig])
 
+  // --- Rulebook drift between the preview and the cached active config ------
+  // A rulebook published after page load makes the next preview score under
+  // the NEW active version (the response reports it), while `activeConfig` —
+  // the source of the KPI benchmark captions and market comparisons above —
+  // still holds the version fetched at mount. The record handshake can't
+  // catch it: the preview already matches the CURRENT active version, so a
+  // v4 verdict would record beside v3 benchmarks without a 409. So when the
+  // previewed version is a REAL version (a draft previews as -1 and its
+  // benchmarks derive from the draft itself — in sync by construction) that
+  // differs from the cached one, refetch the active config; the benchmarks
+  // memo recomputes. Until the versions agree the comparisons are SUPPRESSED,
+  // never shown stale (displayBenchmarks below).
+  const previewedVersion = lastResponse?.configVersion
+  const benchmarkVersionDrift =
+    previewedVersion !== undefined && previewedVersion >= 0 && previewedVersion !== activeConfig?.version
+  const [benchmarkSync, setBenchmarkSync] = useState<'idle' | 'refetching' | 'failed'>('idle')
+
+  useEffect(() => {
+    if (!benchmarkVersionDrift) {
+      setBenchmarkSync('idle')
+      return
+    }
+    let cancelled = false
+    setBenchmarkSync('refetching')
+    fetch('/api/config/active')
+      .then(r => r.json())
+      .then(d => {
+        if (cancelled) return
+        if (!d?.config) {
+          setBenchmarkSync('failed') // 503 etc. — comparisons stay hidden, honestly labelled
+          return
+        }
+        // A same-version result keeps the previous object: if the active moved
+        // PAST the previewed version (published twice), drift persists and a
+        // fresh object here would change nothing but re-render; the next
+        // preview (scored under the newer version) clears it.
+        setActiveConfig(prev =>
+          prev && prev.version === (d.version ?? 0) ? prev : { version: d.version ?? 0, config: d.config })
+        setBenchmarkSync('idle')
+      })
+      .catch(() => { if (!cancelled) setBenchmarkSync('failed') })
+    return () => { cancelled = true }
+    // Keyed on the drift verdict + the preview response that produced it: one
+    // refetch per drifted preview, nothing this effect sets re-triggers it
+    // (a same-version refetch preserves the activeConfig reference), and a
+    // failed refetch retries on the next preview — never in a loop.
+  }, [benchmarkVersionDrift, lastResponse])
+
+  // What the benchmark-consuming panels may DISPLAY: withheld entirely while
+  // the versions disagree — both panels already render an honest
+  // benchmarks-unavailable state (the same one shown before the config first
+  // loads), which beats a comparison against thresholds the verdict never
+  // ran under.
+  const displayBenchmarks = benchmarkVersionDrift ? null : benchmarks
+
   // Backtest par comes from the ACTIVE config only — backtest rows are scored
   // server-side under the active rulebook (no configOverride is sent), so a
   // draft-aware par would grade verdicts against thresholds they never ran under.
@@ -672,8 +727,23 @@ export default function DealIntake() {
                   <GateResults response={lastResponse} onAdjust={handleAdjust} />
                   {extraction && <ConsistencyPanel discrepancies={extraction.discrepancies ?? []} />}
                   <FinancialSummary fields={coerced} />
-                  <KpiScorecard fields={coerced} response={lastResponse} benchmarks={benchmarks ?? undefined} />
-                  <MarketComparison fields={coerced} market={macro?.market ?? null} benchmarks={benchmarks} />
+                  {/* Benchmark panels are version-locked to the verdict: while
+                      the previewed rulebook version and the cached active
+                      config disagree, the comparisons are hidden (never shown
+                      stale) and this line says why. */}
+                  {benchmarkVersionDrift && (
+                    benchmarkSync === 'refetching' ? (
+                      <div className="di-updating" role="status">the rulebook changed — refreshing benchmarks…</div>
+                    ) : (
+                      <div className="di-warning" role="status">
+                        {benchmarkSync === 'failed'
+                          ? 'Could not refresh the changed rulebook — benchmark comparisons are hidden rather than shown stale (retries on the next re-score).'
+                          : 'The rulebook moved again while refreshing — benchmark comparisons are hidden until the next re-score.'}
+                      </div>
+                    )
+                  )}
+                  <KpiScorecard fields={coerced} response={lastResponse} benchmarks={displayBenchmarks ?? undefined} />
+                  <MarketComparison fields={coerced} market={macro?.market ?? null} benchmarks={displayBenchmarks} />
                   <MarketPathCard location={typeof coerced.location === 'string' ? coerced.location : null} />
                   <div ref={judgmentRef}>
                     <JudgmentPanel
