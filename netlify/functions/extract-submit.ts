@@ -6,6 +6,7 @@
 // it was the PROCESSING that blew the sync window), stages them in Netlify
 // Blobs, and triggers the background worker with a tiny body. The client polls
 // GET /api/extractions/:id exactly as before.
+import { createHmac } from 'node:crypto'
 import type { Config } from '@netlify/functions'
 import { getStore } from '@netlify/blobs'
 import type { ExtractRequest } from './lib/gate1/extract-core.ts'
@@ -44,7 +45,8 @@ export default async (req: Request): Promise<Response> => {
   if (!body.pdfBase64 && !body.omText && !(body.sheets && body.sheets.length)) {
     return json(400, { error: 'Provide an offering memorandum (PDF, Word or text) and/or pro forma sheets' })
   }
-  if (!process.env.ANTHROPIC_API_KEY) {
+  const anthropicKey = process.env.ANTHROPIC_API_KEY
+  if (!anthropicKey) {
     return json(500, { error: 'AI extraction is not configured (ANTHROPIC_API_KEY missing)' })
   }
 
@@ -57,6 +59,10 @@ export default async (req: Request): Promise<Response> => {
   // The edge gate protects /api/* — pass the caller's credentials through so
   // the internal worker trigger isn't rejected with 401 on gated deploys.
   const passthrough: Record<string, string> = { 'Content-Type': 'application/json' }
+  // Internal trigger token: /api/extract-run is publicly reachable on open
+  // deploys, so the worker only accepts triggers that prove they came from
+  // this function — an HMAC over the extractionId keyed by the shared secret.
+  passthrough['x-cc-worker-token'] = createHmac('sha256', anthropicKey).update(id).digest('hex')
   const auth = req.headers.get('authorization')
   if (auth) passthrough['authorization'] = auth
   const cookie = req.headers.get('cookie')

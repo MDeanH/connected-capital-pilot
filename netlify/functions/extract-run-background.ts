@@ -4,29 +4,54 @@
 // come through this request: extract-submit.ts stages the full payload in
 // Netlify Blobs and triggers this worker with just { extractionId }. Results
 // land back in Blobs for GET /api/extractions/:id (extractions.ts).
+import { createHmac, timingSafeEqual } from 'node:crypto'
 import type { Config } from '@netlify/functions'
 import { getStore } from '@netlify/blobs'
 import { runExtraction, type ExtractRequest } from './lib/gate1/extract-core.ts'
 import { serviceClient } from './lib/supabase.ts'
 
-export default async (req: Request): Promise<void> => {
+export default async (req: Request): Promise<Response | void> => {
   if (req.method !== 'POST') return
-  const store = getStore('extractions')
   let id = ''
   try {
     const body = JSON.parse((await req.text()) || '{}')
     id = String(body?.extractionId ?? '').trim()
-    if (!id || !/^[a-z0-9-]{8,64}$/i.test(id)) return // nowhere to report
+  } catch {
+    return
+  }
+  if (!id || !/^[a-z0-9-]{8,64}$/i.test(id)) return // nowhere to report
+
+  // /api/extract-run is publicly reachable on open deploys — accept only
+  // triggers bearing extract-submit's HMAC over the extractionId (keyed by
+  // the shared secret), and reject before touching the store so outsiders
+  // can neither replay a run nor scribble on its status record.
+  const secret = process.env.ANTHROPIC_API_KEY
+  const token = Buffer.from(req.headers.get('x-cc-worker-token') ?? '')
+  const expected = secret ? Buffer.from(createHmac('sha256', secret).update(id).digest('hex')) : Buffer.alloc(0)
+  if (!secret || token.length !== expected.length || !timingSafeEqual(token, expected)) {
+    return new Response('Unauthorized', { status: 401 })
+  }
+
+  const store = getStore('extractions')
+  try {
+    // startedAt on the status record means a worker already claimed this id.
+    const status = (await store.get(id, { type: 'json' })) as { startedAt?: string } | null
+    if (status?.startedAt) return
 
     const payload = (await store.get(`payload-${id}`, { type: 'json' })) as ExtractRequest | null
     if (!payload) {
       await store.setJSON(id, { status: 'error', error: 'Staged documents not found — resubmit the extraction' })
       return
     }
-    await store.setJSON(id, { status: 'running', startedAt: new Date().toISOString() })
+    // Claim-on-read: the payload is in memory, so delete it NOW — a raced
+    // duplicate worker finds nothing and exits above without calling the
+    // model. The finally-delete below remains as a backstop.
+    try { await store.delete(`payload-${id}`) } catch { /* best effort */ }
+    const startedAt = new Date().toISOString()
+    await store.setJSON(id, { status: 'running', startedAt })
 
     const result = await runExtraction(payload)
-    await store.setJSON(id, { status: 'done', ...result, completedAt: new Date().toISOString() })
+    await store.setJSON(id, { status: 'done', ...result, startedAt, completedAt: new Date().toISOString() })
 
     const db = serviceClient()
     if (db) {

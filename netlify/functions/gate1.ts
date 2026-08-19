@@ -57,8 +57,17 @@ async function loadActiveConfig(db: Db): Promise<{ config: Gate1Config; version:
 }
 
 const MACRO_UNAVAILABLE = 'Could not load the macro posture — try again'
+const MACRO_STALE = 'Macro posture is stale — refresh the weekly snapshot and retry'
 
-type SnapshotRef = { id: string; postures: Record<string, Posture> }
+// Two missed weekly cron runs. Past this the stored posture is a zombie, not a
+// signal — it must stop silently moving the bar.
+const MAX_SNAPSHOT_AGE_DAYS = 14
+
+type SnapshotRef = { id: string; postures: Record<string, Posture>; createdAt: string }
+
+// NaN compares false, so an unparsable created_at reads stale (fail closed).
+const snapshotIsStale = (s: SnapshotRef): boolean =>
+  !(Date.now() - new Date(s.createdAt).getTime() <= MAX_SNAPSHOT_AGE_DAYS * 24 * 60 * 60 * 1000)
 
 // Latest macro snapshot. null = the query itself FAILED — same rule as the
 // config load: a transient failure must not read as "no snapshots" and score
@@ -67,12 +76,16 @@ type SnapshotRef = { id: string; postures: Record<string, Posture> }
 async function loadLatestSnapshot(db: Db): Promise<{ snapshot: SnapshotRef | null } | null> {
   const { data, error } = await db
     .from('macro_snapshots')
-    .select('id, postures')
+    .select('id, postures, created_at')
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle()
   if (error) return null
-  return { snapshot: data ? { id: data.id as string, postures: data.postures as Record<string, Posture> } : null }
+  return {
+    snapshot: data
+      ? { id: data.id as string, postures: data.postures as Record<string, Posture>, createdAt: data.created_at as string }
+      : null,
+  }
 }
 
 // POST /api/gate1/preview-batch — the Backtest path: a whole book in one
@@ -104,6 +117,12 @@ async function previewBatch(body: any): Promise<Response> {
     const snap = await loadLatestSnapshot(db)
     if (!snap) return json(503, { error: MACRO_UNAVAILABLE })
     snapshot = snap.snapshot
+    if (snapshot && snapshotIsStale(snapshot)) {
+      // A dead weekly cron must not keep applying a months-old posture; an
+      // explicit request posture still works — the analyst sees what they chose.
+      if (!body.posture) return json(503, { error: MACRO_STALE })
+      snapshot = null // never default from — or stamp — a stale snapshot
+    }
   }
 
   const requested: Posture | undefined = body.posture || undefined
@@ -234,7 +253,13 @@ export default async (req: Request, context: Context): Promise<Response> => {
   if (db) {
     const snap = await loadLatestSnapshot(db)
     if (!snap) return json(503, { error: MACRO_UNAVAILABLE })
-    const snapshot = snap.snapshot
+    let snapshot = snap.snapshot
+    if (snapshot && snapshotIsStale(snapshot)) {
+      // A dead weekly cron must not keep applying a months-old posture; an
+      // explicit request posture still works — the analyst sees what they chose.
+      if (!body.posture) return json(503, { error: MACRO_STALE })
+      snapshot = null // never default from — or stamp — a stale snapshot
+    }
     if (snapshot) {
       const p = snapshot.postures[fields.asset_class] ?? snapshot.postures['*']
       if (p && !body.posture) {
@@ -285,37 +310,46 @@ export default async (req: Request, context: Context): Promise<Response> => {
   }
 
   // Link (or create) the deal row so decisions build a browsable history.
+  // Identity is EXPLICIT: the client passes back the dealId a prior decide
+  // returned. A bare dealName always creates a NEW deals row — two distinct
+  // projects may legally share a name, so cross-session accretion happens only
+  // via the explicit id, never by name adoption.
   // Best-effort: a failed link never blocks the ledger write — the decision
   // still records, just orphaned (deal_id null), exactly as before.
-  let dealId: string | null = typeof body.dealId === 'string' ? body.dealId : null
+  let dealId: string | null = null
+  let linkable = true
+  const requestedDealId = typeof body.dealId === 'string' ? body.dealId : null
   const dealName = typeof body.dealName === 'string' ? body.dealName.trim().slice(0, 200) : ''
-  if (!dealId && dealName) {
-    const location = typeof fields.location === 'string' && fields.location ? fields.location.slice(0, 200) : null
-    const sponsor = typeof fields.sponsor_name === 'string' && fields.sponsor_name ? fields.sponsor_name.slice(0, 200) : null
+  if (requestedDealId) {
+    // Verify the row still exists — writing the ledger row against a deleted
+    // deal would fail its FK and block the write.
     const { data: existing, error: lookupError } = await db
       .from('deals')
       .select('id')
-      .eq('name', dealName)
-      .order('created_at', { ascending: true })
-      .limit(1)
+      .eq('id', requestedDealId)
       .maybeSingle()
     if (lookupError) {
-      // A failed lookup is NOT "not found" — inserting here would duplicate the
-      // deal on a transient blip. Skip linking; the decision records orphaned.
+      // A failed lookup is NOT "gone" — creating a fresh deal here would
+      // duplicate it on a transient blip. Skip linking; record orphaned.
+      linkable = false
     } else if (existing) {
       dealId = existing.id
       // Link only — never overwrite an existing deal's identity or fields
-      // from a decision. Two distinct deals can legally share a name, and the
-      // decision's own inputs are already stored on the ledger row.
+      // from a decision; its inputs are already stored on the ledger row.
       await db.from('deals').update({ updated_at: new Date().toISOString() }).eq('id', dealId)
-    } else {
-      const { data: created } = await db
-        .from('deals')
-        .insert({ name: dealName, asset_class: String(fields.asset_class).slice(0, 50), location, sponsor, fields })
-        .select('id')
-        .single()
-      dealId = created?.id ?? null
     }
+    // else: the deal was deleted since the client stored its id — fall through
+    // and create a fresh row, same as arriving with no id.
+  }
+  if (linkable && !dealId && dealName) {
+    const location = typeof fields.location === 'string' && fields.location ? fields.location.slice(0, 200) : null
+    const sponsor = typeof fields.sponsor_name === 'string' && fields.sponsor_name ? fields.sponsor_name.slice(0, 200) : null
+    const { data: created } = await db
+      .from('deals')
+      .insert({ name: dealName, asset_class: String(fields.asset_class).slice(0, 50), location, sponsor, fields })
+      .select('id')
+      .single()
+    dealId = created?.id ?? null
   }
 
   const { data: row, error } = await db
@@ -336,7 +370,9 @@ export default async (req: Request, context: Context): Promise<Response> => {
     .select('id, created_at')
     .single()
   if (error) return json(500, { error: `Failed to record decision: ${error.message}` })
-  return json(200, { ...payload, persisted: true, decisionId: row.id, decidedAt: row.created_at })
+  // dealId goes back to the client, which stores it and passes it on the next
+  // decide — the explicit identity that keeps a deal's history on one row.
+  return json(200, { ...payload, persisted: true, decisionId: row.id, decidedAt: row.created_at, dealId })
 }
 
 export const config: Config = {

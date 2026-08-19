@@ -39,10 +39,28 @@ const LS_DRAFT_KEY = 'cc_config_draft_v1'
 /** The live macro payload: snapshot plus market context + persistence honesty flags. */
 type MacroPayload = MacroSnapshot & { persisted?: boolean; live?: boolean; warning?: string }
 
-function loadDraftConfig(): Gate1Config | null {
+/**
+ * Draft rulebook + provenance. baseVersion is the ACTIVE version at the moment
+ * the draft OPENED (first edit) — never the version fetched at save time — so a
+ * draft edited from v3 still 409s against a later v4 even after a reload
+ * refetched v4 as active. Legacy drafts stored the bare config; they map to
+ * baseVersion 0 so the save fails closed into the server's 409 flow instead of
+ * silently discarding intervening versions.
+ */
+type DraftState = { config: Gate1Config; baseVersion: number }
+
+function loadDraft(): DraftState | null {
   try {
     const raw = localStorage.getItem(LS_DRAFT_KEY)
-    return raw ? (JSON.parse(raw) as Gate1Config) : null
+    if (!raw) return null
+    const p = JSON.parse(raw)
+    if (!p || typeof p !== 'object') return null
+    if ('config' in p) {
+      return p.config && typeof p.config === 'object'
+        ? { config: p.config as Gate1Config, baseVersion: typeof p.baseVersion === 'number' ? p.baseVersion : 0 }
+        : null
+    }
+    return { config: p as Gate1Config, baseVersion: 0 } // legacy bare-config shape
   } catch {
     return null
   }
@@ -99,7 +117,7 @@ function matchesExtracted(
   return a === b
 }
 
-function loadSaved(): { fields: IntakeFormValues; adjustments: JudgmentAdjustment[]; step: Step; extraction: ExtractionResult | null } | null {
+function loadSaved(): { fields: IntakeFormValues; adjustments: JudgmentAdjustment[]; step: Step; extraction: ExtractionResult | null; dealId: string | null } | null {
   try {
     const raw = localStorage.getItem(LS_KEY)
     if (!raw) return null
@@ -109,6 +127,7 @@ function loadSaved(): { fields: IntakeFormValues; adjustments: JudgmentAdjustmen
       adjustments: Array.isArray(p.adjustments) ? p.adjustments : [],
       step: STEP_IDS.includes(p.step) ? p.step : 'intake',
       extraction: p.extraction && typeof p.extraction === 'object' ? p.extraction : null,
+      dealId: typeof p.dealId === 'string' ? p.dealId : null,
     }
   } catch {
     return null
@@ -131,6 +150,10 @@ export default function DealIntake() {
   const [scoreErr, setScoreErr] = useState<string | null>(null)
   const [deciding, setDeciding] = useState(false)
   const [decision, setDecision] = useState<Pick<Gate1Response, 'persisted' | 'warning' | 'decisionId'> | null>(null)
+  // The working deal's server identity — returned by decide, sent back on the
+  // next decide so history accretes onto the SAME deals row across sessions.
+  // Cleared whenever the deal identity changes (new extraction/sample, rename).
+  const [dealId, setDealId] = useState<string | null>(() => saved?.dealId ?? null)
   const [prefill, setPrefill] = useState<{ key: string; value: number } | null>(null)
   const judgmentRef = useRef<HTMLDivElement>(null)
 
@@ -140,7 +163,8 @@ export default function DealIntake() {
   const [macroErr, setMacroErr] = useState<string | null>(null)
   // Active threshold config version + the analyst's local draft (previews only).
   const [activeConfig, setActiveConfig] = useState<{ version: number; config: Gate1Config } | null>(null)
-  const [draftConfig, setDraftConfig] = useState<Gate1Config | null>(loadDraftConfig)
+  const [draft, setDraft] = useState<DraftState | null>(loadDraft)
+  const draftConfig = draft?.config ?? null
 
   const fetchMacro = useCallback(async () => {
     setMacroLoading(true)
@@ -166,9 +190,12 @@ export default function DealIntake() {
   }, [fetchMacro])
 
   const handleDraftChange = (cfg: Gate1Config | null) => {
-    setDraftConfig(cfg)
+    // The first edit OPENS the draft — stamp what it was edited from right
+    // then; later edits keep that stamp (see DraftState).
+    const next = cfg ? { config: cfg, baseVersion: draft?.baseVersion ?? activeConfig?.version ?? 0 } : null
+    setDraft(next)
     try {
-      cfg ? localStorage.setItem(LS_DRAFT_KEY, JSON.stringify(cfg)) : localStorage.removeItem(LS_DRAFT_KEY)
+      next ? localStorage.setItem(LS_DRAFT_KEY, JSON.stringify(next)) : localStorage.removeItem(LS_DRAFT_KEY)
     } catch { /* non-fatal */ }
   }
 
@@ -176,7 +203,9 @@ export default function DealIntake() {
     const r = await fetch('/api/config', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ config: cfg, note, baseVersion: activeConfig?.version ?? 0 }),
+      // The draft's STORED provenance, not the currently fetched active — a
+      // version published since the draft opened must 409, never be discarded.
+      body: JSON.stringify({ config: cfg, note, baseVersion: draft?.baseVersion ?? activeConfig?.version ?? 0 }),
     })
     const data = await r.json()
     if (r.ok && data.version) {
@@ -214,9 +243,9 @@ export default function DealIntake() {
   // Persist the working state so a refresh never loses the analyst's inputs.
   useEffect(() => {
     try {
-      localStorage.setItem(LS_KEY, JSON.stringify({ fields, adjustments, step, extraction }))
+      localStorage.setItem(LS_KEY, JSON.stringify({ fields, adjustments, step, extraction, dealId }))
     } catch { /* storage full/blocked — non-fatal */ }
-  }, [fields, adjustments, step, extraction])
+  }, [fields, adjustments, step, extraction, dealId])
 
   const coerced = useMemo(() => coerceFields(fields), [fields])
   // Membership, not truthiness: an asset class outside the registry must never
@@ -280,15 +309,18 @@ export default function DealIntake() {
     setDecision(null)
     try {
       // dealName lets the server link (or create) the deals row so the
-      // decision lands in the browsable history instead of being orphaned.
+      // decision lands in the browsable history instead of being orphaned;
+      // dealId (from a prior decide of this working deal) pins WHICH row —
+      // a bare name always opens a new deal server-side.
       const dealName = typeof coerced.deal_name === 'string' && coerced.deal_name.trim() ? coerced.deal_name.trim() : undefined
       const r = await fetch('/api/gate1/decide', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fields: coerced, adjustments, posture: livePosture, dealName }),
+        body: JSON.stringify({ fields: coerced, adjustments, posture: livePosture, dealName, dealId: dealId ?? undefined }),
       })
       const data = await r.json()
       if (data.error) throw new Error(data.error)
+      if (typeof data.dealId === 'string') setDealId(data.dealId)
       setLastResponse(data as Gate1Response)
       setDecision({ persisted: data.persisted, warning: data.warning, decisionId: data.decisionId })
     } catch (e: unknown) {
@@ -334,6 +366,7 @@ export default function DealIntake() {
     setAdjustments([])
     setLastResponse(null)
     setDecision(null)
+    setDealId(null) // a fresh extraction (or the sample) is a new deal identity
     setPrefill(null)
     setStep('review')
   }
@@ -343,6 +376,14 @@ export default function DealIntake() {
   // `edited` (IntakeReview then swaps the confidence chip for "analyst-edited"
   // and drops the citation); restoring the original value clears the flag.
   const handleFieldChange = (key: keyof DealFields, rawValue: string) => {
+    if (key === 'deal_name') {
+      // A different name is a different deal — drop the stored server identity
+      // so the next decide opens a fresh deals row instead of accreting onto
+      // the renamed one's history.
+      const cur = fields.deal_name
+      const curName = typeof cur === 'string' ? cur.trim() : cur == null ? '' : String(cur).trim()
+      if (rawValue.trim() !== curName) setDealId(null)
+    }
     setFields(prev => ({ ...prev, [key]: rawValue }))
     const def = ALL_FIELDS.find(f => f.key === key)
     setExtraction(prev => {

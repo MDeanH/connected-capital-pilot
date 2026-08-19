@@ -1,10 +1,11 @@
 # Team handoff — Connected Capital pilot
 
 This repo IS the pilot: the client build, split out of the parent platform
-repo so the team works on exactly this and nothing else. The site is FULLY
-PUBLIC (access gate removed per client direction — nothing private in the
-build as of 2026-07-11). Pushing `main` auto-deploys, so treat merges to
-`main` as releases — do day-to-day work on feature branches and open PRs.
+repo so the team works on exactly this and nothing else. A deploy serves
+public or password-gated depending on `PILOT_PASSWORD` (see Access at the
+bottom); nothing private is in the build itself. Pushing `main`
+auto-deploys, so treat merges to `main` as releases — do day-to-day work on
+feature branches and open PRs.
 
 ## Pulling engine/data updates from the parent platform
 
@@ -48,15 +49,28 @@ Macro · Backtest**. Old analytics tabs were removed (recoverable from git
 history); the verified MC engine + parity suite remain as server machinery.
 
 **Env vars to go fully live (Netlify site settings):**
+
+Decide public vs private FIRST — the edge gate
+(`netlify/edge-functions/gate.ts`) fails closed around these keys:
+
+- **Private pilot:** set `PILOT_PASSWORD` before adding either key below.
+  Without it, `SUPABASE_SERVICE_ROLE_KEY` on the site 503s every `/api/*`
+  path, and `ANTHROPIC_API_KEY` 503s the extraction paths (`/api/extract`,
+  `/api/extract-run`, `/api/extractions/*`).
+- **Public demo** (the public client site): no Supabase keys, no password —
+  just `ANTHROPIC_API_KEY` + `PUBLIC_EXTRACTION=allow` (exact value), the
+  explicit opt-in that lets extraction run on an open site.
+
+Then the keys themselves:
 - `ANTHROPIC_API_KEY` — live AI extraction (OM PDF + pro forma XLSX →
   ~30 cited fields + cross-document discrepancies, claude-opus-4-8 structured
   outputs). Until set, the "recorded sample" path demos the identical flow.
 - `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` — persistence: deals,
   extractions, versioned threshold configs, weekly macro snapshots, and the
   append-only `gate_decisions` replay ledger. Server-only; the SPA never
-  talks to Supabase. Without them everything computes and says honestly
-  "NOT recorded". Schema: `supabase/migrations/0001_init.sql`; seed
-  (config v1): `supabase/seed.sql`.
+  talks to Supabase. Requires `PILOT_PASSWORD` (above). Without them
+  everything computes and says honestly "NOT recorded". Schema:
+  `supabase/migrations/0001_init.sql`; seed (config v1): `supabase/seed.sql`.
 
 **Build gates (all must pass or the deploy fails):** `npm run parity` (16),
 `npm run gate1` (23), `npm run gate1:macro` (23).
@@ -105,8 +119,18 @@ deals in.
 
 ## Access
 
-The site is public per client direction (2026-07-11: "nothing private right
-now"). The Basic-Auth gate was removed; its history is in git if it's ever
-needed again (`netlify/edge-functions/gate.ts`, requires PILOT_PASSWORD).
+The access gate is back — reinstated as an env-gated login page
+(`netlify/edge-functions/gate.ts`, runs on every path). It is inert until
+`PILOT_PASSWORD` is set:
+
+- **Without `PILOT_PASSWORD`:** pages serve ungated (the public client site
+  stays fully open), but privileged env fails closed — see the 503 rules
+  under "Env vars to go fully live" above.
+- **With `PILOT_PASSWORD`:** every path except the landing page (`/` and
+  `/how-it-works.html`) requires login. Sessions are 30-day HttpOnly
+  cookies keyed to the password itself, so changing the password signs
+  everyone out. Basic Auth is still accepted as a header
+  (curl/automation).
+
 Don't add real client figures or pipeline deals to the repo or the UI while
-the site is ungated.
+a site serves them ungated.

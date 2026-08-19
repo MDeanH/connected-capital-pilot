@@ -20,7 +20,7 @@ import { serviceClient } from './lib/supabase.ts'
  * globally until another version lands. Validate the whole shape, not just
  * that thresholds is an array.
  */
-function configShapeError(c: any): string | null {
+export function configShapeError(c: any): string | null {
   if (!c || typeof c !== 'object') return 'config must be an object'
   if (!Array.isArray(c.checks) || c.checks.length === 0) return 'checks must be a non-empty array'
   for (const ch of c.checks) {
@@ -65,6 +65,59 @@ function configShapeError(c: any): string | null {
       !m.signalWeights || typeof m.signalWeights !== 'object' ||
       !m.postureMatrix || typeof m.postureMatrix !== 'object') {
     return 'macro needs non-empty signals plus signalWeights and postureMatrix'
+  }
+  // computeMacroSnapshot (lib/gate1/macro.ts) dereferences every field below on
+  // every snapshot — a config saved without them makes the macro API and the
+  // weekly cron throw until another version lands, so the full executable
+  // MacroConfig shape is validated here, not just the top-level keys.
+  const finite = (v: any) => typeof v === 'number' && Number.isFinite(v)
+  for (let i = 0; i < m.signals.length; i++) {
+    const s = m.signals[i]
+    const name = s && typeof s.id === 'string' ? `"${s.id}"` : `#${i}`
+    if (!s || typeof s.id !== 'string' || typeof s.label !== 'string') {
+      return `macro signal ${name} needs a string id and label`
+    }
+    if (s.fred !== null && typeof s.fred !== 'string') {
+      return `macro signal "${s.id}" fred must be a FRED series id string or null`
+    }
+    if (!finite(s.weight)) return `macro signal "${s.id}" weight must be a finite number`
+    if (s.transform !== 'level' && s.transform !== 'yoy') {
+      return `macro signal "${s.id}" transform must be "level" or "yoy"`
+    }
+    if (s.direction !== 'high_is_bad' && s.direction !== 'high_is_good') {
+      return `macro signal "${s.id}" direction must be "high_is_bad" or "high_is_good"`
+    }
+    if (!finite(s.green) || !finite(s.yellow)) {
+      return `macro signal "${s.id}" needs finite numeric green and yellow bands`
+    }
+  }
+  if (!finite(m.minVotes) || m.minVotes < 1) return 'macro minVotes must be a finite number >= 1'
+  if (!finite(m.hysteresisWins) || m.hysteresisWins < 1) {
+    return 'macro hysteresisWins must be a finite number >= 1'
+  }
+  const qb = m.quadrantBands
+  if (!qb || typeof qb !== 'object' || !finite(qb.inflationHotYoy) || !finite(qb.growthRecessionYoy)) {
+    return 'macro quadrantBands needs finite numeric inflationHotYoy and growthRecessionYoy'
+  }
+  for (const [regime, row] of Object.entries(m.postureMatrix)) {
+    if (!row || typeof row !== 'object' || Array.isArray(row) ||
+        !Object.values(row).every((p) => typeof p === 'string')) {
+      return `macro postureMatrix "${regime}" must map asset classes to posture strings`
+    }
+  }
+  const hs = m.hurdleStack
+  if (!hs || typeof hs !== 'object') return 'macro needs a hurdleStack object'
+  if (!finite(hs.anchorPct)) return 'macro hurdleStack anchorPct must be a finite number'
+  if (!Array.isArray(hs.illiquidityBpsByLockupYears) || hs.illiquidityBpsByLockupYears.length === 0 ||
+      !hs.illiquidityBpsByLockupYears.every((t: any) => t && finite(t.maxYears) && finite(t.bps))) {
+    return 'macro hurdleStack illiquidityBpsByLockupYears must be a non-empty array of { maxYears, bps } finite numbers'
+  }
+  for (const key of ['complexityBpsByStrategy', 'regimeBps']) {
+    const rec = hs[key]
+    if (!rec || typeof rec !== 'object' || Array.isArray(rec) ||
+        !Object.values(rec).every((v) => finite(v))) {
+      return `macro hurdleStack ${key} must be an object of finite numbers`
+    }
   }
   return null
 }

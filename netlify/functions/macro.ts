@@ -1,5 +1,5 @@
 // Macro API — Patel's weekly macro snapshot + prevailing-market context.
-//   GET  /api/macro/latest   → newest stored snapshot, else compute LIVE from FRED
+//   GET  /api/macro/latest   → newest FRESH stored snapshot, else compute LIVE from FRED
 //   GET  /api/macro/history  → stored snapshots (newest first), [] without Supabase
 //   POST /api/macro/override → manual regime/signal override (note REQUIRED, never silent)
 //
@@ -18,27 +18,42 @@ const json = (status: number, obj: unknown) =>
 
 const REGIMES: Regime[] = ['soft_landing', 'stagflation', 'recession']
 
-async function activeConfig(db: ReturnType<typeof serviceClient>): Promise<Gate1Config> {
+type Db = NonNullable<ReturnType<typeof serviceClient>>
+
+const STORED_UNAVAILABLE = 'Could not load the stored macro snapshot — try again'
+
+// Two missed weekly cron runs. gate1.ts enforces the same bound for decisions separately.
+const MAX_SNAPSHOT_AGE_DAYS = 14
+
+// null = the query FAILED (callers 503) — a transient error must not silently
+// swap the active rulebook for the baked default. Empty table keeps the default.
+async function activeConfig(db: ReturnType<typeof serviceClient>): Promise<Gate1Config | null> {
   if (!db) return DEFAULT_CONFIG
-  const { data } = await db
+  const { data, error } = await db
     .from('threshold_configs')
     .select('config')
     .order('version', { ascending: false })
     .limit(1)
     .maybeSingle()
+  if (error) return null
   return (data?.config as Gate1Config) ?? DEFAULT_CONFIG
 }
 
-async function latestStored(db: ReturnType<typeof serviceClient>): Promise<{ row: any; snapshot: MacroSnapshot } | null> {
-  if (!db) return null
-  const { data } = await db
+// Latest stored snapshot. null = the query itself FAILED — same rule as
+// gate1.ts: a transient failure must not read as "empty table" and silently
+// swap the stored posture for a live compute (which the UI then sends to
+// /decide as an explicit override), so callers must 503.
+// { stored: null } = genuinely empty table → compute live.
+async function latestStored(db: Db): Promise<{ stored: { row: any; snapshot: MacroSnapshot } | null } | null> {
+  const { data, error } = await db
     .from('macro_snapshots')
     .select('*')
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle()
-  if (!data) return null
-  return { row: data, snapshot: (data.snapshot ?? data) as MacroSnapshot }
+  if (error) return null
+  if (!data) return { stored: null }
+  return { stored: { row: data, snapshot: (data.snapshot ?? data) as MacroSnapshot } }
 }
 
 /** Fetch every configured FRED series (signals + market ids) and compute a snapshot. */
@@ -93,7 +108,13 @@ export default async (req: Request, _context: Context): Promise<Response> => {
       return json(400, { error: `regime must be one of ${REGIMES.join(', ')}` })
     }
     const config = await activeConfig(db)
-    const previous = (await latestStored(db))?.snapshot ?? null
+    if (!config) return json(503, { error: 'Could not load the active rulebook — try again' })
+    let previous: MacroSnapshot | null = null
+    if (db) {
+      const latest = await latestStored(db)
+      if (!latest) return json(503, { error: STORED_UNAVAILABLE })
+      previous = latest.stored?.snapshot ?? null
+    }
     const snapshot = await computeLive(config, {
       previous,
       manualValues: body.signalValues && typeof body.signalValues === 'object' ? body.signalValues : undefined,
@@ -135,24 +156,47 @@ export default async (req: Request, _context: Context): Promise<Response> => {
       .select('*')
       .order('created_at', { ascending: false })
       .limit(52)
-    if (error) return json(500, { error: error.message })
+    if (error) return json(503, { error: STORED_UNAVAILABLE })
     return json(200, (data ?? []).map((r: any) => ({ ...((r.snapshot ?? r) as MacroSnapshot), id: r.id, createdAt: r.created_at })))
   }
 
-  // /latest — stored row wins; otherwise an honest live compute (not persisted).
-  const stored = await latestStored(db)
-  if (stored) {
-    return json(200, {
-      ...stored.snapshot,
-      id: stored.row.id,
-      createdAt: stored.row.created_at,
-      persisted: true,
-      sourceNote: 'stored weekly snapshot',
-    })
+  // /latest — a fresh stored row wins; stale or missing → an honest live
+  // compute (not persisted). A stored row so old the weekly cron must be dead
+  // must not keep serving as the prevailing posture.
+  let staleWeekOf: string | null = null
+  if (db) {
+    const latest = await latestStored(db)
+    if (!latest) return json(503, { error: STORED_UNAVAILABLE })
+    const stored = latest.stored
+    if (stored) {
+      const recordedAt = Date.parse(stored.row.created_at ?? stored.snapshot.week_of ?? '')
+      const fresh = Number.isFinite(recordedAt) && Date.now() - recordedAt <= MAX_SNAPSHOT_AGE_DAYS * 86_400_000
+      if (fresh) {
+        return json(200, {
+          ...stored.snapshot,
+          id: stored.row.id,
+          createdAt: stored.row.created_at,
+          persisted: true,
+          sourceNote: 'stored weekly snapshot',
+        })
+      }
+      staleWeekOf = stored.snapshot.week_of ?? null
+    }
   }
   const config = await activeConfig(db)
+  if (!config) return json(503, { error: 'Could not load the active rulebook — try again' })
   const snapshot = await computeLive(config)
-  return json(200, { ...snapshot, live: true, persisted: false, sourceNote: 'computed live from FRED — no stored snapshots yet' })
+  return json(200, {
+    ...snapshot,
+    live: true,
+    persisted: false,
+    sourceNote: staleWeekOf
+      ? `computed live from FRED — newest stored snapshot (week of ${staleWeekOf}) is older than ${MAX_SNAPSHOT_AGE_DAYS} days`
+      : 'computed live from FRED — no stored snapshots yet',
+    ...(staleWeekOf
+      ? { warning: `Stored macro snapshot (week of ${staleWeekOf}) is more than ${MAX_SNAPSHOT_AGE_DAYS} days old — showing a live compute; check the weekly macro cron` }
+      : {}),
+  })
 }
 
 export const config: Config = {
