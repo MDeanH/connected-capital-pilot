@@ -10,7 +10,13 @@ import { ALL_FIELDS } from './deal-types'
 import type { DealFields, GateVerdict, Posture } from './deal-types'
 
 interface Props {
-  /** "Par" — the house IRR benchmark deals are judged against (config-driven). */
+  /**
+   * "Par" — the active config's IRR benchmark AT PAGE LOAD, used only in the
+   * pre-run copy. Grading always uses the benchmark of the rulebook version a
+   * run was actually scored under (resolved per run, see fetchParForVersion) —
+   * a config publish mid-session would otherwise grade NEW verdicts against
+   * this stale figure.
+   */
   parIrr: number
 }
 
@@ -22,14 +28,17 @@ interface RunRow extends BacktestRow {
 }
 
 // A run is stamped with the posture AND the rulebook version it was computed
-// under: the results header names both, and switching to a different posture
-// CLEARS the run — GREEN verdicts must never sit on screen while RED is
-// selected.
+// under, and it carries that version's OWN par benchmark: the results header
+// names all three, every call is graded against that stored par, and switching
+// to a different posture CLEARS the run — GREEN verdicts must never sit on
+// screen while RED is selected.
 interface RunState {
   rows: RunRow[]
   posture: Posture
-  /** Threshold-config version every row was graded under (0 = deploy-baked default); null if the endpoint didn't stamp one. */
-  configVersion: number | null
+  /** Threshold-config version every row was scored under (0 = deploy-baked default). */
+  configVersion: number
+  /** That version's own '*','*' irr_benchmark — the par every call in THIS run is graded against. */
+  parIrr: number
 }
 
 interface CompareState {
@@ -221,6 +230,28 @@ export default function Backtest({ parIrr }: Props) {
     return out
   }
 
+  // Par for grading comes from the rulebook version the run was actually
+  // scored under — NOT the parIrr prop, which belongs to whatever config was
+  // active when the page loaded. A rulebook publish mid-session would
+  // otherwise score verdicts under the NEW version while the right-call /
+  // above-below-par grading judged them against the OLD benchmark, and the
+  // stamped version in the header would mislabel the stats. The config ledger
+  // is append-only, so the fetched row is exactly what that version ran with.
+  const fetchParForVersion = async (version: number): Promise<number> => {
+    const r = await fetch(`/api/config/${version}`)
+    const data = await r.json().catch(() => null)
+    if (!r.ok || !data?.config) {
+      throw new Error(data?.error ?? `could not load rulebook v${version} (HTTP ${r.status})`)
+    }
+    const thresholds: Array<{ asset_class: string; posture: string; key: string; value: number }> =
+      Array.isArray(data.config.thresholds) ? data.config.thresholds : []
+    const row = thresholds.find(t => t.key === 'irr_benchmark' && t.asset_class === '*' && t.posture === '*')
+    if (!row || typeof row.value !== 'number' || !Number.isFinite(row.value)) {
+      throw new Error(`rulebook v${version} has no '*','*' irr_benchmark row`)
+    }
+    return row.value
+  }
+
   const runBacktest = async () => {
     if (!rows.length) return
     setBusy(`Running ${rows.length} deals through Gate 1 (${posture} posture)…`)
@@ -228,8 +259,23 @@ export default function Backtest({ parIrr }: Props) {
     try {
       const pin: VersionPin = { v: null }
       const evaluated = await evaluate(rows, posture, pin, 'mid-run')
-      setRun({ rows: evaluated, posture, configVersion: pin.v })
-      setPostureCompare(null)
+      // Verdicts in hand — now resolve the benchmark they must be graded
+      // against: the scored version's own. If that cannot be established, the
+      // run is DISCARDED (any run already on screen too) — showing these
+      // verdicts graded against a possibly different version's par would
+      // mislabel every call and the above/below-par summary.
+      try {
+        if (pin.v === null) throw new Error('the engine did not stamp a rulebook version on the results')
+        const par = await fetchParForVersion(pin.v)
+        setRun({ rows: evaluated, posture, configVersion: pin.v, parIrr: par })
+        setPostureCompare(null)
+      } catch (e) {
+        setRun(null)
+        throw new Error(
+          `Backtest ran, but grading could not proceed (${String((e as Error).message ?? e)}) — ` +
+          'the results were discarded rather than graded against a mismatched benchmark. Run it again.',
+        )
+      }
     } catch (e) {
       setErr(String((e as Error).message ?? e))
     } finally { setBusy(null) }
@@ -261,7 +307,8 @@ export default function Backtest({ parIrr }: Props) {
   }
 
   const runRows = run?.rows ?? []
-  const calls = runRows.map(r => judgeCall(r.verdict, outcome(r).irr, parIrr))
+  // Grade against the run's OWN stored benchmark — never the page-load prop.
+  const calls = run ? runRows.map(r => judgeCall(r.verdict, outcome(r).irr, run.parIrr)) : []
   const rightCalls = calls.filter(c => c === 'right_block' || c === 'right_pass').length
   // "of Y" denominator: definite verdict AND known outcome — indeterminate
   // (REVIEW) rows can't be graded, so they never count for or against the gate.
@@ -289,7 +336,8 @@ export default function Backtest({ parIrr }: Props) {
         <p className="bt-lede">
           Load past deals with their realized outcomes and see how today's Gate 1 would have called
           each one — on par, above, or below. Par is the house <Term k="irr">IRR</Term> benchmark
-          ({pct(parIrr)}), and every deal runs through the exact engine live intake uses.
+          (currently {pct(parIrr)}; each run grades against the benchmark of the rulebook version it
+          was scored under), and every deal runs through the exact engine live intake uses.
         </p>
         <p className="bt-lede-note">
           Draft thresholds don't apply here — back-tests always run the saved active rulebook.
@@ -350,11 +398,9 @@ export default function Backtest({ parIrr }: Props) {
             <h3>
               The verdict on your history
               <span className={`bt-run-posture bt-rp-${run.posture}`}>run under {run.posture.toUpperCase()} posture</span>
-              {run.configVersion !== null && (
-                <span className="bt-run-posture bt-rp-cfg" title="Every row in this run was graded under this saved rulebook version">
-                  rulebook v{run.configVersion}
-                </span>
-              )}
+              <span className="bt-run-posture bt-rp-cfg" title="Every row in this run was scored under this saved rulebook version, and every call is graded against that version's own par benchmark">
+                rulebook v{run.configVersion} · par {pct(run.parIrr)}
+              </span>
             </h3>
             <div className="bt-stats">
               <div>
@@ -366,7 +412,7 @@ export default function Backtest({ parIrr }: Props) {
               <div>Right calls: <b>{rightCalls} of {outcomes}</b> deals with a definite verdict and known outcome</div>
               <div>
                 Your book overall: <b>{pct(avgAll)}</b> realized —{' '}
-                <b>{avgAll === null ? '—' : avgAll >= parIrr ? 'ABOVE PAR' : 'BELOW PAR'}</b> vs the {pct(parIrr)} benchmark
+                <b>{avgAll === null ? '—' : avgAll >= run.parIrr ? 'ABOVE PAR' : 'BELOW PAR'}</b> vs the {pct(run.parIrr)} benchmark
               </div>
             </div>
           </div>
@@ -383,7 +429,7 @@ export default function Backtest({ parIrr }: Props) {
               <tbody>
                 {run.rows.map((r, i) => {
                   const { irr: outcomeIrr, usedNetLp } = outcome(r)
-                  const call = judgeCall(r.verdict, outcomeIrr, parIrr)
+                  const call = judgeCall(r.verdict, outcomeIrr, run.parIrr)
                   return (
                     <tr key={i}>
                       <td>

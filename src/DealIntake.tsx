@@ -19,7 +19,7 @@ import DealHistory from './DealHistory'
 import MarketPathCard from './MarketPathCard'
 import LoginCard from './LoginCard'
 import UsersPanel from './UsersPanel'
-import { authFetch, supabase, useIdentity, type AdminFlag } from './auth'
+import { authFetch, useIdentity, type AdminFlag } from './auth'
 import type { AvailableKey } from './JudgmentPanel'
 import type { ExtractionResult } from '../netlify/functions/lib/gate1/fields'
 import type { Gate1Config, MacroSnapshot, Regime } from '../netlify/functions/lib/gate1/types'
@@ -178,10 +178,13 @@ export default function DealIntake() {
   const [draft, setDraft] = useState<DraftState | null>(loadDraft)
   const draftConfig = draft?.config ?? null
 
-  // Inner auth layer. With auth unconfigured (public demo) identity is inert
-  // and 'auth-off' keeps every gated control rendering exactly as before.
+  // Inner auth layer. Auth is ACTIVE only when the build has client keys AND
+  // the server reports its auth layer on (identity.authEnabled) — the VITE_
+  // keys are committed, so a build alone proves nothing about the deployment.
+  // Anything else (public demo, status probe still in flight) keeps 'auth-off'
+  // legacy visibility: every gated control renders exactly as before auth.
   const identity = useIdentity()
-  const isAdmin: AdminFlag = supabase === null ? 'auth-off' : identity.role === 'admin'
+  const isAdmin: AdminFlag = identity.authEnabled === true ? identity.role === 'admin' : 'auth-off'
 
   const fetchMacro = useCallback(async () => {
     setMacroLoading(true)
@@ -299,6 +302,13 @@ export default function DealIntake() {
     // touch state, so an out-of-order response can't clobber a newer verdict.
     const seq = ++previewSeqRef.current
     setPreviewStale(true)
+    // The change that scheduled this re-preview also invalidates any recorded
+    // badge: that ledger row described the OLD inputs, so "Recorded" must never
+    // sit beside a verdict it doesn't cover. Recording again re-sets it. Keep
+    // non-persisted warnings — the 409 path sets one and bumps reviewNonce
+    // (re-running this effect), so clearing those here would wipe the server's
+    // message before the analyst ever saw it.
+    setDecision(d => (d?.persisted ? null : d))
     const t = setTimeout(async () => {
       setScoring(true)
       setScoreErr(null)
@@ -487,8 +497,10 @@ export default function DealIntake() {
     <div className="cc-theme di-root">
       <style>{CSS}</style>
 
-      {/* Sign-in card / signed-in chip — only when auth is configured at build time */}
-      {supabase && <LoginCard identity={identity} />}
+      {/* Sign-in card / signed-in chip — only once the server has confirmed
+          auth is active (authEnabled true, never while null/loading), so the
+          public demo and the probe's in-flight window never flash it */}
+      {identity.authEnabled === true && <LoginCard identity={identity} />}
 
       {/* Sub-nav stepper */}
       <nav className="di-nav" aria-label="Deal intake steps">

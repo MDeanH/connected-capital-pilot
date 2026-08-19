@@ -185,8 +185,14 @@ async function listDecisions(url: URL): Promise<Response> {
   const db = serviceClient()
   if (!db) return json(503, { error: 'Persistence not configured (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY)' })
   // Cursor pagination: ?limit=<n> (default 100, hard cap 200) and
-  // ?before=<ISO timestamp> (strictly created_at < before). The raw `before`
-  // string goes to the query untouched so sub-millisecond precision survives.
+  // ?before=<cursor>. The cursor is compound — "createdAt|id", both taken
+  // from the last row of the previous page — because created_at alone is not
+  // unique: rows are ordered (created_at desc, id desc) and filtered
+  // created_at < X OR (created_at = X AND id < Y), so boundary rows sharing
+  // a created_at are never skipped. A bare ?before=<ISO> (no |id part) still
+  // behaves as the old timestamp-only strict-< cursor, kept for compatibility
+  // with clients that predate the compound form. The raw timestamp string
+  // goes to the query untouched so sub-millisecond precision survives.
   const limitParam = url.searchParams.get('limit')
   let limit = 100
   if (limitParam !== null) {
@@ -195,8 +201,32 @@ async function listDecisions(url: URL): Promise<Response> {
     limit = Math.min(n, 200)
   }
   const before = url.searchParams.get('before')
-  if (before !== null && Number.isNaN(new Date(before).getTime())) {
-    return json(400, { error: 'before must be an ISO timestamp' })
+  let beforeTs: string | null = null
+  let beforeId: string | null = null
+  if (before !== null) {
+    const sep = before.indexOf('|')
+    if (sep === -1) {
+      // Legacy timestamp-only cursor (can skip same-instant boundary rows;
+      // kept only so pre-compound clients keep working).
+      if (Number.isNaN(new Date(before).getTime())) {
+        return json(400, { error: 'before must be an ISO timestamp or a "timestamp|id" cursor' })
+      }
+      beforeTs = before
+    } else {
+      // Compound cursor. Both halves are embedded into a PostgREST or=()
+      // logic tree below, so parse defensively: the timestamp must be a
+      // parseable date built only from plain timestamp characters, and the
+      // id must be exactly a UUID. Anything else is a malformed cursor.
+      const ts = before.slice(0, sep)
+      const id = before.slice(sep + 1)
+      const tsOk = /^[\d TtZz:.+-]+$/.test(ts) && !Number.isNaN(new Date(ts).getTime())
+      const idOk = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
+      if (!tsOk || !idOk) {
+        return json(400, { error: 'before must be an ISO timestamp or a "timestamp|id" cursor' })
+      }
+      beforeTs = ts
+      beforeId = id
+    }
   }
   let query = db
     .from('gate_decisions')
@@ -205,9 +235,24 @@ async function listDecisions(url: URL): Promise<Response> {
         'kills:result->kills, flag_pts:result->flagPoints, posture:result->>posture, ' +
         'input_name:inputs->>deal_name, deals(name)',
     )
-  if (before) query = query.lt('created_at', before)
+  if (beforeTs !== null && beforeId !== null) {
+    // Keyset filter matching the (created_at desc, id desc) sort: strictly
+    // older rows, plus same-instant rows with a smaller id. PostgREST logic
+    // trees read or=(cond,and(cond,cond)) with each cond as column.op.value;
+    // values are double-quoted so the ':' '.' '+' inside the timestamp can't
+    // be misread as tree tokens (the parse above guarantees neither half can
+    // contain '"', ',' or parens, so the quoting can't be broken out of).
+    query = query.or(
+      `created_at.lt."${beforeTs}",and(created_at.eq."${beforeTs}",id.lt."${beforeId}")`,
+    )
+  } else if (beforeTs !== null) {
+    query = query.lt('created_at', beforeTs)
+  }
   // Fetch one row past the limit so hasMore is exact, then slice it off.
-  const { data, error } = await query.order('created_at', { ascending: false }).limit(limit + 1)
+  const { data, error } = await query
+    .order('created_at', { ascending: false })
+    .order('id', { ascending: false })
+    .limit(limit + 1)
   if (error) return json(500, { error: error.message })
   const hasMore = (data ?? []).length > limit
   const decisions = (data ?? []).slice(0, limit).map((r: any) => ({

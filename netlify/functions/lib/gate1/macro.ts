@@ -197,7 +197,15 @@ export function computeMacroSnapshot(input: MacroComputeInput): MacroSnapshot {
   })
 
   const voted = signals.filter((s) => s.vote !== null)
-  const degraded = voted.length < macro.minVotes
+  // Degraded when the live votes cannot re-score honestly — on EITHER axis:
+  // too few votes, or zero (or non-finite) total live weight. minVotes counts
+  // votes, but zero-weight reporting signals can satisfy it while every
+  // positive-weight signal abstains; the score would then be 0/0 = NaN, which
+  // fails every regime cutoff comparison and would silently fall through to
+  // 'recession'. A weightless voting set takes the same hold-previous-regime
+  // path as too-few-votes, so a NaN score can never reach the cutoffs.
+  const totalWeight = voted.reduce((s, v) => s + v.weight, 0)
+  const degraded = voted.length < macro.minVotes || !Number.isFinite(totalWeight) || totalWeight <= 0
 
   // 2) Hard overrides (from spec) — definitional recession triggers that no
   //    weighted average can outvote.
@@ -205,8 +213,17 @@ export function computeMacroSnapshot(input: MacroComputeInput): MacroSnapshot {
   const sahmTriggered = sahmValue !== null && sahmValue >= SAHM_TRIGGER
   const gdpRaw = input.series['gdp'] ?? []
   const n = gdpRaw.length
+  // Symmetric with the GDP SIGNAL's staleness gate above: when the GDP feed is
+  // stale by the same isStaleReading bound, the signal abstains — and this hard
+  // override must be unavailable too. Without the gate, a frozen GDP feed whose
+  // tail happens to end on two consecutive declines would force 'recession'
+  // forever, even while the signal itself correctly refuses to vote.
+  const gdpFresh = !isStaleReading(gdpRaw, weekOf)
   const technicalRecession =
-    n >= 3 && gdpRaw[n - 1].value < gdpRaw[n - 2].value && gdpRaw[n - 2].value < gdpRaw[n - 3].value
+    gdpFresh &&
+    n >= 3 &&
+    gdpRaw[n - 1].value < gdpRaw[n - 2].value &&
+    gdpRaw[n - 2].value < gdpRaw[n - 3].value
 
   // 3) Regime resolution: overrides beat degraded beats scored-candidate.
   let regime: Regime
@@ -216,11 +233,12 @@ export function computeMacroSnapshot(input: MacroComputeInput): MacroSnapshot {
     // "regardless" per spec: overrides also bypass hysteresis.
     regime = 'recession'
   } else if (degraded) {
-    // Too few live votes to re-score honestly: hold the last known regime
-    // (or the neutral soft_landing start), and say so via degraded=true.
+    // Too few live votes — or no live weight — to re-score honestly: hold the
+    // last known regime (or the neutral soft_landing start), degraded=true.
     regime = previous?.regime ?? 'soft_landing'
   } else {
-    const totalWeight = voted.reduce((s, v) => s + v.weight, 0)
+    // totalWeight > 0 here (a weightless voting set was routed to the degraded
+    // branch above), so the score is always finite.
     const score = voted.reduce((s, v) => s + VOTE_SCORE[v.vote as Posture] * v.weight, 0) / totalWeight
     const candidate: Regime =
       score < REGIME_CUT_SOFT_LANDING ? 'soft_landing' : score < REGIME_CUT_STAGFLATION ? 'stagflation' : 'recession'

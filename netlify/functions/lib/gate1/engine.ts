@@ -148,6 +148,36 @@ export function stressedEquityMultiple(
 
 type Derived = ReturnType<typeof derive>
 
+/**
+ * Canonical registry of every check id runCheck can execute — exactly one
+ * entry per `case` in the switch below, in the same order. KEEP IN SYNC:
+ * adding or removing a `case` in runCheck MUST add/remove its id here (a
+ * plain switch offers nothing to derive this list from mechanically). A
+ * config check whose id is not in this list falls through to runCheck's
+ * default branch → status 'missing' → every deal verdict becomes REVIEW,
+ * so gate1-config.ts rejects such configs against this list at save time.
+ */
+export const EXECUTABLE_CHECK_IDS = [
+  'sponsor_integrity',
+  'site_entitled',
+  'single_exit_refi',
+  'ltc_max',
+  'dev_spread_min',
+  'contingency_min',
+  'coinvest_min',
+  'track_record',
+  'gmp_required',
+  'mini_stress',
+  'yoc_vs_benchmark',
+  'exit_cap_vs_market',
+  'interest_reserve',
+  'land_basis',
+  'rents_vs_comps',
+  'absorption',
+  'profit_margin',
+  'completion_guarantee',
+] as const
+
 function runCheck(
   def: CheckDef,
   f: DealFields,

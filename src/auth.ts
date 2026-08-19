@@ -17,6 +17,27 @@ const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
 /** Null when auth is not configured on this build — the whole feature renders nothing. */
 export const supabase: SupabaseClient | null = url && anonKey ? createClient(url, anonKey) : null
 
+// The build keys alone do not prove the SERVER runs its auth layer: the VITE_
+// keys are committed, so even the public demo build (whose server has no
+// SUPABASE_SERVICE_ROLE_KEY and waves every gate through) constructs a client.
+// One probe of GET /api/auth/status per page load resolves the server's side;
+// a failed probe resolves false for this round but is not cached, so the next
+// mount retries.
+let serverAuthPromise: Promise<boolean> | null = null
+
+function serverAuthEnabled(): Promise<boolean> {
+  if (!serverAuthPromise) {
+    serverAuthPromise = fetch('/api/auth/status')
+      .then(r => (r.ok ? (r.json() as Promise<{ enabled?: unknown }>) : Promise.reject(new Error(`status ${r.status}`))))
+      .then(d => d.enabled === true)
+      .catch(() => {
+        serverAuthPromise = null
+        return false
+      })
+  }
+  return serverAuthPromise
+}
+
 export type Role = 'admin' | 'analyst'
 
 /**
@@ -33,6 +54,14 @@ export interface IdentityState {
   email: string | null
   /** Resolved role; null while signed out, probing, or when the account has no active profile. */
   role: Role | null
+  /**
+   * Combined auth activation: true only when this build has Supabase keys AND
+   * the server reports its auth layer enabled (GET /api/auth/status) — the
+   * committed VITE_ keys alone must never activate auth UI on a deployment
+   * whose server runs auth-off. False when either half is off; null while the
+   * status probe is in flight (hide auth UI until known — never flash it).
+   */
+  authEnabled: boolean | null
 }
 
 // One probe per user per page load; only definite verdicts are cached so a
@@ -54,6 +83,19 @@ export function useIdentity(): IdentityState {
   const [restored, setRestored] = useState(supabase === null)
   const [role, setRole] = useState<Role | null>(null)
   const [probing, setProbing] = useState(false)
+  // Without client keys auth can never be active — settle false with no probe.
+  const [authEnabled, setAuthEnabled] = useState<boolean | null>(supabase === null ? false : null)
+
+  useEffect(() => {
+    if (!supabase) return
+    let cancelledStatus = false
+    serverAuthEnabled().then(enabled => {
+      if (!cancelledStatus) setAuthEnabled(enabled)
+    })
+    return () => {
+      cancelledStatus = true
+    }
+  }, [])
 
   useEffect(() => {
     if (!supabase) return
@@ -103,6 +145,7 @@ export function useIdentity(): IdentityState {
     ready: restored && !probing,
     email: session?.user?.email ?? null,
     role: userId ? role : null,
+    authEnabled,
   }
 }
 

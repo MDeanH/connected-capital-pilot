@@ -1,7 +1,8 @@
 // Deal history — the durable, browsable record of past decisions. Reads the
 // gate_decisions ledger via GET /api/gate1/decisions (newest first, deal
-// name joined, cursor-paged — LOAD OLDER appends pages via ?before=, and
-// REFRESH or a delete resets to the first page). Decisions are never
+// name joined, cursor-paged — LOAD OLDER appends pages via the compound
+// ?before=createdAt|id cursor so boundary rows sharing a timestamp are never
+// skipped, and REFRESH or a delete resets to the first page). Decisions are never
 // EDITED — but a deal can be deleted
 // outright (removing its decisions with it), and an unlinked decision row
 // can be deleted individually; both double-confirm. When persistence isn't
@@ -85,7 +86,10 @@ export default function DealHistory({ isAdmin }: { isAdmin: AdminFlag }) {
     setLoadingMore(true)
     setErr(null)
     try {
-      const r = await fetch(`/api/gate1/decisions?before=${encodeURIComponent(oldest.decided_at)}`)
+      // Compound cursor (timestamp|id) from the last loaded row: the id
+      // tiebreaker keeps rows that share the boundary created_at from being
+      // skipped by the server's keyset filter.
+      const r = await fetch(`/api/gate1/decisions?before=${encodeURIComponent(`${oldest.decided_at}|${oldest.id}`)}`)
       const ct = r.headers.get('content-type') || ''
       if (!ct.includes('application/json'))
         throw new Error('Decision history needs the deployed API — run `netlify dev` (plain vite has no persistence).')

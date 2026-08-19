@@ -12,6 +12,7 @@
 
 import type { Config, Context } from '@netlify/functions'
 import { requireAdmin } from './lib/auth.ts'
+import { EXECUTABLE_CHECK_IDS } from './lib/gate1/engine.ts'
 import { DEFAULT_CONFIG } from './lib/gate1/preview.ts'
 import type { Posture, Regime } from './lib/gate1/types.ts'
 import { serviceClient } from './lib/supabase.ts'
@@ -22,6 +23,7 @@ import { serviceClient } from './lib/supabase.ts'
 const REGIME_KEYS: Record<Regime, true> = { soft_landing: true, stagflation: true, recession: true }
 const REGIMES = Object.keys(REGIME_KEYS) as Regime[]
 const POSTURE_KEYS: Record<Posture, true> = { green: true, yellow: true, red: true }
+const EXECUTABLE_IDS = new Set<string>(EXECUTABLE_CHECK_IDS)
 
 /**
  * A saved config becomes the ACTIVE rulebook for every evaluation — a
@@ -32,10 +34,22 @@ const POSTURE_KEYS: Record<Posture, true> = { green: true, yellow: true, red: tr
 export function configShapeError(c: any): string | null {
   if (!c || typeof c !== 'object') return 'config must be an object'
   if (!Array.isArray(c.checks) || c.checks.length === 0) return 'checks must be a non-empty array'
+  const seenCheckIds = new Set<string>()
   for (const ch of c.checks) {
     if (!ch || typeof ch.id !== 'string' || (ch.kind !== 'kill' && ch.kind !== 'flag')) {
       return 'every check needs a string id and kind "kill" or "flag"'
     }
+    // The engine executes checks by id (lib/gate1/engine.ts runCheck's switch):
+    // an id it doesn't know falls through to the default branch → 'missing' →
+    // EVERY deal's verdict becomes REVIEW. Only ids from the engine's canonical
+    // registry may activate, and each at most once.
+    if (!EXECUTABLE_IDS.has(ch.id)) {
+      return `check "${ch.id}" is not an executable check id — the engine knows: ${EXECUTABLE_CHECK_IDS.join(', ')}`
+    }
+    if (seenCheckIds.has(ch.id)) {
+      return `duplicate check id "${ch.id}" — each check may appear at most once`
+    }
+    seenCheckIds.add(ch.id)
     // The engine dereferences label and thresholdKeys on every check (see
     // lib/gate1/engine.ts runCheck) — a check without them crashes evaluation.
     if (typeof ch.label !== 'string' ||
@@ -107,6 +121,16 @@ export function configShapeError(c: any): string | null {
     }
     if (!finite(s.green) || !finite(s.yellow)) {
       return `macro signal "${s.id}" needs finite numeric green and yellow bands`
+    }
+    // computeVote (lib/gate1/macro.ts) walks the bands green-first:
+    //   high_is_bad:  value <= green → green; <= yellow → yellow; else red
+    //   high_is_good: value >= green → green; >= yellow → yellow; else red
+    // Bands in the wrong order make the yellow branch unreachable — readings
+    // jump straight from green to red — so the order is enforced here.
+    if (s.direction === 'high_is_bad' ? s.green > s.yellow : s.green < s.yellow) {
+      return `macro signal "${s.id}" bands are out of order: ${s.direction} requires green ${
+        s.direction === 'high_is_bad' ? '<=' : '>='
+      } yellow (got green=${s.green}, yellow=${s.yellow}) — otherwise the yellow band is unreachable`
     }
   }
   if (weightSum <= 0) {

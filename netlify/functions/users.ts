@@ -93,34 +93,29 @@ export default async (req: Request, context: Context): Promise<Response> => {
       return json(400, { error: 'Nothing to update — pass role and/or disabled' })
     }
 
-    const { data: target, error: targetError } = await db
-      .from('profiles')
-      .select('id, role, disabled')
-      .eq('id', id)
-      .maybeSingle()
-    if (targetError) return json(500, { error: targetError.message })
-    if (!target) return json(404, { error: 'User not found' })
-
-    // Lockout guards — apply only when the change would remove a working admin
-    // (re-enabling, promoting, or touching an analyst is never a lockout risk).
-    const losesAdmin =
-      target.role === 'admin' && !target.disabled && (patch.role === 'analyst' || patch.disabled === true)
-    if (losesAdmin) {
-      if (gate.identity && gate.identity.id === id) {
+    // Lockout guards live in the database (update_profile_guarded, migration
+    // 0005): one transaction locks the profiles rows, re-checks the guards
+    // under the lock, then applies the update — so two admins concurrently
+    // demoting/disabling each other can no longer both pass a stale count and
+    // leave zero enabled admins.
+    const { error } = await db.rpc('update_profile_guarded', {
+      p_id: id,
+      p_actor: gate.identity?.id ?? null,
+      p_role: patch.role ?? null,
+      p_disabled: patch.disabled ?? null,
+    })
+    if (error) {
+      // Errcodes raised by the function — same convention as delete_deal (0003).
+      if (error.code === 'P0002') return json(404, { error: 'User not found' })
+      if (error.code === 'AD001') {
         return json(409, { error: 'You cannot disable or demote your own account — ask another admin' })
       }
-      const { count, error: countError } = await db
-        .from('profiles')
-        .select('id', { count: 'exact', head: true })
-        .eq('role', 'admin')
-        .eq('disabled', false)
-        .neq('id', id)
-      if (countError) return json(500, { error: countError.message })
-      if (!count) return json(409, { error: 'This is the only enabled admin — promote another admin first' })
+      if (error.code === 'AD002') {
+        return json(409, { error: 'This is the only enabled admin — promote another admin first' })
+      }
+      return json(500, { error: error.message })
     }
-
-    const { error } = await db.from('profiles').update(patch).eq('id', id)
-    return error ? json(500, { error: error.message }) : json(200, { ok: true })
+    return json(200, { ok: true })
   }
 
   return new Response('Method not allowed', { status: 405 })
