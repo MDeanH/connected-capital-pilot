@@ -6,8 +6,9 @@
 //
 // Role is inferred, not stored client-side: one probe of GET /api/users after
 // sign-in — 200 means admin, 403 means analyst (signed in, not admin) — cached
-// per user for the page's lifetime. The server re-checks every enforced call,
-// so this only decides what UI to show.
+// per user for the page's lifetime. Transient probe failures (network error,
+// 5xx) get a bounded retry before settling. The server re-checks every
+// enforced call, so this only decides what UI to show.
 import { useEffect, useState } from 'react'
 import { createClient, type Session, type SupabaseClient } from '@supabase/supabase-js'
 
@@ -89,12 +90,38 @@ export interface IdentityState {
 // transient failure (offline, 5xx) retries on the next mount.
 const roleCache = new Map<string, Role>()
 
-async function probeRole(token: string): Promise<Role | null> {
+// A transient blip (network error, 5xx) must not settle the identity as
+// NO ACCESS for the rest of the page's life, so the probe retries those with
+// bounded backoff. Definitive server answers (200 admin, 403 analyst, and any
+// other <500 status — e.g. 401 no active profile) settle immediately.
+const PROBE_RETRY_DELAYS_MS = [1_000, 4_000] // up to 3 attempts total
+
+async function probeRoleOnce(token: string): Promise<{ verdict: Role | null; definitive: boolean }> {
   try {
     const r = await fetch('/api/users', { headers: { Authorization: `Bearer ${token}` } })
-    return r.status === 200 ? 'admin' : r.status === 403 ? 'analyst' : null
+    return r.status === 200 ? { verdict: 'admin', definitive: true }
+      : r.status === 403 ? { verdict: 'analyst', definitive: true }
+      : { verdict: null, definitive: r.status < 500 }
   } catch {
-    return null
+    return { verdict: null, definitive: false } // network error — transient
+  }
+}
+
+const sleep = (ms: number) => new Promise<void>(res => setTimeout(res, ms))
+
+/**
+ * Probe with bounded retry: transient failures retry after 1s then 4s; once
+ * the delays are exhausted the null verdict settles exactly as a single failed
+ * probe always did. `isCancelled` is checked between steps so a sign-out (or
+ * token change) mid-retry stops the loop instead of probing with a dead token —
+ * the caller's .then additionally ignores any late resolution.
+ */
+async function probeRole(token: string, isCancelled: () => boolean): Promise<Role | null> {
+  for (let attempt = 0; ; attempt++) {
+    const { verdict, definitive } = await probeRoleOnce(token)
+    if (definitive || attempt >= PROBE_RETRY_DELAYS_MS.length || isCancelled()) return verdict
+    await sleep(PROBE_RETRY_DELAYS_MS[attempt])
+    if (isCancelled()) return verdict
   }
 }
 
@@ -159,7 +186,7 @@ export function useIdentity(): IdentityState {
     }
     let cancelled = false
     setProbing(true)
-    probeRole(token).then(resolved => {
+    probeRole(token, () => cancelled).then(resolved => {
       if (cancelled) return
       if (resolved !== null) roleCache.set(userId, resolved)
       setRole(resolved)

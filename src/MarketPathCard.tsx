@@ -25,6 +25,12 @@ const PATHS = marketPath as unknown as Record<string, Path>
 const NATIONAL = 'United States'
 const METROS = Object.keys(PATHS).filter(k => k !== NATIONAL)
 
+// Staleness cutoff — KEEP IN SYNC with MP_MAX_AGE_DAYS in
+// netlify/functions/lib/compute.ts. Past this age the engine zeroes the tilt
+// (the path is provenance, not a forward view), so this card must stop
+// presenting it as a live conditional forecast.
+const MP_MAX_AGE_DAYS = 270
+
 // Exact "City, ST" match only — a substring guess would show another market's
 // forecast as this deal's own. No match -> national path, clearly labeled.
 function resolveKey(location: string | null): { key: string; exact: boolean } {
@@ -46,6 +52,11 @@ export default function MarketPathCard({ location }: { location: string | null }
   const p = PATHS[key]
   if (!p) return null
 
+  // Mirror of the engine's staleness guard (compute.ts) — same arithmetic, and
+  // an unparseable asof counts as stale there too (NaN fails the <=).
+  const ageDays = (Date.now() - Date.parse(p.asof)) / 86_400_000
+  const stale = !(ageDays <= MP_MAX_AGE_DAYS)
+
   // SVG fan chart: cumulative price-return paths, months 0-12.
   const W = 560, H = 150, PAD = 34
   const all = [...p.cumQ10, ...p.cumQ90, ...p.cumMed, 0]
@@ -60,16 +71,22 @@ export default function MarketPathCard({ location }: { location: string | null }
       <h3 style={{ marginTop: 0 }}>
         Market path — {key === NATIONAL ? 'US national (ZHVI)' : key}
         <span style={{ fontSize: '0.68rem', color: 'var(--muted)', fontWeight: 500, marginLeft: 8, letterSpacing: '0.06em' }}>
-          12-MO CONDITIONAL FORECAST · AS OF {p.asof}
+          {stale ? <>12-MO PATH · AS OF {p.asof} · EXPIRED</> : <>12-MO CONDITIONAL FORECAST · AS OF {p.asof}</>}
         </span>
       </h3>
+      {stale && (
+        <div style={{ fontSize: '0.78rem', color: 'var(--muted)', marginBottom: 6 }}>
+          <b>This path has expired</b> — its as-of date is more than {MP_MAX_AGE_DAYS} days old, so the
+          scoring engine no longer applies its tilt. Shown for provenance only, not as a current forecast.
+        </div>
+      )}
       {!exact && (
         <div style={{ fontSize: '0.78rem', color: 'var(--muted)', marginBottom: 6 }}>
           No metro-level path is baked for “{location ?? 'this market'}” — showing the national path, not a guess.
         </div>
       )}
       <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', maxWidth: 720 }} role="img"
-        aria-label={`Fan chart: 12-month conditional market path, median ${pct(p.annualMedian)}, 80% band ${pct(p.annualQ10)} to ${pct(p.annualQ90)}`}>
+        aria-label={`${stale ? 'Expired fan chart (provenance only)' : 'Fan chart'}: 12-month conditional market path, median ${pct(p.annualMedian)}, 80% band ${pct(p.annualQ10)} to ${pct(p.annualQ90)}`}>
         <polygon points={band} fill="#3f7d69" opacity={0.14} />
         <polyline points={line(p.cumMed)} fill="none" stroke="#3f7d69" strokeWidth={2} />
         <line x1={x(0)} y1={y(0)} x2={x(12)} y2={y(0)} stroke="var(--border)" strokeDasharray="4 3" />
@@ -81,9 +98,11 @@ export default function MarketPathCard({ location }: { location: string | null }
         <text x={PAD} y={H - 4} fontSize={10} fill="var(--muted)">months 1–12 · cumulative price return · {p.model}, zero-shot</text>
       </svg>
       <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', fontSize: '0.82rem', marginTop: 6 }}>
-        <span><b>Tilt vs trailing drift:</b> {pct(p.gatePassed ? p.tiltAnnual : 0)}{' '}
-          {!p.gatePassed ? '(market did not pass its out-of-sample gate — no tilt applied)'
-            : Math.abs(p.tiltAnnual) > 0.02 ? '(MC engine caps at ±2%/yr)' : ''}</span>
+        <span><b>Tilt vs trailing drift:</b>{' '}
+          {stale ? 'expired — no longer applied to scores'
+            : <>{pct(p.gatePassed ? p.tiltAnnual : 0)}{' '}
+              {!p.gatePassed ? '(market did not pass its out-of-sample gate — no tilt applied)'
+                : Math.abs(p.tiltAnnual) > 0.02 ? '(MC engine caps at ±2%/yr)' : ''}</>}</span>
         <span><b>Out-of-sample record (2015–2025):</b> direction right {p.backtest.hitRate === null ? '—' : `${Math.round((p.backtest.hitRate) * (p.backtest.nWindows))}/${p.backtest.nWindows}`} windows · {fmtP(p.backtest.dmPvsDrift)} vs drift</span>
       </div>
       <div style={{ fontSize: '0.72rem', color: 'var(--muted)', marginTop: 6 }}>

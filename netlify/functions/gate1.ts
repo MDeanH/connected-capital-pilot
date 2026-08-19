@@ -496,6 +496,10 @@ export default async (req: Request, context: Context): Promise<Response> => {
   // Best-effort: a failed link never blocks the ledger write — the decision
   // still records, just orphaned (deal_id null), exactly as before.
   let dealId: string | null = null
+  // True only when the deals row was minted by THIS request (the insert path
+  // below) — never for a pre-existing deal linked via body.dealId. Drives the
+  // cleanup on ledger-insert failure.
+  let dealCreatedHere = false
   let linkable = true
   const requestedDealId = typeof body.dealId === 'string' ? body.dealId : null
   const dealName = typeof body.dealName === 'string' ? body.dealName.trim().slice(0, 200) : ''
@@ -529,6 +533,7 @@ export default async (req: Request, context: Context): Promise<Response> => {
       .select('id')
       .single()
     dealId = created?.id ?? null
+    dealCreatedHere = dealId !== null
   }
 
   const { data: row, error } = await db
@@ -549,7 +554,19 @@ export default async (req: Request, context: Context): Promise<Response> => {
     })
     .select('id, created_at')
     .single()
-  if (error) return json(500, { error: `Failed to record decision: ${error.message}` })
+  if (error) {
+    // The ledger insert failed and no dealId reaches the client, so a retry
+    // would mint another empty duplicate deal. Best-effort delete the deals
+    // row — but ONLY one minted by THIS request: born this request, it cannot
+    // have decisions yet, so deleting it can't orphan history. A pre-existing
+    // linked deal (dealCreatedHere false) is never deleted.
+    if (dealCreatedHere && dealId) {
+      try {
+        await db.from('deals').delete().eq('id', dealId)
+      } catch { /* best effort — the 500 below already tells the client to retry */ }
+    }
+    return json(500, { error: `Failed to record decision: ${error.message}` })
+  }
 
   // Wave-A follow-through: the client minted extractionId at upload time (the
   // uuid PK of the persisted extractions row — see extract-run-background.ts)

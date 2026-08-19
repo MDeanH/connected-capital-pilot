@@ -45,7 +45,14 @@ export function computeScore(body: any) {
   // and arrive here as explicit, auditable parameters. Defaults are a no-op, and the
   // caps sit well inside the DDQ layer's own bounds (±10%/yr, 0.6–2.5×).
   const extBiasMu = clamp(num(body.extBiasMu, 0), -0.03, 0.03);
-  const extSigmaMult = clamp(num(body.extSigmaMult, 1), 0.7, 1.6);
+  // A JSON null slips through num(): Number(null) is 0 and finite, so a null
+  // extSigmaMult coerced to 0 and clamped to the 0.7 floor — a 30% volatility
+  // UNDERSTATEMENT for an input the caller never set. Nullish means "not
+  // provided": map it to exactly 1 (the documented no-op) before clamping;
+  // non-finite garbage still falls to num()'s default of 1. extBiasMu is safe
+  // as-is — its null-coercion lands on 0, which IS its no-op default. And
+  // neutralDdq is compared with `=== true`, so null never changes its path.
+  const extSigmaMult = clamp(body.extSigmaMult == null ? 1 : num(body.extSigmaMult, 1), 0.7, 1.6);
 
   // neutralDdq=true switches the engine's own questionnaire layer off entirely
   // (true zeros, NOT DEFAULT_ANSWERS — those describe a typical value-add deal,

@@ -6,19 +6,21 @@
 import type { Config, Context } from '@netlify/functions'
 import { getStore } from '@netlify/blobs'
 
-// LAZY EXPIRY — privacy rationale. Terminal result blobs hold extracted deal
+// EXPIRY — privacy rationale. Terminal result blobs hold extracted deal
 // fields, verbatim citation quotes from the sponsor's documents, and
 // discrepancy notes — confidential deal content, sitting in the Blobs store of
-// every deploy INCLUDING the public client site. Nothing else ever deletes
-// them, so without an expiry they live forever. This GET is the one place
-// every result passes through, so it doubles as the reaper: any terminal
-// (done/error) record older than RETENTION_DAYS is deleted on read and
-// answered with 410. A week is ample for the analyst flow (poll → verify →
-// decide happens within minutes; the id is also persisted to Supabase for
-// provenance on db-configured deploys), and it bounds how long extracted deal
-// content can sit in Blobs on ANY deploy.
+// every deploy INCLUDING the public client site — and Netlify Blobs has no
+// native TTL. Enforcement has two arms sharing the bounds below (exported so
+// they cannot drift): this GET deletes lazily on read — any terminal
+// (done/error) record older than RETENTION_DAYS is deleted and answered with
+// 410 — and the daily extractions-reaper.ts cron sweeps what nobody ever
+// polls again (an abandoned result must not outlive the window either). A
+// week is ample for the analyst flow (poll → verify → decide happens within
+// minutes; the id is also persisted to Supabase for provenance on
+// db-configured deploys), and it bounds how long extracted deal content can
+// sit in Blobs on ANY deploy.
 const RETENTION_DAYS = 7
-const RETENTION_MS = RETENTION_DAYS * 24 * 60 * 60 * 1000
+export const RETENTION_MS = RETENTION_DAYS * 24 * 60 * 60 * 1000
 // Choice: stuck 'running' records are ALSO reaped, after 1 day. A live job is
 // bounded by the worker's 15-minute limit, so a day-old 'running' record can
 // only be a stub whose worker died before writing a terminal record (or whose
@@ -26,7 +28,7 @@ const RETENTION_MS = RETENTION_DAYS * 24 * 60 * 60 * 1000
 // timestamps — but it would otherwise sit forever; 410 tells a (very late)
 // polling client honestly that there is nothing left to watch. Records that
 // are genuinely mid-run are never expired here: they are minutes old.
-const STUCK_RUNNING_MS = 24 * 60 * 60 * 1000
+export const STUCK_RUNNING_MS = 24 * 60 * 60 * 1000
 
 const json = (status: number, obj: unknown) =>
   new Response(JSON.stringify(obj), { status, headers: { 'Content-Type': 'application/json' } })

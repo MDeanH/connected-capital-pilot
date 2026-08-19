@@ -9,6 +9,11 @@ import { DEFAULT_CONFIG } from './lib/gate1/preview.ts'
 import type { Gate1Config, MacroSnapshot } from './lib/gate1/types.ts'
 import { serviceClient } from './lib/supabase.ts'
 
+// Two missed weekly cron runs. Keep in sync with MAX_SNAPSHOT_AGE_DAYS in
+// macro.ts (/latest + override) and gate1.ts — each function file mirrors the
+// constant locally; none exports it.
+const MAX_SNAPSHOT_AGE_DAYS = 14
+
 export default async (): Promise<Response> => {
   const db = serviceClient()
 
@@ -60,7 +65,29 @@ export default async (): Promise<Response> => {
       console.error(`macro-cron: previous-snapshot lookup failed — ${prevError.message}`)
       return new Response(`previous-snapshot lookup failed: ${prevError.message}`, { status: 500 })
     }
-    if (prevRow) previous = (prevRow.snapshot ?? prevRow) as MacroSnapshot
+    // Freshness bound — the same MAX_SNAPSHOT_AGE_DAYS rule macro.ts applies
+    // on /latest and the override path (isFreshStored). Resuming after a
+    // >14-day outage must not carry the obsolete regime through hysteresis and
+    // the degraded fallback into a FRESH row that would then prevail
+    // fund-wide, when /latest and the override path already refuse the same
+    // stale predecessor. A broken weekly chain restarts from current evidence:
+    // previous = null. Fails closed like isFreshStored — an unparsable
+    // created_at reads stale. The same-week duplicate guard below is
+    // unaffected: it checks prevRow directly, and a stale row can never be
+    // same-week anyway (its created_at is >14 days old while this run's
+    // week_of is stamped today).
+    if (prevRow) {
+      const recordedAt = Date.parse(prevRow.created_at ?? prevRow.week_of ?? '')
+      const fresh =
+        Number.isFinite(recordedAt) && Date.now() - recordedAt <= MAX_SNAPSHOT_AGE_DAYS * 86_400_000
+      if (fresh) {
+        previous = (prevRow.snapshot ?? prevRow) as MacroSnapshot
+      } else {
+        console.log(
+          `macro-cron: newest auto snapshot (week of ${prevRow.week_of}) is older than ${MAX_SNAPSHOT_AGE_DAYS} days — restarting hysteresis from current evidence`,
+        )
+      }
+    }
     // Duplicate-run guard: a second auto run in the same week would insert a
     // second snapshot and read the first as "previous", double-advancing
     // pending_wins — a two-week hysteresis could flip on one week's evidence.
