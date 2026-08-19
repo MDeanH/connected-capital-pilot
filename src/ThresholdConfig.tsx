@@ -2,10 +2,13 @@
 // editable. Edits build a local draft (copy-on-write; props are never mutated)
 // that previews use until cleared; SAVE AS NEW VERSION persists it with a
 // required note. The engine itself has no hardcoded thresholds — this panel is
-// the proof.
+// the proof. Drafts can also ADD per-asset-class override rows (the engine
+// already resolves most-specific-wins); rows already in the active version are
+// never deletable here — saved versions are append-only history.
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Term } from './GlossaryTip'
 import { fmtThreshold } from './format'
+import { ASSET_CLASSES } from './deal-types'
 import type { Gate1Config, ThresholdRow } from '../netlify/functions/lib/gate1/types'
 
 interface Props {
@@ -109,6 +112,42 @@ export default function ThresholdConfig({ active, draft, onDraftChange, onSave }
     const next = clone(working)
     mutator(next)
     onDraftChange(next)
+  }
+
+  /**
+   * A row is "new" when the active version has no row with the same
+   * (key, class, posture). Derived — not tracked in state — so it survives a
+   * reload of a localStorage-restored draft. Without an active baseline nothing
+   * is marked (we can't know), which also means no remove affordance appears.
+   */
+  const activeRows = active?.config.thresholds
+  const isNewRow = (row: ThresholdRow): boolean =>
+    activeRows != null &&
+    !activeRows.some(r => r.key === row.key && r.asset_class === row.asset_class && r.posture === row.posture)
+
+  /**
+   * Add override rows for (key, assetClass): one per posture combo the key
+   * already uses, each pre-filled with the value the engine currently resolves
+   * for that slot — a fresh override starts as a no-op the analyst then tunes.
+   * Cloning per posture matters: a ('*', posture) row outranks (class, '*') in
+   * the engine, so a single all-postures row would silently never apply.
+   */
+  const addClassOverride = (key: string, assetClass: string) => {
+    const next = clone(working)
+    const rows = next.thresholds.filter(r => r.key === key)
+    let added = false
+    for (const p of [...new Set(rows.map(r => r.posture))]) {
+      if (rows.some(r => r.asset_class === assetClass && r.posture === p)) continue
+      // Engine resolution order, minus the (class, posture) step being created.
+      const base =
+        rows.find(r => r.asset_class === '*' && r.posture === p) ??
+        rows.find(r => r.asset_class === assetClass && r.posture === '*') ??
+        rows.find(r => r.asset_class === '*' && r.posture === '*')
+      if (!base) continue // no resolvable default to clone — never invent a value
+      next.thresholds.push({ asset_class: assetClass, posture: p, key, value: base.value })
+      added = true
+    }
+    if (added) onDraftChange(next)
   }
 
   // ---- Gate thresholds grouped by key, stable first-appearance order ----
@@ -252,27 +291,65 @@ export default function ThresholdConfig({ active, draft, onDraftChange, onSave }
         {[...groups.entries()].map(([key, rows]) => {
           const warn = postureWarning(key, rows)
           const pretty = prettyName(key)
+          const groupPostures = [...new Set(rows.map(({ row }) => row.posture))]
+          // Offer a class only where addClassOverride can actually clone a
+          // base row — same resolution predicate, so no silent no-op adds.
+          const addableClasses = ASSET_CLASSES.filter(ac =>
+            groupPostures.some(p =>
+              !rows.some(({ row }) => row.asset_class === ac && row.posture === p) &&
+              (rows.some(({ row }) => row.asset_class === '*' && row.posture === p) ||
+                rows.some(({ row }) => row.asset_class === ac && row.posture === '*') ||
+                rows.some(({ row }) => row.asset_class === '*' && row.posture === '*')),
+            ),
+          )
           return (
             <div className="tc-group" key={key}>
               <div className="tc-group-name">
                 {pretty}
                 {pretty !== key && <span className="tc-group-key">{key}</span>}
               </div>
-              {rows.map(({ row, idx }) => (
-                <div className="tc-row" key={`${row.asset_class}-${row.posture}`}>
-                  <Chip>{row.asset_class === '*' ? 'all classes' : row.asset_class}</Chip>
-                  <Chip tone={row.posture === '*' ? 'neutral' : row.posture === 'green' ? 'green' : 'amber'}>
-                    {row.posture === '*' ? 'all postures' : `${row.posture} posture`}
-                  </Chip>
-                  <NumInput
-                    key={`${inputKey}-th-${idx}`}
-                    value={row.value}
-                    ariaLabel={`${key} for ${row.asset_class} / ${row.posture}`}
-                    onCommit={v => edit(cfg => { cfg.thresholds[idx].value = v })}
-                  />
-                  <ThresholdHint thresholdKey={row.key} value={row.value} />
+              {rows.map(({ row, idx }) => {
+                const isNew = isNewRow(row)
+                return (
+                  <div className="tc-row" key={`${row.asset_class}-${row.posture}`}>
+                    <Chip>{row.asset_class === '*' ? 'all classes' : row.asset_class}</Chip>
+                    <Chip tone={row.posture === '*' ? 'neutral' : row.posture === 'green' ? 'green' : 'amber'}>
+                      {row.posture === '*' ? 'all postures' : `${row.posture} posture`}
+                    </Chip>
+                    <NumInput
+                      key={`${inputKey}-th-${key}-${row.asset_class}-${row.posture}`}
+                      value={row.value}
+                      ariaLabel={`${key} for ${row.asset_class} / ${row.posture}`}
+                      onCommit={v => edit(cfg => { cfg.thresholds[idx].value = v })}
+                    />
+                    <ThresholdHint thresholdKey={row.key} value={row.value} />
+                    {isNew && <Chip tone="amber">new</Chip>}
+                    {isNew && (
+                      <button
+                        className="tc-row-remove"
+                        title="Remove this draft row"
+                        aria-label={`Remove ${key} override for ${row.asset_class} / ${row.posture}`}
+                        onClick={() => edit(cfg => { cfg.thresholds.splice(idx, 1) })}
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+                )
+              })}
+              {addableClasses.length > 0 && (
+                <div className="tc-add-row">
+                  <select
+                    className="tc-add-select"
+                    value=""
+                    aria-label={`Add asset-class override for ${key}`}
+                    onChange={e => { if (e.target.value) addClassOverride(key, e.target.value) }}
+                  >
+                    <option value="" disabled>+ class override</option>
+                    {addableClasses.map(ac => <option key={ac} value={ac}>{ac}</option>)}
+                  </select>
                 </div>
-              ))}
+              )}
               {warn && <div className="tc-warn-text">{warn}</div>}
             </div>
           )
@@ -396,6 +473,16 @@ button.tc-btn.tc-btn-secondary{background:transparent;color:var(--cc-deep,#3f7d6
 .tc-num{width:120px;padding:.38rem .55rem;border:1px solid var(--border,#dcebe7);border-radius:6px;
   font-size:.85rem;font-variant-numeric:tabular-nums;text-align:right}
 .tc-hint{font-size:.78rem;color:var(--muted,#5c6b67);font-variant-numeric:tabular-nums;white-space:nowrap}
+button.tc-row-remove{width:22px;height:22px;padding:0;line-height:1;border-radius:50%;
+  border:1px solid var(--border,#dcebe7);background:transparent;color:var(--muted,#5c6b67);
+  font-size:13px;cursor:pointer;flex:0 0 auto}
+button.tc-row-remove:hover{color:#a83a3a;border-color:#e2bcbc}
+.tc-add-row{padding:.35rem 0 .1rem}
+.tc-add-select{font-family:inherit;font-size:10.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--cc-deep,#3f7d69);background:transparent;border:1px dashed var(--border,#c9ded7);
+  border-radius:999px;padding:3px 10px;cursor:pointer;max-width:100%}
+/* keep the global 16px mobile input floor (stops iOS focus zoom) */
+@media (max-width:700px){.tc-add-select{font-size:16px;text-transform:none;letter-spacing:0}}
 .tc-sig-row{display:flex;align-items:center;gap:1rem;padding:.55rem 0;flex-wrap:wrap}
 .tc-sig-row + .tc-sig-row{border-top:1px solid var(--border,#eef4f2)}
 .tc-sig-name{flex:1 1 240px;font-size:.85rem;font-weight:500;min-width:0}

@@ -34,7 +34,11 @@ export default async (req: Request): Promise<void> => {
       await db.from('extractions').insert({
         status: 'done',
         model: result.model,
-        input_docs: { pdf: payload.pdfFilename ?? null, sheets: (payload.sheets ?? []).map(s => s.name) },
+        input_docs: {
+          pdf: payload.pdfFilename ?? null,
+          om_text: payload.omText ? payload.omFilename ?? null : null,
+          sheets: (payload.sheets ?? []).map(s => s.name),
+        },
         fields: result.fields,
         discrepancies: result.discrepancies,
         completed_at: new Date().toISOString(),

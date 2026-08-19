@@ -1,6 +1,6 @@
 // AI document extraction — SUBMIT step (sync, fast).
 //
-//   POST /api/extract { extractionId, pdfBase64?, sheets?, … } → { extractionId, status: 'running' }
+//   POST /api/extract { extractionId, pdfBase64?, omText?, sheets?, … } → { extractionId, status: 'running' }
 //
 // Receives the full documents (sync functions accept ~6MB — receiving is fast;
 // it was the PROCESSING that blew the sync window), stages them in Netlify
@@ -30,8 +30,19 @@ export default async (req: Request): Promise<Response> => {
   }
   const id = String(body.extractionId ?? '').trim()
   if (!id || !/^[a-z0-9-]{8,64}$/i.test(id)) return json(400, { error: 'extractionId required' })
-  if (!body.pdfBase64 && !(body.sheets && body.sheets.length)) {
-    return json(400, { error: 'Provide an offering memorandum PDF and/or pro forma sheets' })
+  if (body.pdfBase64 && body.omText) {
+    return json(400, { error: 'Provide the offering memorandum as either a PDF or extracted text, not both — one OM per deal' })
+  }
+  // Server-enforced twin of src/docx.ts MAX_OM_TEXT_CHARS — the client cap is
+  // UX only; without this, ~4.4MB of raw text could reach the paid model call.
+  if (body.omText !== undefined && typeof body.omText !== 'string') {
+    return json(400, { error: 'omText must be a string' })
+  }
+  if (body.omText && body.omText.length > 200_000) {
+    return json(413, { error: 'OM text too large — 200,000 characters max' })
+  }
+  if (!body.pdfBase64 && !body.omText && !(body.sheets && body.sheets.length)) {
+    return json(400, { error: 'Provide an offering memorandum (PDF, Word or text) and/or pro forma sheets' })
   }
   if (!process.env.ANTHROPIC_API_KEY) {
     return json(500, { error: 'AI extraction is not configured (ANTHROPIC_API_KEY missing)' })

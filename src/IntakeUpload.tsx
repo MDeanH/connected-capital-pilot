@@ -5,6 +5,7 @@
 // demoed before ANTHROPIC_API_KEY is configured.
 import { useRef, useState } from 'react'
 import { Kicker } from './cc-ui'
+import { docToText } from './docx'
 import { workbookToCsvText } from './excel'
 import { SAMPLE_EXTRACTION } from './sample-extraction'
 import type { ExtractionResult } from '../netlify/functions/lib/gate1/fields'
@@ -15,7 +16,9 @@ interface Props {
   onExtracted: (result: ExtractionResult) => void
 }
 
-interface PickedPdf { name: string; base64: string; bytes: number }
+type PickedOm =
+  | { kind: 'pdf'; name: string; base64: string; bytes: number }
+  | { kind: 'text'; name: string; text: string }
 interface PickedSheets { name: string; sheets: Array<{ name: string; csv: string }> }
 
 function fileToBase64(file: File): Promise<string> {
@@ -28,23 +31,32 @@ function fileToBase64(file: File): Promise<string> {
 }
 
 export default function IntakeUpload({ onExtracted }: Props) {
-  const [pdf, setPdf] = useState<PickedPdf | null>(null)
+  const [om, setOm] = useState<PickedOm | null>(null)
   const [proforma, setProforma] = useState<PickedSheets | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
-  const pdfInput = useRef<HTMLInputElement>(null)
+  const omInput = useRef<HTMLInputElement>(null)
   const xlsInput = useRef<HTMLInputElement>(null)
 
-  const takePdf = async (file: File) => {
+  // PDFs go up as base64 (the API reads them natively, citations get page
+  // numbers); .docx/.txt convert to plain text in the browser, so their
+  // citations degrade to quote-only — same as pro forma CSVs.
+  const takeOm = async (file: File) => {
     setErr(null)
-    if (!/\.pdf$/i.test(file.name)) { setErr('The offering memorandum must be a PDF.'); return }
-    if (file.size > MAX_PDF_BYTES) {
+    const isPdf = /\.pdf$/i.test(file.name)
+    if (!isPdf && !/\.(docx|txt)$/i.test(file.name)) {
+      setErr('The offering memorandum must be a PDF, Word (.docx) or text (.txt) file.')
+      return
+    }
+    if (isPdf && file.size > MAX_PDF_BYTES) {
       setErr(`"${file.name}" is ${(file.size / 1e6).toFixed(1)}MB — compress the OM below ~3MB for sync extraction.`)
       return
     }
-    setBusy('Reading offering memorandum…')
+    setBusy(isPdf ? 'Reading offering memorandum…' : 'Converting offering memorandum to text in your browser…')
     try {
-      setPdf({ name: file.name, base64: await fileToBase64(file), bytes: file.size })
+      setOm(isPdf
+        ? { kind: 'pdf', name: file.name, base64: await fileToBase64(file), bytes: file.size }
+        : { kind: 'text', name: file.name, text: await docToText(file) })
     } catch (e) {
       setErr(String((e as Error).message ?? e))
     } finally {
@@ -72,7 +84,7 @@ export default function IntakeUpload({ onExtracted }: Props) {
   // /api/extractions/:id. The local dev bridge answers synchronously with the
   // result inline — both shapes are handled.
   const extract = async () => {
-    if (!pdf && !proforma) return
+    if (!om && !proforma) return
     setBusy('Sending documents…')
     setErr(null)
     try {
@@ -82,9 +94,11 @@ export default function IntakeUpload({ onExtracted }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           extractionId,
-          dealName: pdf?.name ?? proforma?.name,
-          pdfBase64: pdf?.base64,
-          pdfFilename: pdf?.name,
+          dealName: om?.name ?? proforma?.name,
+          pdfBase64: om?.kind === 'pdf' ? om.base64 : undefined,
+          pdfFilename: om?.kind === 'pdf' ? om.name : undefined,
+          omText: om?.kind === 'text' ? om.text : undefined,
+          omFilename: om?.kind === 'text' ? om.name : undefined,
           sheets: proforma?.sheets,
         }),
       })
@@ -126,8 +140,8 @@ export default function IntakeUpload({ onExtracted }: Props) {
   }
 
   const zone = (
-    kind: 'pdf' | 'xlsx',
-    picked: { name: string } | null,
+    kind: 'om' | 'xlsx',
+    picked: { name: string; detail?: string } | null,
     title: string,
     note: string,
     input: React.RefObject<HTMLInputElement>,
@@ -150,12 +164,12 @@ export default function IntakeUpload({ onExtracted }: Props) {
     >
       <div className="iu-drop-title">{title}</div>
       {picked
-        ? <div className="iu-file" title={picked.name}>✓ {picked.name}</div>
+        ? <div className="iu-file" title={picked.detail ? `${picked.name} — ${picked.detail}` : picked.name}>✓ {picked.name}{picked.detail ? ` — ${picked.detail}` : ''}</div>
         : <div className="iu-drop-note">{note}</div>}
       <input
         ref={input}
         type="file"
-        accept={kind === 'pdf' ? '.pdf' : '.xlsx,.xlsm,.xls,.csv'}
+        accept={kind === 'om' ? '.pdf,.docx,.txt' : '.xlsx,.xlsm,.xls,.csv'}
         style={{ display: 'none' }}
         onChange={e => { const f = e.target.files?.[0]; if (f) take(f); e.target.value = '' }}
       />
@@ -173,11 +187,18 @@ export default function IntakeUpload({ onExtracted }: Props) {
         the rulebook decides.
       </p>
       <div className="iu-drops">
-        {zone('pdf', pdf, 'Offering memorandum — PDF', 'Drop the OM here, or click to browse', pdfInput, takePdf)}
+        {zone(
+          'om',
+          om && { name: om.name, detail: om.kind === 'text' ? 'converted to text' : undefined },
+          'Offering memorandum — PDF, Word or text',
+          'Drop the OM here (.pdf, .docx, .txt), or click to browse',
+          omInput,
+          takeOm,
+        )}
         {zone('xlsx', proforma, 'Pro forma — Excel or CSV', 'Drop the pro forma here, or click to browse (parsed in your browser)', xlsInput, takeXlsx)}
       </div>
       <div className="iu-actions">
-        <button onClick={extract} disabled={(!pdf && !proforma) || !!busy}>
+        <button onClick={extract} disabled={(!om && !proforma) || !!busy}>
           {busy ? 'WORKING…' : 'EXTRACT WITH AI'}
         </button>
         {busy && <span className="iu-busy" role="status">{busy}</span>}

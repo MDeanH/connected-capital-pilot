@@ -171,13 +171,14 @@ export function coerceExtraction(raw: {
 
 export function buildInstruction(): string {
   const lines = EXTRACT_FIELDS.map(f => `- ${f.key} (${f.kind}): ${f.label}${f.hint ? ` — ${f.hint}` : ''}`)
-  return `You are a real-estate due-diligence analyst. Extract the fields below from the attached deal documents (an offering memorandum PDF and/or pro forma spreadsheet CSVs).
+  return `You are a real-estate due-diligence analyst. Extract the fields below from the attached deal documents (an offering memorandum — a PDF, or plain text extracted from a Word/text file — and/or pro forma spreadsheet CSVs).
 
 Rules:
 - Return EXACTLY ONE fields entry per key listed below — all of them, in order.
 - NEVER guess. If a field is not stated in the documents, set value to the EMPTY STRING and confidence to 0.
 - Every value is plain text: percentages as decimal strings (5% → "0.05"), dollar amounts as plain number strings ("10921964"), months as plain numbers, yes/no as "true"/"false".
-- For every non-empty field give confidence (0–1), the source document ('om' or 'proforma', 'none' when empty), the PDF page number (0 for spreadsheet or none), and a short verbatim quote (≤200 chars) supporting the value.
+- For every non-empty field give confidence (0–1), the source document ('om' or 'proforma', 'none' when empty), the PDF page number (0 for spreadsheet, extracted-text OM, or none), and a short verbatim quote (≤200 chars) supporting the value.
+- An OM supplied as extracted text has no page numbers: still cite doc 'om', set page to 0, and rely on the verbatim quote — exactly as for pro forma sheets.
 - CRITICAL: compare the OM against the pro forma. List EVERY disagreement on the same economic fact (NOI, unit/pad count, rents, occupancy timeline/stabilization, costs, capital structure, returns) in 'discrepancies' with severity: 'material' when it changes the economics, 'minor' otherwise. Internal contradictions within one document count too (name the doc on both sides).
 
 Fields:
