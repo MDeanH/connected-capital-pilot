@@ -33,22 +33,50 @@ export default async (req: Request): Promise<Response | void> => {
   }
 
   const store = getStore('extractions')
+  // True only once this worker wins the claim below. The finally-delete must
+  // never run for a losing duplicate — it would strip the staged payload out
+  // from under the winner mid-run.
+  let claimed = false
   try {
-    // startedAt on the status record means a worker already claimed this id.
-    const status = (await store.get(id, { type: 'json' })) as { startedAt?: string } | null
-    if (status?.startedAt) return
+    // startedAt on the status record means a worker already claimed this id
+    // (claim and done records both carry it). Strong read: extract-submit
+    // wrote this record only moments before triggering us, and its etag
+    // anchors the conditional claim — an eventually-consistent miss here
+    // would strand the run.
+    const existing = await store.getWithMetadata(id, { type: 'json', consistency: 'strong' })
+    if ((existing?.data as { startedAt?: string } | null)?.startedAt) return
+
+    // Atomic claim — the ONLY duplicate protection. Two concurrently
+    // delivered triggers can both pass the check above before either writes;
+    // the etag-conditional write lets exactly one through (the store compares
+    // server-side), and the loser exits without touching the payload, the
+    // record, or provenance. The claim must land BEFORE the payload read:
+    // deleting the payload after reading it does not exclude a concurrent
+    // twin that read it first. It must also go through set(), not setJSON():
+    // @netlify/blobs 10.7.9 setJSON() spreads onlyIfMatch/onlyIfNew into the
+    // wrong makeRequest field (dist/main.js:285), so its conditional writes
+    // are silently unconditional.
+    const startedAt = new Date().toISOString()
+    const claimBody = JSON.stringify({ status: 'running', startedAt })
+    const claim = existing
+      ? existing.etag
+        ? await store.set(id, claimBody, { onlyIfMatch: existing.etag })
+        // The local blobs server serves no etag on GET — fall back to the
+        // legacy unconditional claim there rather than stranding every run.
+        : await store.set(id, claimBody)
+      : await store.set(id, claimBody, { onlyIfNew: true })
+    if (!claim.modified) return // lost the race — another worker owns this job
+    claimed = true
 
     const payload = (await store.get(`payload-${id}`, { type: 'json' })) as ExtractRequest | null
     if (!payload) {
       await store.setJSON(id, { status: 'error', error: 'Staged documents not found — resubmit the extraction' })
       return
     }
-    // Claim-on-read: the payload is in memory, so delete it NOW — a raced
-    // duplicate worker finds nothing and exits above without calling the
-    // model. The finally-delete below remains as a backstop.
+    // The payload is in memory and this worker owns the claim — delete the
+    // staged copy now so the documents can't outlive the run. The
+    // finally-delete below remains as a backstop.
     try { await store.delete(`payload-${id}`) } catch { /* best effort */ }
-    const startedAt = new Date().toISOString()
-    await store.setJSON(id, { status: 'running', startedAt })
 
     const result = await runExtraction(payload)
     const completedAt = new Date().toISOString()
@@ -112,7 +140,9 @@ export default async (req: Request): Promise<Response | void> => {
   } finally {
     // The staged payload holds the full base64 OM and sheet text — sensitive
     // deal documents must never outlive the one run, success OR failure.
-    if (id) {
+    // Claim winner only: a losing duplicate deleting here could snatch the
+    // payload before the winner's read.
+    if (id && claimed) {
       try { await store.delete(`payload-${id}`) } catch { /* best effort */ }
     }
   }

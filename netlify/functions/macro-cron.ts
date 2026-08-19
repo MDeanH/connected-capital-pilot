@@ -4,7 +4,7 @@
 
 import type { Config } from '@netlify/functions'
 import { fetchSeriesMap } from './lib/gate1/fred.ts'
-import { buildMarketContext, computeMacroSnapshot, MARKET_SERIES } from './lib/gate1/macro.ts'
+import { buildMarketContext, computeMacroSnapshot, MARKET_SERIES, utcWeekStart } from './lib/gate1/macro.ts'
 import { DEFAULT_CONFIG } from './lib/gate1/preview.ts'
 import type { Gate1Config, MacroSnapshot } from './lib/gate1/types.ts'
 import { serviceClient } from './lib/supabase.ts'
@@ -18,8 +18,11 @@ export default async (): Promise<Response> => {
   const db = serviceClient()
 
   // The date this run's snapshot would carry (computeMacroSnapshot stamps it
-  // verbatim) — computed once so the duplicate-run guard and the compute agree.
-  const weekOf = new Date().toISOString().slice(0, 10)
+  // verbatim): the UTC week start, never the run date, so a manual retry later
+  // in the same week stamps — and the duplicate guard below compares — the
+  // same week as Monday's scheduled run. Computed once so the guard and the
+  // compute agree.
+  const weekOf = utcWeekStart(new Date())
 
   let cfg: Gate1Config = DEFAULT_CONFIG
   // null = empty threshold_configs table (still on the deploy-baked default).
@@ -74,8 +77,8 @@ export default async (): Promise<Response> => {
     // previous = null. Fails closed like isFreshStored — an unparsable
     // created_at reads stale. The same-week duplicate guard below is
     // unaffected: it checks prevRow directly, and a stale row can never be
-    // same-week anyway (its created_at is >14 days old while this run's
-    // week_of is stamped today).
+    // same-week anyway (its created_at is >14 days old — more than a full
+    // week before this run's week stamp).
     if (prevRow) {
       const recordedAt = Date.parse(prevRow.created_at ?? prevRow.week_of ?? '')
       const fresh =
@@ -91,9 +94,12 @@ export default async (): Promise<Response> => {
     // Duplicate-run guard: a second auto run in the same week would insert a
     // second snapshot and read the first as "previous", double-advancing
     // pending_wins — a two-week hysteresis could flip on one week's evidence.
-    // The lookup above is auto-only, so a manual override can neither block
-    // the weekly run nor mask an auto row recorded earlier this week.
-    if (prevRow && prevRow.week_of === weekOf) {
+    // The stored week_of is normalized too: rows written before week-start
+    // stamping carry raw run dates, and a Tuesday retry must still recognize
+    // Monday's row as this week's snapshot. The lookup above is auto-only, so
+    // a manual override can neither block the weekly run nor mask an auto row
+    // recorded earlier this week.
+    if (prevRow && utcWeekStart(prevRow.week_of ?? '') === weekOf) {
       console.log(`macro-cron: already recorded for week ${weekOf} — skipping duplicate run`)
       return new Response(`already recorded for week ${weekOf}`, { status: 200 })
     }

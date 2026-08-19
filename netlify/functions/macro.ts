@@ -9,7 +9,7 @@
 import type { Config, Context } from '@netlify/functions'
 import { requireAdmin } from './lib/auth.ts'
 import { fetchSeriesMap } from './lib/gate1/fred.ts'
-import { buildMarketContext, computeMacroSnapshot, MARKET_SERIES } from './lib/gate1/macro.ts'
+import { buildMarketContext, computeMacroSnapshot, MARKET_SERIES, utcWeekStart } from './lib/gate1/macro.ts'
 import { DEFAULT_CONFIG } from './lib/gate1/preview.ts'
 import type { Gate1Config, MacroSnapshot, Regime } from './lib/gate1/types.ts'
 import { serviceClient } from './lib/supabase.ts'
@@ -98,7 +98,9 @@ async function computeLive(
   const series = await fetchSeriesMap(ids)
   const snapshot = computeMacroSnapshot({
     config,
-    weekOf: new Date().toISOString().slice(0, 10),
+    // week_of is the UTC week start on EVERY writer path (see utcWeekStart),
+    // never the run date — all rows land on the cron's week grid.
+    weekOf: utcWeekStart(new Date()),
     series,
     manualValues: opts.manualValues,
     previous: opts.previous ?? null,

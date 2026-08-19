@@ -253,6 +253,26 @@ export function configShapeError(c: any): string | null {
       }
     }
   }
+  // One more engine-consumed key the per-check loop above can never cover,
+  // because it belongs to no check: evaluateGate1 itself (lib/gate1/engine.ts)
+  // reads 'fragile_margin_pct' to label passing checks fragile, as
+  // resolved['fragile_margin_pct']?.effective ?? 0.1. The fallback means a
+  // config without the key still activates — but the rulebook then no longer
+  // contains the tunable in use: the engine silently applies the hard-coded
+  // 0.1 while the editor has no row to show or change. So the key must
+  // resolve through the same fallback chain for every supported context,
+  // exactly like the check-consumed keys. The shipped default and the seeded
+  // v1 pass mechanically: each carries a ('*', '*') fragile_margin_pct row.
+  if (!rowKeys.has('fragile_margin_pct')) {
+    return `thresholds needs a "fragile_margin_pct" row — evaluateGate1 (lib/gate1/engine.ts) reads it to label passing checks fragile and silently substitutes a hard-coded 0.1 when it resolves nothing, so without a row the editor can neither show nor change the value actually in use`
+  }
+  for (const assetClass of SUPPORTED_ASSET_CLASSES) {
+    for (const posture of POSTURES) {
+      if (!resolves('fragile_margin_pct', assetClass, posture)) {
+        return `threshold key "fragile_margin_pct" resolves no row for (${assetClass}, ${posture}) — the engine's fallback chain (class, posture) → ('*', posture) → (class, '*') → ('*', '*') finds nothing, so evaluateGate1 would silently label fragility with its hard-coded 0.1 instead of a configured value in that context; add a row covering it (an ('*', '*') row covers everything)`
+      }
+    }
+  }
   // rents_vs_comps (lib/gate1/engine.ts) trips on rentPremium > flag and
   // DOUBLES the flag points when it also exceeds severe (tripped && severe).
   // If the RESOLVED severe sits below the RESOLVED flag in some context, every

@@ -81,6 +81,24 @@ const DAY_MS = 86_400_000 // definitional: milliseconds per day
 const timeOf = (date: string) => new Date(`${date}T00:00:00Z`).getTime()
 
 /**
+ * Monday of the given instant's UTC week, as an ISO date (yyyy-mm-dd) — the
+ * canonical `week_of` stamp. Every writer of week_of (the weekly cron, the
+ * override path) and the cron's same-week duplicate guard normalize through
+ * this one helper, so a Monday cron run and its Tuesday manual retry stamp —
+ * and compare as — the SAME week. String input (a stored week_of; rows
+ * predating this helper carry raw run dates) is read as a UTC date; an
+ * unparsable one yields '', which never equals a real stamp — a corrupt row
+ * reads as a different week rather than blocking (or being) a duplicate.
+ */
+export function utcWeekStart(input: Date | string): string {
+  const t = typeof input === 'string' ? timeOf(input) : input.getTime()
+  if (!Number.isFinite(t)) return ''
+  const d = new Date(t)
+  d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7)) // getUTCDay: 0 = Sunday
+  return d.toISOString().slice(0, 10)
+}
+
+/**
  * True when the series' newest observation is too old, relative to `weekOf`,
  * to vote this week (see the staleness policy above). An empty series is not
  * "stale" — it is already unavailable via the existing null-value path. With
@@ -274,9 +292,15 @@ export function computeMacroSnapshot(input: MacroComputeInput): MacroSnapshot {
   const bands = macro.quadrantBands
   let label: MacroQuadrant['label'] = 'unknown'
   if (bands && inflationYoy !== null && growthYoy !== null) {
+    // Band edge rule (the Gate1Config contract): inflation is hot strictly
+    // ABOVE inflationHotYoy; growth is recessionary strictly BELOW
+    // growthRecessionYoy. A reading exactly on either band classifies to the
+    // benign side — the same inclusive-on-the-better-side rule as computeVote
+    // — so an exact-0% growth print under the shipped 0.0 band is an
+    // expansion, not a contraction.
     const hot = inflationYoy > bands.inflationHotYoy
     label =
-      growthYoy > bands.growthRecessionYoy
+      growthYoy >= bands.growthRecessionYoy
         ? hot
           ? 'inflationary_expansion'
           : 'disinflationary_expansion'

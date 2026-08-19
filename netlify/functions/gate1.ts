@@ -32,8 +32,12 @@ type Db = NonNullable<ReturnType<typeof serviceClient>>
 // would grade a deal under generic thresholds without anyone noticing.
 const SUPPORTED_ASSET_CLASSES = ['rv_specialty', 'multifamily', 'industrial', 'retail', 'office']
 
+// Must be a real string, not merely stringify to one: resolveThresholds
+// matches rows with strict ===, so ["rv_specialty"] (String() = "rv_specialty")
+// would pass a coercing check yet match no class row downstream and score
+// under the '*' wildcard thresholds — the exact bypass this gate exists to stop.
 const assetClassError = (v: unknown): string | null =>
-  SUPPORTED_ASSET_CLASSES.includes(String(v))
+  typeof v === 'string' && SUPPORTED_ASSET_CLASSES.includes(v)
     ? null
     : `asset_class must be one of: ${SUPPORTED_ASSET_CLASSES.join(', ')}`
 
@@ -558,12 +562,22 @@ export default async (req: Request, context: Context): Promise<Response> => {
     // The ledger insert failed and no dealId reaches the client, so a retry
     // would mint another empty duplicate deal. Best-effort delete the deals
     // row — but ONLY one minted by THIS request: born this request, it cannot
-    // have decisions yet, so deleting it can't orphan history. A pre-existing
-    // linked deal (dealCreatedHere false) is never deleted.
+    // have decisions yet (and the extraction stamp only runs after a
+    // successful insert), so a plain delete can't orphan history and needs no
+    // cascade — the delete_deal RPC is for deals that HAVE ledger rows.
+    // PostgREST reports failure as a resolved { error }, never a throw, so
+    // inspect it: a failed cleanup leaves the deal behind, and the retry this
+    // 500 invites would then create a visible duplicate — log the orphan and
+    // tell the client so the duplicate is explainable.
     if (dealCreatedHere && dealId) {
-      try {
-        await db.from('deals').delete().eq('id', dealId)
-      } catch { /* best effort — the 500 below already tells the client to retry */ }
+      const { error: cleanupError } = await db.from('deals').delete().eq('id', dealId)
+      if (cleanupError) {
+        console.error(`gate1: rollback of deal ${dealId} failed after ledger insert error — ${cleanupError.message}`)
+        return json(500, {
+          error: `Failed to record decision: ${error.message}`,
+          warning: `A partially created deal (${dealId}) could not be cleaned up and may remain — retrying may create a duplicate deal`,
+        })
+      }
     }
     return json(500, { error: `Failed to record decision: ${error.message}` })
   }
