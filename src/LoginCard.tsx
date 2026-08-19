@@ -47,7 +47,7 @@ export default function LoginCard({ identity }: { identity: IdentityState }) {
   return (
     <form className="lc-bar" onSubmit={submit}>
       <style>{CSS}</style>
-      <span className="lc-label">ANALYST SIGN-IN</span>
+      <span className="lc-label">PILOT SIGN-IN</span>
       <input
         className="lc-input"
         type="email"
