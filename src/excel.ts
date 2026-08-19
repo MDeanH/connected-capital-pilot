@@ -296,7 +296,29 @@ const TEXT_KEYS = new Set([
   'deal_name', 'asset_class', 'location', 'sponsor_name', 'outcome_notes',
 ])
 
-function coerceBacktestCell(key: string, v: unknown): string | number | boolean | null {
+// True when the sheet cell itself carries a percent number format: either the
+// format string ("0%", "0.00%") in cell.z, or the rendered text ("5%") in
+// cell.w. Excel stores such cells as fractions — typing 5% stores raw 0.05 —
+// so the raw value must NOT be divided by 100 again.
+function cellIsPercentFormatted(cell: { z?: unknown; w?: unknown } | undefined): boolean {
+  if (!cell) return false
+  if (typeof cell.z === 'string' && cell.z.includes('%')) return true
+  if (typeof cell.w === 'string' && cell.w.trim().endsWith('%')) return true
+  return false
+}
+
+// Percent-units rule table for PCT_KEYS columns (headers all say "(%)"):
+//   1. Numeric cell that is %-FORMATTED in Excel (format or rendered text has
+//      '%'): the raw stored value is ALREADY a fraction (typing "5%" stores
+//      0.05) → use it as-is. Dividing again understated cap rates and IRRs
+//      100x with only a warning.
+//   2. Plain unformatted number: percent units, as the header says (5 → 5%,
+//      -8 → −8%, 1 → 1%) → divide by 100. Unconditional for this case — a
+//      magnitude heuristic made 1 mean 100% and -1 mean −100%, silently
+//      flipping Gate 1 verdicts. parseBacktestWorkbook warns on sub-1%
+//      results here (the ambiguous case) in case someone typed a fraction.
+//   3. Text like "5%": the sign is stripped, leaving percent units → /100.
+function coerceBacktestCell(key: string, v: unknown, pctFormatted = false): string | number | boolean | null {
   if (v === undefined || v === null || v === '') return null
   if (BOOL_KEYS.has(key)) {
     const s = String(v).trim().toLowerCase()
@@ -307,12 +329,12 @@ function coerceBacktestCell(key: string, v: unknown): string | number | boolean 
   if (typeof v === 'boolean') return v
   const n = Number(String(v).replace(/[$,%\s]/g, ''))
   if (Number.isFinite(n)) {
-    // Percent columns are read in PERCENT units, exactly as their headers say
-    // ("REALIZED IRR (%)"): 5 → 5%, -8 → −8%, 1 → 1%. Unconditional — a
-    // magnitude heuristic made 1 mean 100% and -1 mean −100%, silently
-    // flipping Gate 1 verdicts. parseBacktestWorkbook warns on sub-1 entries
-    // in case someone typed a fraction out of habit.
-    if (PCT_KEYS.has(key)) return n / 100
+    if (PCT_KEYS.has(key)) {
+      // Rule 1: %-formatted numeric cell is already a fraction.
+      if (pctFormatted && typeof v === 'number') return n
+      // Rules 2 and 3: plain number or "5%" text is in percent units.
+      return n / 100
+    }
     return n
   }
   // Text survives only in text columns. A numeric column with "pending"/"n/a"
@@ -327,10 +349,15 @@ function coerceBacktestCell(key: string, v: unknown): string | number | boolean 
  */
 export async function parseBacktestWorkbook(data: ArrayBuffer): Promise<{ rows: BacktestRow[]; warnings: string[] }> {
   const XLSX = await loadXlsx()
-  const wb = XLSX.read(data, { type: 'array' })
+  // cellNF keeps each cell's number-format string (.z) so percent-formatted
+  // cells can be told apart from plain numbers — see the rule table above.
+  const wb = XLSX.read(data, { type: 'array', cellNF: true })
   const ws = wb.Sheets[wb.SheetNames[0]]
   if (!ws) throw new Error('The workbook has no sheets')
   const aoa: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null })
+  // aoa row/col 0 corresponds to the top-left of the sheet's used range, which
+  // need not be A1 — offset by the range start when mapping back to cells.
+  const range = XLSX.utils.decode_range(ws['!ref'] ?? 'A1')
   if (aoa.length < 2) throw new Error('No deal rows found (need a header row plus at least one deal)')
 
   // Find the header row containing machine keys (template row 2), else assume row 1 holds keys.
@@ -342,15 +369,24 @@ export async function parseBacktestWorkbook(data: ArrayBuffer): Promise<{ rows: 
   const warnings: string[] = []
   let subPercentSeen = false
   const rows: BacktestRow[] = []
-  for (const raw of aoa.slice(headerIdx + 1)) {
+  for (let rowIdx = headerIdx + 1; rowIdx < aoa.length; rowIdx++) {
+    const raw = aoa[rowIdx]
     if (raw.every(c => c === null || c === '')) continue
     const rec: Record<string, string | number | boolean | null> = {}
     headers.forEach((h, i) => {
       if (knownKeys.has(h)) {
-        rec[h] = coerceBacktestCell(h, raw[i])
-        // Percent columns are percent units per the header; a nonzero entry
-        // below 1 (now < 0.01 as a fraction) likely meant a fraction — warn.
-        if (PCT_KEYS.has(h) && typeof rec[h] === 'number' && rec[h] !== 0 && Math.abs(rec[h] as number) < 0.01) {
+        // For percent columns, inspect the underlying cell's own format: a
+        // %-formatted cell already stores a fraction and must not be divided.
+        let pctFormatted = false
+        if (PCT_KEYS.has(h) && typeof raw[i] === 'number') {
+          const addr = XLSX.utils.encode_cell({ r: range.s.r + rowIdx, c: range.s.c + i })
+          pctFormatted = cellIsPercentFormatted(ws[addr] as { z?: unknown; w?: unknown } | undefined)
+        }
+        rec[h] = coerceBacktestCell(h, raw[i], pctFormatted)
+        // Unformatted percent cells are percent units per the header; a
+        // nonzero entry below 1 (now < 0.01 as a fraction) likely meant a
+        // fraction — warn. A %-formatted cell is unambiguous: no warning.
+        if (!pctFormatted && PCT_KEYS.has(h) && typeof rec[h] === 'number' && rec[h] !== 0 && Math.abs(rec[h] as number) < 0.01) {
           subPercentSeen = true
         }
       }
@@ -371,7 +407,7 @@ export async function parseBacktestWorkbook(data: ArrayBuffer): Promise<{ rows: 
     rows.length = 100
   }
   if (subPercentSeen) {
-    warnings.push('Percent columns are read in percent units (the header says %) — enter 5 for 5%. Some values below 1 were read as under 1%; double-check them if you meant fractions.')
+    warnings.push('Plain numbers in percent columns are read in percent units (the header says %) — enter 5 for 5%, or format the cell as a percentage. Some unformatted values below 1 were read as under 1%; double-check them if you meant fractions.')
   }
   return { rows, warnings }
 }

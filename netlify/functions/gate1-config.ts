@@ -12,7 +12,7 @@
 
 import type { Config, Context } from '@netlify/functions'
 import { requireAdmin } from './lib/auth.ts'
-import { EXECUTABLE_CHECK_IDS } from './lib/gate1/engine.ts'
+import { CHECK_THRESHOLD_KEYS, EXECUTABLE_CHECK_IDS } from './lib/gate1/engine.ts'
 import { DEFAULT_CONFIG } from './lib/gate1/preview.ts'
 import type { Posture, Regime } from './lib/gate1/types.ts'
 import { serviceClient } from './lib/supabase.ts'
@@ -56,6 +56,21 @@ export function configShapeError(c: any): string | null {
         !Array.isArray(ch.thresholdKeys) || !ch.thresholdKeys.every((k: any) => typeof k === 'string')) {
       return `check "${ch.id}" needs a string label and a thresholdKeys array of strings`
     }
+    // runCheck reads its thresholds by FIXED keys (its t('...') calls), not
+    // from the declared thresholdKeys — the declared list only drives the
+    // row-presence rule below and the displayed threshold (thresholdKeys[0]).
+    // A declaration that diverges from the engine (e.g. ltc_max with
+    // thresholdKeys: []) would let a config validate WITHOUT the rows the
+    // engine actually reads, turning the check 'missing' for every deal — a
+    // kill silently downgraded to REVIEW globally. So the declared list must
+    // equal the engine's canonical set (order-insensitive, no duplicates).
+    const canonicalKeys = CHECK_THRESHOLD_KEYS[ch.id as keyof typeof CHECK_THRESHOLD_KEYS]
+    const declaredSorted = [...(ch.thresholdKeys as string[])].sort()
+    const canonicalSorted = [...canonicalKeys].sort()
+    if (declaredSorted.length !== canonicalSorted.length ||
+        declaredSorted.some((k, i) => k !== canonicalSorted[i])) {
+      return `check "${ch.id}" declares thresholdKeys [${(ch.thresholdKeys as string[]).join(', ')}] but its engine case consumes exactly [${canonicalKeys.join(', ')}] — the declared list must match`
+    }
     if (ch.flagPoints !== undefined &&
         (typeof ch.flagPoints !== 'number' || !Number.isFinite(ch.flagPoints) || ch.flagPoints <= 0)) {
       return `check "${ch.id}" flagPoints must be a positive finite number`
@@ -71,17 +86,34 @@ export function configShapeError(c: any): string | null {
       return 'every threshold row needs asset_class, posture, key and a finite numeric value'
     }
   }
+  // Row presence keys off the engine's CANONICAL key set (what runCheck's
+  // t('...') calls actually dereference), not the declared thresholdKeys —
+  // the two are equal by the rule above, but the canonical set is the ground
+  // truth for what evaluation will read.
   const rowKeys = new Set<string>(c.thresholds.map((r: any) => r.key))
   for (const ch of c.checks) {
-    for (const key of ch.thresholdKeys as string[]) {
+    for (const key of CHECK_THRESHOLD_KEYS[ch.id as keyof typeof CHECK_THRESHOLD_KEYS]) {
       if (!rowKeys.has(key)) {
-        return `check "${ch.id}" references threshold key "${key}" but thresholds has no row for it`
+        return `check "${ch.id}" needs threshold key "${key}" (its engine case reads it) but thresholds has no row for it`
       }
     }
   }
   const vb = c.verdictBands
-  if (!vb || typeof vb.passMaxFlagPts !== 'number' || typeof vb.conditionalMaxFlagPts !== 'number') {
-    return 'verdictBands needs numeric passMaxFlagPts and conditionalMaxFlagPts'
+  if (!vb || typeof vb.passMaxFlagPts !== 'number' || !Number.isFinite(vb.passMaxFlagPts) ||
+      typeof vb.conditionalMaxFlagPts !== 'number' || !Number.isFinite(vb.conditionalMaxFlagPts)) {
+    return 'verdictBands needs finite numeric passMaxFlagPts and conditionalMaxFlagPts'
+  }
+  if (vb.passMaxFlagPts < 0 || vb.conditionalMaxFlagPts < 0) {
+    return `verdictBands must be >= 0 (got passMaxFlagPts=${vb.passMaxFlagPts}, conditionalMaxFlagPts=${vb.conditionalMaxFlagPts}) — flag points are never negative, so a negative band can never PASS or CONDITIONAL any deal`
+  }
+  // evaluateGate1 (lib/gate1/engine.ts) walks the bands PASS-first:
+  //   flagPoints <= passMaxFlagPts → PASS; <= conditionalMaxFlagPts → CONDITIONAL; else FAIL.
+  // With conditionalMaxFlagPts below passMaxFlagPts, everything at or under
+  // the conditional band is already <= the pass band, so the CONDITIONAL
+  // verdict becomes unreachable and deals between the bands read as clean
+  // PASSes. Enforce the order here.
+  if (vb.passMaxFlagPts > vb.conditionalMaxFlagPts) {
+    return `verdictBands are inverted: passMaxFlagPts (${vb.passMaxFlagPts}) must be <= conditionalMaxFlagPts (${vb.conditionalMaxFlagPts}) — otherwise the CONDITIONAL verdict is unreachable`
   }
   const m = c.macro
   if (!m || typeof m !== 'object' || !Array.isArray(m.signals) || m.signals.length === 0 ||
@@ -100,12 +132,24 @@ export function configShapeError(c: any): string | null {
   // 'recession'. So every weight must be finite and >= 0, and the total must
   // be strictly positive.
   let weightSum = 0
+  const seenSignalIds = new Set<string>()
   for (let i = 0; i < m.signals.length; i++) {
     const s = m.signals[i]
     const name = s && typeof s.id === 'string' ? `"${s.id}"` : `#${i}`
     if (!s || typeof s.id !== 'string' || typeof s.label !== 'string') {
       return `macro signal ${name} needs a string id and label`
     }
+    if (!s.id.trim()) {
+      return `macro signal #${i} id must be a non-empty string`
+    }
+    // computeMacroSnapshot (lib/gate1/macro.ts) keys the series record and
+    // manual values by signal id: two signals sharing an id read the SAME
+    // observation and each cast a vote, so one data point could satisfy
+    // minVotes by duplication (and double its weight in the regime score).
+    if (seenSignalIds.has(s.id)) {
+      return `duplicate macro signal id "${s.id}" — signal ids key the series record, so a duplicate lets one observation vote more than once`
+    }
+    seenSignalIds.add(s.id)
     if (s.fred !== null && typeof s.fred !== 'string') {
       return `macro signal "${s.id}" fred must be a FRED series id string or null`
     }

@@ -69,6 +69,12 @@ function invalidField(fields: DealFields): string | null {
 
 const isPosture = (v: unknown): v is Posture => v === 'green' || v === 'yellow' || v === 'red'
 
+// 400 for a truthy posture value outside the Posture union. Values come out of
+// JSON.parse, so JSON.stringify always yields a string; sliced so a giant
+// payload string can't balloon the error body.
+const invalidPostureError = (field: string, v: unknown): Response =>
+  json(400, { error: `${field} must be one of: green, yellow, red (got ${JSON.stringify(v).slice(0, 80)})` })
+
 // Matches the client-minted crypto.randomUUID() extraction ids — the uuid PK
 // of the extractions row (see extract-run-background.ts).
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -152,13 +158,16 @@ async function previewBatch(body: any): Promise<Response> {
     snapshot = snap.snapshot
     if (snapshot && snapshotIsStale(snapshot)) {
       // A dead weekly cron must not keep applying a months-old posture; an
-      // explicit request posture still works — the analyst sees what they chose.
-      if (!body.posture) return json(503, { error: MACRO_STALE })
+      // explicit request posture still works — the analyst sees what they
+      // chose. Only a VALID posture counts as explicit (the handler 400s
+      // truthy invalid values before dispatching here; the isPosture check
+      // keeps this escape closed even if called another way).
+      if (!isPosture(body.posture)) return json(503, { error: MACRO_STALE })
       snapshot = null // never default from — or stamp — a stale snapshot
     }
   }
 
-  const requested: Posture | undefined = body.posture || undefined
+  const requested: Posture | undefined = isPosture(body.posture) ? body.posture : undefined
   const results = rows.map((raw: unknown) => {
     const fields = raw as DealFields
     if (!fields || typeof fields !== 'object' || !fields.asset_class) {
@@ -302,6 +311,19 @@ export default async (req: Request, context: Context): Promise<Response> => {
     return json(400, { error: 'Invalid JSON body' })
   }
 
+  // A truthy unsupported posture (e.g. "blue") must 400 here, never reach
+  // resolution: resolveThresholds silently falls back to the '*' wildcard rows
+  // for a posture no row matches, and the stale-snapshot escapes would read a
+  // truthy invalid value as an explicit override. Falsy values (absent, null,
+  // '') still mean "no override" on every path. The decide handshake's
+  // expectedPosture gets the same gate — a truthy invalid value used to be
+  // silently dropped, which disabled the 409 posture guard instead of
+  // surfacing the client bug. Applies to preview, preview-batch, and decide.
+  if (body.posture && !isPosture(body.posture)) return invalidPostureError('posture', body.posture)
+  if (body.expectedPosture && !isPosture(body.expectedPosture)) {
+    return invalidPostureError('expectedPosture', body.expectedPosture)
+  }
+
   if (url.pathname.endsWith('/preview-batch')) return previewBatch(body)
   const action = url.pathname.endsWith('/decide') ? 'decide' : 'preview'
 
@@ -358,7 +380,7 @@ export default async (req: Request, context: Context): Promise<Response> => {
       ? db
         ? undefined
         : expectedPosture ?? (isPosture(body.posture) ? body.posture : undefined)
-      : (body.posture as Posture) || undefined
+      : isPosture(body.posture) ? body.posture : undefined
   let posture: Posture = postureOverride ?? 'green'
   let macroSnapshotId: string | null = null
   let postureSource = postureOverride ? 'request' : 'default'

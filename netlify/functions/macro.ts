@@ -56,11 +56,16 @@ const manualSignalIdsOf = (config: Gate1Config): string[] =>
 // gate1.ts: a transient failure must not read as "empty table" and silently
 // swap the stored posture for a live compute (which the UI then sends to
 // /decide as an explicit override), so callers must 503.
-// { stored: null } = genuinely empty table → compute live.
-async function latestStored(db: Db): Promise<{ stored: { row: any; snapshot: MacroSnapshot } | null } | null> {
-  const { data, error } = await db
-    .from('macro_snapshots')
-    .select('*')
+// { stored: null } = genuinely empty table (or no row of the requested source)
+// → compute live. `source: 'auto'` restricts to automatic snapshots — used by
+// the override path to seed hysteresis (see there).
+async function latestStored(
+  db: Db,
+  opts: { source?: 'auto' | 'manual' } = {},
+): Promise<{ stored: { row: any; snapshot: MacroSnapshot } | null } | null> {
+  let query = db.from('macro_snapshots').select('*')
+  if (opts.source) query = query.eq('source', opts.source)
+  const { data, error } = await query
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle()
@@ -126,9 +131,17 @@ export default async (req: Request, _context: Context): Promise<Response> => {
     const active = await activeConfig(db)
     if (!active) return json(503, { error: 'Could not load the active rulebook — try again' })
     const manualSignalIds = manualSignalIdsOf(active.config)
+    // Hysteresis predecessor: the newest AUTOMATIC snapshot only — the same
+    // rule macro-cron applies when it seeds its weekly compute. Scoring an
+    // override against the newest row of ANY source would make each same-week
+    // manual save read the previous (manual) save as its predecessor and
+    // advance pending_wins once per save — a resubmitted correction could flip
+    // the fund-wide regime on one week's evidence. A forcedRegime override is
+    // unaffected (it bypasses scoring); signal-only overrides score against
+    // the automatic baseline, so manual chains can never stack wins.
     let previous: MacroSnapshot | null = null
     if (db) {
-      const latest = await latestStored(db)
+      const latest = await latestStored(db, { source: 'auto' })
       if (!latest) return json(503, { error: STORED_UNAVAILABLE })
       previous = latest.stored?.snapshot ?? null
     }

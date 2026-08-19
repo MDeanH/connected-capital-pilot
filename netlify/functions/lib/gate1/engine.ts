@@ -178,6 +178,44 @@ export const EXECUTABLE_CHECK_IDS = [
   'completion_guarantee',
 ] as const
 
+/**
+ * Canonical map of check id → the threshold keys its runCheck case actually
+ * consumes (its `t('...')` calls in the switch below). KEEP IN SYNC: changing
+ * which keys a `case` reads MUST update its entry here — a plain switch
+ * offers nothing to derive this from mechanically. The Record type over
+ * EXECUTABLE_CHECK_IDS makes tsc fail if the two registries ever disagree on
+ * the id set; the VALUES are what the comment discipline protects.
+ *
+ * Why it exists: runCheck reads its thresholds by these FIXED keys, not from
+ * a check's declared thresholdKeys — the declared list only drives the
+ * config validator's row-presence rule and the displayed threshold
+ * (thresholdKeys[0]). A declaration that diverges from the case (e.g.
+ * ltc_max with thresholdKeys: []) would let a config without the rows the
+ * engine actually reads validate, turning the check 'missing' for every
+ * deal — a kill silently downgraded to REVIEW globally. gate1-config.ts
+ * therefore requires each check's declared thresholdKeys to equal this set.
+ */
+export const CHECK_THRESHOLD_KEYS: Record<(typeof EXECUTABLE_CHECK_IDS)[number], readonly string[]> = {
+  sponsor_integrity: [],
+  site_entitled: [],
+  single_exit_refi: [],
+  ltc_max: ['ltc_max'],
+  dev_spread_min: ['dev_spread_min_bps'],
+  contingency_min: ['contingency_min'],
+  coinvest_min: ['coinvest_min'],
+  track_record: ['track_record_min'],
+  gmp_required: ['gmp_cost_threshold_usd'],
+  mini_stress: ['stress_em_floor', 'stress_hard_cost_bump', 'stress_exit_cap_bump_bps', 'stress_selling_costs'],
+  yoc_vs_benchmark: ['yoc_min'],
+  exit_cap_vs_market: [],
+  interest_reserve: ['interest_reserve_buffer_months'],
+  land_basis: ['land_basis_max'],
+  rents_vs_comps: ['rent_premium_flag', 'rent_premium_severe'],
+  absorption: [],
+  profit_margin: ['profit_margin_min'],
+  completion_guarantee: ['guarantor_net_worth_min_pct'],
+}
+
 function runCheck(
   def: CheckDef,
   f: DealFields,
