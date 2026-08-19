@@ -109,9 +109,14 @@ export default async (req: Request, _context: Context): Promise<Response> => {
       .insert({
         week_of: snapshot.week_of,
         source: snapshot.source,
+        // signals is NOT NULL in the schema — omitting it made every insert
+        // fail silently against the real database (nothing ever persisted).
+        signals: snapshot.signals,
         regime: snapshot.regime,
+        pending_regime: snapshot.pending_regime ?? null,
         degraded: snapshot.degraded,
         postures: snapshot.postures,
+        hurdle: snapshot.hurdle ?? null,
         note: snapshot.note ?? null,
         snapshot,
       })

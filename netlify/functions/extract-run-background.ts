@@ -27,7 +27,6 @@ export default async (req: Request): Promise<void> => {
 
     const result = await runExtraction(payload)
     await store.setJSON(id, { status: 'done', ...result, completedAt: new Date().toISOString() })
-    await store.delete(`payload-${id}`)
 
     const db = serviceClient()
     if (db) {
@@ -49,6 +48,12 @@ export default async (req: Request): Promise<void> => {
       await store.setJSON(id || 'unknown', { status: 'error', error: String(e?.message ?? e) })
     } catch {
       console.error('extract-run-background: failed to record error for', id, e)
+    }
+  } finally {
+    // The staged payload holds the full base64 OM and sheet text — sensitive
+    // deal documents must never outlive the one run, success OR failure.
+    if (id) {
+      try { await store.delete(`payload-${id}`) } catch { /* best effort */ }
     }
   }
 }

@@ -104,7 +104,10 @@ export default async (req: Request, _context: Context): Promise<Response> => {
         posture = p
         postureSource = 'macro_snapshot'
       }
-      macroSnapshotId = data.id
+      // Link the snapshot only when the effective posture IS the snapshot's
+      // answer for this asset class — a manual what-if posture must not
+      // record a snapshot reference it didn't use (audit/replay integrity).
+      if (!body.posture || body.posture === p) macroSnapshotId = data.id
     }
   }
 
@@ -164,16 +167,10 @@ export default async (req: Request, _context: Context): Promise<Response> => {
       // deal on a transient blip. Skip linking; the decision records orphaned.
     } else if (existing) {
       dealId = existing.id
-      await db
-        .from('deals')
-        .update({
-          asset_class: String(fields.asset_class).slice(0, 50),
-          location,
-          sponsor,
-          fields,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', dealId)
+      // Link only — never overwrite an existing deal's identity or fields
+      // from a decision. Two distinct deals can legally share a name, and the
+      // decision's own inputs are already stored on the ledger row.
+      await db.from('deals').update({ updated_at: new Date().toISOString() }).eq('id', dealId)
     } else {
       const { data: created } = await db
         .from('deals')

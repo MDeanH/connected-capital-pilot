@@ -237,7 +237,7 @@ export default function DealIntake() {
   }, [coerced, adjustments, step, canScore, livePosture, draftConfig])
 
   const recordDecision = async () => {
-    if (!canScore || deciding) return
+    if (!canScore || deciding || draftConfig) return
     setDeciding(true)
     setDecision(null)
     try {
@@ -401,8 +401,15 @@ export default function DealIntake() {
                   </div>
                   <div className="di-decide">
                     <button className="secondary" onClick={() => setStep('review')}>BACK TO REVIEW</button>
-                    <button onClick={recordDecision} disabled={deciding}>
-                      {deciding ? 'RECORDING…' : 'RECORD DECISION'}
+                    {/* A draft rulebook previews live but can never be recorded —
+                        the server would silently re-score under the ACTIVE config,
+                        putting a different verdict in the ledger than the one shown. */}
+                    <button
+                      onClick={recordDecision}
+                      disabled={deciding || !!draftConfig}
+                      title={draftConfig ? 'Draft thresholds are active — save the rulebook as a new version (or clear the draft) before recording' : undefined}
+                    >
+                      {deciding ? 'RECORDING…' : draftConfig ? 'SAVE OR CLEAR DRAFT TO RECORD' : 'RECORD DECISION'}
                     </button>
                     {decision && (
                       <span className={decision.persisted ? 'di-recorded' : 'di-warning'} role="status">

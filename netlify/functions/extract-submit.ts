@@ -54,9 +54,16 @@ export default async (req: Request): Promise<Response> => {
 
   // Trigger the background worker on this same deploy; its 202 returns immediately.
   const origin = new URL(req.url).origin
+  // The edge gate protects /api/* — pass the caller's credentials through so
+  // the internal worker trigger isn't rejected with 401 on gated deploys.
+  const passthrough: Record<string, string> = { 'Content-Type': 'application/json' }
+  const auth = req.headers.get('authorization')
+  if (auth) passthrough['authorization'] = auth
+  const cookie = req.headers.get('cookie')
+  if (cookie) passthrough['cookie'] = cookie
   const trigger = await fetch(`${origin}/api/extract-run`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: passthrough,
     body: JSON.stringify({ extractionId: id }),
   })
   if (trigger.status >= 400) {

@@ -307,9 +307,12 @@ function coerceBacktestCell(key: string, v: unknown): string | number | boolean 
   if (typeof v === 'boolean') return v
   const n = Number(String(v).replace(/[$,%\s]/g, ''))
   if (Number.isFinite(n)) {
-    // Percent columns accept 5 / -8 (meaning 5%, −8%) or 0.05 — normalize to
-    // decimal. Math.abs so losing deals' negative returns normalize too.
-    if (PCT_KEYS.has(key)) return Math.abs(n) > 1 ? n / 100 : n
+    // Percent columns are read in PERCENT units, exactly as their headers say
+    // ("REALIZED IRR (%)"): 5 → 5%, -8 → −8%, 1 → 1%. Unconditional — a
+    // magnitude heuristic made 1 mean 100% and -1 mean −100%, silently
+    // flipping Gate 1 verdicts. parseBacktestWorkbook warns on sub-1 entries
+    // in case someone typed a fraction out of habit.
+    if (PCT_KEYS.has(key)) return n / 100
     return n
   }
   // Text survives only in text columns. A numeric column with "pending"/"n/a"
@@ -337,12 +340,20 @@ export async function parseBacktestWorkbook(data: ArrayBuffer): Promise<{ rows: 
   const headers = aoa[headerIdx].map(h => String(h ?? '').trim())
 
   const warnings: string[] = []
+  let subPercentSeen = false
   const rows: BacktestRow[] = []
   for (const raw of aoa.slice(headerIdx + 1)) {
     if (raw.every(c => c === null || c === '')) continue
     const rec: Record<string, string | number | boolean | null> = {}
     headers.forEach((h, i) => {
-      if (knownKeys.has(h)) rec[h] = coerceBacktestCell(h, raw[i])
+      if (knownKeys.has(h)) {
+        rec[h] = coerceBacktestCell(h, raw[i])
+        // Percent columns are percent units per the header; a nonzero entry
+        // below 1 (now < 0.01 as a fraction) likely meant a fraction — warn.
+        if (PCT_KEYS.has(h) && typeof rec[h] === 'number' && rec[h] !== 0 && Math.abs(rec[h] as number) < 0.01) {
+          subPercentSeen = true
+        }
+      }
     })
     if (!rec.deal_name) continue
     const { realized_irr = null, verified_net_lp_return = null, realized_equity_multiple = null, outcome_notes = null, ...fields } = rec
@@ -358,6 +369,9 @@ export async function parseBacktestWorkbook(data: ArrayBuffer): Promise<{ rows: 
   if (rows.length > 100) {
     warnings.push(`Capped at 100 deals (${rows.length} provided)`)
     rows.length = 100
+  }
+  if (subPercentSeen) {
+    warnings.push('Percent columns are read in percent units (the header says %) — enter 5 for 5%. Some values below 1 were read as under 1%; double-check them if you meant fractions.')
   }
   return { rows, warnings }
 }

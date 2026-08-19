@@ -11,6 +11,40 @@ import type { Config, Context } from '@netlify/functions'
 import { DEFAULT_CONFIG } from './lib/gate1/preview.ts'
 import { serviceClient } from './lib/supabase.ts'
 
+/**
+ * A saved config becomes the ACTIVE rulebook for every evaluation — a
+ * structurally broken one (empty checks, missing macro) bricks the pilot
+ * globally until another version lands. Validate the whole shape, not just
+ * that thresholds is an array.
+ */
+function configShapeError(c: any): string | null {
+  if (!c || typeof c !== 'object') return 'config must be an object'
+  if (!Array.isArray(c.checks) || c.checks.length === 0) return 'checks must be a non-empty array'
+  for (const ch of c.checks) {
+    if (!ch || typeof ch.id !== 'string' || (ch.kind !== 'kill' && ch.kind !== 'flag')) {
+      return 'every check needs a string id and kind "kill" or "flag"'
+    }
+  }
+  if (!Array.isArray(c.thresholds)) return 'thresholds must be an array'
+  for (const r of c.thresholds) {
+    if (!r || typeof r.asset_class !== 'string' || typeof r.posture !== 'string' ||
+        typeof r.key !== 'string' || typeof r.value !== 'number' || !Number.isFinite(r.value)) {
+      return 'every threshold row needs asset_class, posture, key and a finite numeric value'
+    }
+  }
+  const vb = c.verdictBands
+  if (!vb || typeof vb.passMaxFlagPts !== 'number' || typeof vb.conditionalMaxFlagPts !== 'number') {
+    return 'verdictBands needs numeric passMaxFlagPts and conditionalMaxFlagPts'
+  }
+  const m = c.macro
+  if (!m || typeof m !== 'object' || !Array.isArray(m.signals) || m.signals.length === 0 ||
+      !m.signalWeights || typeof m.signalWeights !== 'object' ||
+      !m.postureMatrix || typeof m.postureMatrix !== 'object') {
+    return 'macro needs non-empty signals plus signalWeights and postureMatrix'
+  }
+  return null
+}
+
 const json = (status: number, obj: unknown) =>
   new Response(JSON.stringify(obj), { status, headers: { 'Content-Type': 'application/json' } })
 
@@ -27,8 +61,9 @@ export default async (req: Request, _context: Context): Promise<Response> => {
     } catch {
       return json(400, { error: 'Invalid JSON body' })
     }
-    if (!body.config || typeof body.config !== 'object' || !Array.isArray(body.config.thresholds)) {
-      return json(400, { error: 'Body must include a full config object (with thresholds)' })
+    const shapeError = configShapeError(body.config)
+    if (shapeError) {
+      return json(400, { error: `Config rejected: ${shapeError}` })
     }
     if (typeof body.note !== 'string' || !body.note.trim()) {
       return json(400, { error: 'A note is required — config changes are never silent' })

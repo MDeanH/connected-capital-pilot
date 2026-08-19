@@ -50,7 +50,9 @@ from benchmark_lib import (  # noqa: E402
 )
 
 REPO = os.path.abspath(os.path.join(HERE, "..", ".."))
-MAIN_CHECKOUT = "/Users/friday/Projects/ai-diligence-tool"
+# Metro-series input lives in this repo; override with ADT_CHECKOUT to point
+# at another checkout (the original run used an author-machine path).
+MAIN_CHECKOUT = os.environ.get("ADT_CHECKOUT", REPO)
 OUT_DIR = os.path.join(HERE, "housing_results")
 
 L = 120          # context, months (10y)

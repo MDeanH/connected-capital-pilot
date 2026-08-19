@@ -56,9 +56,13 @@ export default async (): Promise<Response> => {
   const { error } = await db.from('macro_snapshots').insert({
     week_of: full.week_of,
     source: full.source,
+    // signals is NOT NULL in the schema — see macro.ts; same fix here.
+    signals: full.signals,
     regime: full.regime,
+    pending_regime: full.pending_regime ?? null,
     degraded: full.degraded,
     postures: full.postures,
+    hurdle: full.hurdle ?? null,
     note: full.note ?? null,
     snapshot: full,
   })
