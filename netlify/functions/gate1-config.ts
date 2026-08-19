@@ -11,8 +11,17 @@
 // environment has a well-defined active config even without Supabase.
 
 import type { Config, Context } from '@netlify/functions'
+import { requireAdmin } from './lib/auth.ts'
 import { DEFAULT_CONFIG } from './lib/gate1/preview.ts'
+import type { Posture, Regime } from './lib/gate1/types.ts'
 import { serviceClient } from './lib/supabase.ts'
+
+// Runtime mirrors of the Regime/Posture unions (lib/gate1/types.ts). The
+// Record types make tsc fail here if the union ever gains or loses a member,
+// so the validator can never silently drift from the engine's canonical lists.
+const REGIME_KEYS: Record<Regime, true> = { soft_landing: true, stagflation: true, recession: true }
+const REGIMES = Object.keys(REGIME_KEYS) as Regime[]
+const POSTURE_KEYS: Record<Posture, true> = { green: true, yellow: true, red: true }
 
 /**
  * A saved config becomes the ACTIVE rulebook for every evaluation — a
@@ -71,6 +80,12 @@ export function configShapeError(c: any): string | null {
   // weekly cron throw until another version lands, so the full executable
   // MacroConfig shape is validated here, not just the top-level keys.
   const finite = (v: any) => typeof v === 'number' && Number.isFinite(v)
+  // Weights feed computeMacroSnapshot's weighted mean (score = Σvote·w / Σw):
+  // a negative weight inverts a signal's vote, and all-zero live weights make
+  // the score 0/0 = NaN, which falls through both regime cutpoints straight to
+  // 'recession'. So every weight must be finite and >= 0, and the total must
+  // be strictly positive.
+  let weightSum = 0
   for (let i = 0; i < m.signals.length; i++) {
     const s = m.signals[i]
     const name = s && typeof s.id === 'string' ? `"${s.id}"` : `#${i}`
@@ -80,7 +95,10 @@ export function configShapeError(c: any): string | null {
     if (s.fred !== null && typeof s.fred !== 'string') {
       return `macro signal "${s.id}" fred must be a FRED series id string or null`
     }
-    if (!finite(s.weight)) return `macro signal "${s.id}" weight must be a finite number`
+    if (!finite(s.weight) || s.weight < 0) {
+      return `macro signal "${s.id}" weight must be a finite number >= 0`
+    }
+    weightSum += s.weight
     if (s.transform !== 'level' && s.transform !== 'yoy') {
       return `macro signal "${s.id}" transform must be "level" or "yoy"`
     }
@@ -91,6 +109,14 @@ export function configShapeError(c: any): string | null {
       return `macro signal "${s.id}" needs finite numeric green and yellow bands`
     }
   }
+  if (weightSum <= 0) {
+    return 'macro signal weights sum to 0 — at least one signal weight must be positive, or every regime score is 0/0'
+  }
+  for (const [id, w] of Object.entries(m.signalWeights)) {
+    if (!finite(w) || (w as number) < 0) {
+      return `macro signalWeights["${id}"] must be a finite number >= 0`
+    }
+  }
   if (!finite(m.minVotes) || m.minVotes < 1) return 'macro minVotes must be a finite number >= 1'
   if (!finite(m.hysteresisWins) || m.hysteresisWins < 1) {
     return 'macro hysteresisWins must be a finite number >= 1'
@@ -99,10 +125,30 @@ export function configShapeError(c: any): string | null {
   if (!qb || typeof qb !== 'object' || !finite(qb.inflationHotYoy) || !finite(qb.growthRecessionYoy)) {
     return 'macro quadrantBands needs finite numeric inflationHotYoy and growthRecessionYoy'
   }
+  // computeMacroSnapshot spreads postureMatrix[regime] as-is: a missing regime
+  // row spreads to an EMPTY posture map (silent green everywhere), and every
+  // consumer resolves via postures[asset_class] ?? postures['*']. So the matrix
+  // must cover exactly the canonical regimes, every value must be a real
+  // posture, and every row needs the '*' fallback.
+  for (const regime of REGIMES) {
+    if (!(regime in m.postureMatrix)) {
+      return `macro postureMatrix is missing regime "${regime}" — it must cover exactly ${REGIMES.join(', ')}`
+    }
+  }
   for (const [regime, row] of Object.entries(m.postureMatrix)) {
-    if (!row || typeof row !== 'object' || Array.isArray(row) ||
-        !Object.values(row).every((p) => typeof p === 'string')) {
+    if (!(regime in REGIME_KEYS)) {
+      return `macro postureMatrix has unknown regime "${regime}" — it must cover exactly ${REGIMES.join(', ')}`
+    }
+    if (!row || typeof row !== 'object' || Array.isArray(row)) {
       return `macro postureMatrix "${regime}" must map asset classes to posture strings`
+    }
+    for (const [asset, p] of Object.entries(row)) {
+      if (typeof p !== 'string' || !(p in POSTURE_KEYS)) {
+        return `macro postureMatrix "${regime}" maps "${asset}" to ${JSON.stringify(p)} — postures must be "green", "yellow" or "red"`
+      }
+    }
+    if (!('*' in row)) {
+      return `macro postureMatrix "${regime}" needs a "*" fallback entry — asset classes without their own row would get no posture`
     }
   }
   const hs = m.hurdleStack
@@ -132,6 +178,9 @@ export default async (req: Request, _context: Context): Promise<Response> => {
   const db = serviceClient()
 
   if (req.method === 'POST') {
+    // A saved version becomes the active rulebook for everyone — admin only.
+    const gate = await requireAdmin(req)
+    if (gate.response) return gate.response
     let body: any
     try {
       body = JSON.parse((await req.text()) || '{}')
@@ -164,7 +213,8 @@ export default async (req: Request, _context: Context): Promise<Response> => {
     const version = currentMax + 1
     const { data: row, error } = await db
       .from('threshold_configs')
-      .insert({ version, config: body.config, note: body.note.trim(), author: body.author ?? null })
+      // The verified identity wins authorship over the self-reported body field.
+      .insert({ version, config: body.config, note: body.note.trim(), author: gate.identity?.email ?? body.author ?? null })
       .select('version, created_at')
       .single()
     if (error) {
@@ -198,16 +248,25 @@ export default async (req: Request, _context: Context): Promise<Response> => {
   const versionMatch = path.match(/\/api\/config\/(\d+)$/)
   if (versionMatch) {
     const version = Number(versionMatch[1])
+    if (db) {
+      // Version 0 included: gate1's decide self-heals a version-0 ROW into the
+      // ledger (frozen at the deploy default of the day) so decisions can
+      // reference it. That stored row is what historical v0 decisions actually
+      // ran under — serving a LATER deploy's baked default here would replay
+      // them against different thresholds. A failed query is NOT "no stored
+      // row", so it 503s like every other read.
+      const { data, error } = await db
+        .from('threshold_configs')
+        .select('version, config, note, author, created_at')
+        .eq('version', version)
+        .maybeSingle()
+      if (error) return json(503, { error: `Could not load config version ${version} — try again` })
+      if (data) return json(200, data)
+    }
+    // No stored row (or no Supabase at all): only the deploy-baked default can
+    // answer for version 0.
     if (version === 0) return json(200, VERSION_ZERO)
-    if (!db) return json(404, { error: `Config version ${version} not found (Supabase not configured)` })
-    const { data, error } = await db
-      .from('threshold_configs')
-      .select('version, config, note, author, created_at')
-      .eq('version', version)
-      .maybeSingle()
-    if (error) return json(503, { error: `Could not load config version ${version} — try again` })
-    if (!data) return json(404, { error: `Config version ${version} not found` })
-    return json(200, data)
+    return json(404, { error: `Config version ${version} not found${db ? '' : ' (Supabase not configured)'}` })
   }
 
   // bare /api/config → version list (metadata only, version 0 always present)

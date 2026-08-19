@@ -12,12 +12,18 @@ import { serviceClient } from './lib/supabase.ts'
 export default async (): Promise<Response> => {
   const db = serviceClient()
 
+  // The date this run's snapshot would carry (computeMacroSnapshot stamps it
+  // verbatim) — computed once so the duplicate-run guard and the compute agree.
+  const weekOf = new Date().toISOString().slice(0, 10)
+
   let cfg: Gate1Config = DEFAULT_CONFIG
+  // null = empty threshold_configs table (still on the deploy-baked default).
+  let cfgVersion: number | null = null
   let previous: MacroSnapshot | null = null
   if (db) {
     const { data: cfgRow, error: cfgError } = await db
       .from('threshold_configs')
-      .select('config')
+      .select('version, config')
       .order('version', { ascending: false })
       .limit(1)
       .maybeSingle()
@@ -28,10 +34,22 @@ export default async (): Promise<Response> => {
       console.error(`macro-cron: config lookup failed — ${cfgError.message}`)
       return new Response(`config lookup failed: ${cfgError.message}`, { status: 500 })
     }
-    if (cfgRow) cfg = cfgRow.config as Gate1Config
+    if (cfgRow) {
+      cfg = cfgRow.config as Gate1Config
+      cfgVersion = cfgRow.version as number
+    }
+    // Hysteresis predecessor: the newest AUTOMATIC snapshot only. A manual
+    // override is a stated judgment, not measured evidence — seeding hysteresis
+    // from it would extend a forced regime a full extra hysteresis cycle (a
+    // forced green would hold against next Monday's honest red candidate).
+    // Expiry semantics: manual rows stay in history and keep prevailing via
+    // /latest (newest row wins) only until this run inserts a newer auto row —
+    // that insert is exactly when an override expires. Manual rows never seed
+    // automatic hysteresis, degraded fallback, or the pending_wins streak.
     const { data: prevRow, error: prevError } = await db
       .from('macro_snapshots')
       .select('*')
+      .eq('source', 'auto')
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle()
@@ -43,6 +61,15 @@ export default async (): Promise<Response> => {
       return new Response(`previous-snapshot lookup failed: ${prevError.message}`, { status: 500 })
     }
     if (prevRow) previous = (prevRow.snapshot ?? prevRow) as MacroSnapshot
+    // Duplicate-run guard: a second auto run in the same week would insert a
+    // second snapshot and read the first as "previous", double-advancing
+    // pending_wins — a two-week hysteresis could flip on one week's evidence.
+    // The lookup above is auto-only, so a manual override can neither block
+    // the weekly run nor mask an auto row recorded earlier this week.
+    if (prevRow && prevRow.week_of === weekOf) {
+      console.log(`macro-cron: already recorded for week ${weekOf} — skipping duplicate run`)
+      return new Response(`already recorded for week ${weekOf}`, { status: 200 })
+    }
   }
 
   const ids: Record<string, string> = { ...MARKET_SERIES }
@@ -51,7 +78,7 @@ export default async (): Promise<Response> => {
 
   const snapshot = computeMacroSnapshot({
     config: cfg,
-    weekOf: new Date().toISOString().slice(0, 10),
+    weekOf,
     series,
     previous,
   })
@@ -77,6 +104,9 @@ export default async (): Promise<Response> => {
     degraded: full.degraded,
     postures: full.postures,
     hurdle: full.hurdle ?? null,
+    // null only when threshold_configs is empty: the FK needs an existing row,
+    // and gate1's decide self-heals v0 — the cron must not invent rows.
+    config_version: cfgVersion,
     note: full.note ?? null,
     snapshot: full,
   })

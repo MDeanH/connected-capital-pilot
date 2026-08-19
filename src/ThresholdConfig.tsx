@@ -9,6 +9,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Term } from './GlossaryTip'
 import { fmtThreshold } from './format'
 import { ASSET_CLASSES } from './deal-types'
+import { type AdminFlag } from './auth'
 import type { Gate1Config, ThresholdRow } from '../netlify/functions/lib/gate1/types'
 
 interface Props {
@@ -16,6 +17,7 @@ interface Props {
   draft: Gate1Config | null
   onDraftChange: (cfg: Gate1Config | null) => void
   onSave: (cfg: Gate1Config, note: string) => Promise<{ persisted: boolean; warning?: string; version?: number }>
+  isAdmin: AdminFlag
 }
 
 /**
@@ -86,8 +88,12 @@ function NumInput({ value, onCommit, ariaLabel }: {
   )
 }
 
-export default function ThresholdConfig({ active, draft, onDraftChange, onSave }: Props) {
+export default function ThresholdConfig({ active, draft, onDraftChange, onSave, isAdmin }: Props) {
   const working = draft ?? active?.config ?? null
+  // Saving a version is admin-only where auth is on; 'auth-off' keeps the
+  // button for everyone, exactly as before. Drafts stay analyst territory —
+  // they are local previews, never persisted.
+  const canSave = isAdmin !== false
 
   // Remount inputs when the draft is discarded so they snap back to active values.
   const [resetKey, setResetKey] = useState(0)
@@ -240,16 +246,18 @@ export default function ThresholdConfig({ active, draft, onDraftChange, onSave }
           {draft && <Chip tone="amber">DRAFT — previews use your draft until cleared</Chip>}
         </div>
         <div className="tc-header-actions">
-          <button className="tc-btn" onClick={() => { setNoteOpen(o => !o); setSaveMsg(null) }}>
-            SAVE AS NEW VERSION
-          </button>
+          {canSave && (
+            <button className="tc-btn" onClick={() => { setNoteOpen(o => !o); setSaveMsg(null) }}>
+              SAVE AS NEW VERSION
+            </button>
+          )}
           <button className="tc-btn tc-btn-secondary" disabled={!draft} onClick={() => { setSaveMsg(null); onDraftChange(null) }}>
             CLEAR DRAFT
           </button>
         </div>
       </div>
 
-      {noteOpen && (
+      {canSave && noteOpen && (
         <div className="card tc-savebar">
           <label className="tc-savebar-label" htmlFor="tc-note">Version note (required)</label>
           <div className="tc-savebar-row">

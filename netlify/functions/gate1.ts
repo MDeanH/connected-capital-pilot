@@ -7,8 +7,14 @@
 // so it can be replayed exactly. Judgment adjustments require a reason (enforced
 // in resolveThresholds); `decide` stores BOTH the baseline result (config +
 // posture only) and the adjusted result — manual control is never silent.
+//
+// decide takes no posture override: it resolves posture and config server-side
+// and 409s when either differs from what the analyst last previewed under
+// (expectedPosture / expectedConfigVersion — the record handshake). preview and
+// preview-batch keep body.posture as a what-if override.
 
 import type { Config, Context } from '@netlify/functions'
+import { identityFromRequest, requireAdmin } from './lib/auth.ts'
 import { computeGate1, DEFAULT_CONFIG } from './lib/gate1/preview.ts'
 import type { DealFields, Gate1Config, JudgmentAdjustment, Posture } from './lib/gate1/types.ts'
 import { serviceClient } from './lib/supabase.ts'
@@ -17,6 +23,19 @@ const json = (status: number, obj: unknown) =>
   new Response(JSON.stringify(obj), { status, headers: { 'Content-Type': 'application/json' } })
 
 type Db = NonNullable<ReturnType<typeof serviceClient>>
+
+// The supported asset-class registry — mirrors ASSET_CLASSES in
+// src/deal-types.ts and the asset_class extraction hint in lib/gate1/fields.ts
+// (keep all three in sync). An unknown or misspelled class (e.g.
+// 'rv_speciality') must 400, never silently score: resolveThresholds falls
+// back to the '*' wildcard rows for any class it doesn't recognize, so a typo
+// would grade a deal under generic thresholds without anyone noticing.
+const SUPPORTED_ASSET_CLASSES = ['rv_specialty', 'multifamily', 'industrial', 'retail', 'office']
+
+const assetClassError = (v: unknown): string | null =>
+  SUPPORTED_ASSET_CLASSES.includes(String(v))
+    ? null
+    : `asset_class must be one of: ${SUPPORTED_ASSET_CLASSES.join(', ')}`
 
 // Amount/rate/count fields that must be finite and >= 0 when present — a
 // negative construction loan flips LTC negative (sailing past the leverage
@@ -31,14 +50,28 @@ const NON_NEGATIVE_FIELDS: Array<keyof DealFields> = [
   'hard_cost_contingency_pct',
 ]
 
-/** First invalid field name, or null when every present numeric is finite and >= 0. */
+/**
+ * Error message for the first invalid field, or null when every present value
+ * is a finite, non-negative number. ANY present non-null value that is not a
+ * finite number rejects — strings included: a custom client sending
+ * construction_loan: "-7000000" used to skip the old typeof-number gate and
+ * coerce to a negative inside the engine's arithmetic (`loan / cost`).
+ */
 function invalidField(fields: DealFields): string | null {
   for (const key of NON_NEGATIVE_FIELDS) {
     const v = fields[key]
-    if (typeof v === 'number' && (!Number.isFinite(v) || v < 0)) return key
+    if (v === null || v === undefined) continue
+    if (typeof v !== 'number' || !Number.isFinite(v)) return `${key} must be a number`
+    if (v < 0) return `${key} must be a non-negative number`
   }
   return null
 }
+
+const isPosture = (v: unknown): v is Posture => v === 'green' || v === 'yellow' || v === 'red'
+
+// Matches the client-minted crypto.randomUUID() extraction ids — the uuid PK
+// of the extractions row (see extract-run-background.ts).
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 const RULEBOOK_UNAVAILABLE = 'Could not load the active rulebook — try again'
 
@@ -131,8 +164,10 @@ async function previewBatch(body: any): Promise<Response> {
     if (!fields || typeof fields !== 'object' || !fields.asset_class) {
       return { error: 'Missing deal fields (asset_class required)' }
     }
-    const badField = invalidField(fields)
-    if (badField) return { error: `${badField} must be a non-negative number` }
+    const classError = assetClassError(fields.asset_class)
+    if (classError) return { error: classError }
+    const fieldError = invalidField(fields)
+    if (fieldError) return { error: fieldError }
     const snapPosture = snapshot ? snapshot.postures[fields.asset_class] ?? snapshot.postures['*'] : undefined
     const posture: Posture = requested ?? snapPosture ?? 'green'
     const postureSource = requested ? 'request' : snapPosture ? 'macro_snapshot' : 'default'
@@ -201,6 +236,8 @@ export default async (req: Request, context: Context): Promise<Response> => {
     // deliberate, gated admin action (the UI confirms first); deal-level
     // deletion (a deal plus all its decisions) lives on DELETE /api/deals/:id.
     if (req.method !== 'DELETE') return new Response('Method not allowed', { status: 405 })
+    const gate = await requireAdmin(req)
+    if (gate.response) return gate.response
     const db = serviceClient()
     if (!db) return json(503, { error: 'Persistence not configured (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY)' })
     const { error, count } = await db.from('gate_decisions').delete({ count: 'exact' }).eq('id', decisionId)
@@ -227,9 +264,24 @@ export default async (req: Request, context: Context): Promise<Response> => {
   if (!fields || typeof fields !== 'object' || !fields.asset_class) {
     return json(400, { error: 'Missing deal fields (asset_class required)' })
   }
-  const badField = invalidField(fields)
-  if (badField) return json(400, { error: `${badField} must be a non-negative number` })
+  const classError = assetClassError(fields.asset_class)
+  if (classError) return json(400, { error: classError })
+  const fieldError = invalidField(fields)
+  if (fieldError) return json(400, { error: fieldError })
   const adjustments: JudgmentAdjustment[] = Array.isArray(body.adjustments) ? body.adjustments : []
+
+  // The record handshake (decide only): what the analyst last PREVIEWED under,
+  // read straight off the last preview response (its `posture` and
+  // `configVersion` fields). decide re-resolves posture and config server-side
+  // and refuses (409) to record when either moved since that preview — the
+  // ledger must never hold a verdict the analyst did not see. preview ignores
+  // both fields. Clients predating the handshake send neither; their decides
+  // record under the server-resolved state without the 409 guard.
+  const expectedPosture: Posture | undefined = isPosture(body.expectedPosture) ? body.expectedPosture : undefined
+  const expectedConfigVersion: number | undefined =
+    typeof body.expectedConfigVersion === 'number' && Number.isFinite(body.expectedConfigVersion)
+      ? body.expectedConfigVersion
+      : undefined
 
   const db = serviceClient()
 
@@ -246,30 +298,49 @@ export default async (req: Request, context: Context): Promise<Response> => {
     configVersion = active.version
   }
 
-  // Posture: latest macro snapshot for this asset class; request override; else green.
-  let posture: Posture = (body.posture as Posture) || 'green'
+  // Posture:
+  //  - preview: body.posture is a what-if override; else snapshot; else green.
+  //  - decide: NO override — body.posture is ignored and posture resolves from
+  //    the macro snapshot exactly as if none were supplied, so a client-cached
+  //    posture can never be recorded over a fresher snapshot. The handshake
+  //    below turns a mismatch with the reviewed posture into a 409 instead.
+  //  - decide with no db: nothing records (persisted:false, no ledger) and
+  //    there is no snapshot to resolve, so the analyst's reviewed posture
+  //    keeps the computed verdict identical to the preview they saw — the
+  //    legacy public-demo behavior (body.posture accepted for older clients).
+  const postureOverride: Posture | undefined =
+    action === 'decide'
+      ? db
+        ? undefined
+        : expectedPosture ?? (isPosture(body.posture) ? body.posture : undefined)
+      : (body.posture as Posture) || undefined
+  let posture: Posture = postureOverride ?? 'green'
   let macroSnapshotId: string | null = null
-  let postureSource = body.posture ? 'request' : 'default'
+  let postureSource = postureOverride ? 'request' : 'default'
   if (db) {
     const snap = await loadLatestSnapshot(db)
     if (!snap) return json(503, { error: MACRO_UNAVAILABLE })
     let snapshot = snap.snapshot
     if (snapshot && snapshotIsStale(snapshot)) {
       // A dead weekly cron must not keep applying a months-old posture; an
-      // explicit request posture still works — the analyst sees what they chose.
-      if (!body.posture) return json(503, { error: MACRO_STALE })
+      // explicit request posture still keeps PREVIEWS working — the analyst
+      // sees what they chose. decide never has an override, so recording
+      // stays blocked (503) until the snapshot is refreshed.
+      if (!postureOverride) return json(503, { error: MACRO_STALE })
       snapshot = null // never default from — or stamp — a stale snapshot
     }
     if (snapshot) {
       const p = snapshot.postures[fields.asset_class] ?? snapshot.postures['*']
-      if (p && !body.posture) {
+      if (p && !postureOverride) {
         posture = p
         postureSource = 'macro_snapshot'
       }
       // Link the snapshot only when the effective posture IS the snapshot's
       // answer for this asset class — a manual what-if posture must not
       // record a snapshot reference it didn't use (audit/replay integrity).
-      if (!body.posture || body.posture === p) macroSnapshotId = snapshot.id
+      // decide always links here (no override), restoring the snapshot link
+      // the old client-sent posture override used to break.
+      if (!postureOverride || postureOverride === p) macroSnapshotId = snapshot.id
     }
   }
 
@@ -278,6 +349,24 @@ export default async (req: Request, context: Context): Promise<Response> => {
   if (body.configOverride && action === 'decide') {
     return json(400, { error: 'Draft configs cannot be recorded — save the config as a new version first' })
   }
+
+  // The record handshake: refuse to write a ledger row the analyst never saw.
+  // A config save between preview and record, or a macro cron/override moving
+  // the posture mid-session, must surface as a 409 (naming both sides), never
+  // silently record a different verdict than the one reviewed.
+  if (action === 'decide' && db) {
+    if (expectedConfigVersion !== undefined && expectedConfigVersion !== configVersion) {
+      return json(409, {
+        error: `The rulebook changed since this preview (reviewed under v${expectedConfigVersion}, active is v${configVersion}) — refresh and re-review before recording`,
+      })
+    }
+    if (expectedPosture !== undefined && expectedPosture !== posture) {
+      return json(409, {
+        error: `The macro posture changed since this preview (reviewed under ${expectedPosture}, now ${posture}) — refresh and re-review before recording`,
+      })
+    }
+  }
+
   const effectiveConfig: Gate1Config = body.configOverride ?? config
   const effectiveVersion = body.configOverride ? -1 : configVersion
 
@@ -296,6 +385,11 @@ export default async (req: Request, context: Context): Promise<Response> => {
   if (!db) {
     return json(200, { ...payload, persisted: false, warning: 'Supabase not configured — decision computed but NOT recorded' })
   }
+
+  // Attribution only, never a gate: decide stays open to anonymous gate-cookie
+  // users (no Bearer token → null, exactly the pre-auth rows) until Michael
+  // flips the pilot fully to accounts.
+  const identity = await identityFromRequest(req)
 
   // The ledger FK requires the stamped config version to exist as a ROW, but
   // version 0 is deploy-baked and never saved. Self-heal: on a fresh database
@@ -366,10 +460,28 @@ export default async (req: Request, context: Context): Promise<Response> => {
       // it without a schema change (older rows simply read null).
       result: { ...result, posture },
       verdict: result.verdict,
+      decided_by_email: identity?.email ?? null,
     })
     .select('id, created_at')
     .single()
   if (error) return json(500, { error: `Failed to record decision: ${error.message}` })
+
+  // Wave-A follow-through: the client minted extractionId at upload time (the
+  // uuid PK of the persisted extractions row — see extract-run-background.ts)
+  // and passes it back on decide. Now that the decision resolved a deal, stamp
+  // that row's deal_id so the stored fields/citations stay traceable to the
+  // deal after browser state is gone. Best-effort BY CONTRACT: the ledger row
+  // above is already written, and an absent id (the recorded sample carries
+  // none), a non-UUID id (never persisted under its own PK), a deleted row, or
+  // a failed update must never fail the decide response.
+  const extractionId =
+    typeof body.extractionId === 'string' && UUID_RE.test(body.extractionId) ? body.extractionId : null
+  if (dealId && extractionId) {
+    try {
+      await db.from('extractions').update({ deal_id: dealId }).eq('id', extractionId)
+    } catch { /* best effort — never blocks the ledger write */ }
+  }
+
   // dealId goes back to the client, which stores it and passes it on the next
   // decide — the explicit identity that keeps a deal's history on one row.
   return json(200, { ...payload, persisted: true, decisionId: row.id, decidedAt: row.created_at, dealId })

@@ -7,6 +7,7 @@
 // is I/O only: FRED fetches, Supabase reads/writes, HTTP shape.
 
 import type { Config, Context } from '@netlify/functions'
+import { requireAdmin } from './lib/auth.ts'
 import { fetchSeriesMap } from './lib/gate1/fred.ts'
 import { buildMarketContext, computeMacroSnapshot, MARKET_SERIES } from './lib/gate1/macro.ts'
 import { DEFAULT_CONFIG } from './lib/gate1/preview.ts'
@@ -26,18 +27,30 @@ const STORED_UNAVAILABLE = 'Could not load the stored macro snapshot — try aga
 const MAX_SNAPSHOT_AGE_DAYS = 14
 
 // null = the query FAILED (callers 503) — a transient error must not silently
-// swap the active rulebook for the baked default. Empty table keeps the default.
-async function activeConfig(db: ReturnType<typeof serviceClient>): Promise<Gate1Config | null> {
-  if (!db) return DEFAULT_CONFIG
+// swap the active rulebook for the baked default. Empty table keeps the baked
+// default with version: null — there is no threshold_configs row to point at,
+// so a caller stamping config_version must stamp null or violate the FK.
+async function activeConfig(
+  db: ReturnType<typeof serviceClient>,
+): Promise<{ config: Gate1Config; version: number | null } | null> {
+  if (!db) return { config: DEFAULT_CONFIG, version: null }
   const { data, error } = await db
     .from('threshold_configs')
-    .select('config')
+    .select('version, config')
     .order('version', { ascending: false })
     .limit(1)
     .maybeSingle()
   if (error) return null
-  return (data?.config as Gate1Config) ?? DEFAULT_CONFIG
+  if (!data) return { config: DEFAULT_CONFIG, version: null }
+  return { config: data.config as Gate1Config, version: data.version as number }
 }
+
+// Configured signals with no FRED feed (fred: null — e.g. ISM PMI) take
+// analyst-entered values via POST /override signalValues. A reading alone
+// can't distinguish "no feed configured" from "feed down", so the API tells
+// the dashboard which ids are manual-entry.
+const manualSignalIdsOf = (config: Gate1Config): string[] =>
+  (config.macro.signals ?? []).filter((d) => !d.fred).map((d) => d.id)
 
 // Latest stored snapshot. null = the query itself FAILED — same rule as
 // gate1.ts: a transient failure must not read as "empty table" and silently
@@ -95,6 +108,9 @@ export default async (req: Request, _context: Context): Promise<Response> => {
 
   if (path.endsWith('/override')) {
     if (req.method !== 'POST') return json(405, { error: 'Method not allowed' })
+    // An override becomes the prevailing posture for every decision — admin only.
+    const gate = await requireAdmin(req)
+    if (gate.response) return gate.response
     let body: any
     try {
       body = JSON.parse((await req.text()) || '{}')
@@ -107,15 +123,16 @@ export default async (req: Request, _context: Context): Promise<Response> => {
     if (body.regime !== undefined && !REGIMES.includes(body.regime)) {
       return json(400, { error: `regime must be one of ${REGIMES.join(', ')}` })
     }
-    const config = await activeConfig(db)
-    if (!config) return json(503, { error: 'Could not load the active rulebook — try again' })
+    const active = await activeConfig(db)
+    if (!active) return json(503, { error: 'Could not load the active rulebook — try again' })
+    const manualSignalIds = manualSignalIdsOf(active.config)
     let previous: MacroSnapshot | null = null
     if (db) {
       const latest = await latestStored(db)
       if (!latest) return json(503, { error: STORED_UNAVAILABLE })
       previous = latest.stored?.snapshot ?? null
     }
-    const snapshot = await computeLive(config, {
+    const snapshot = await computeLive(active.config, {
       previous,
       manualValues: body.signalValues && typeof body.signalValues === 'object' ? body.signalValues : undefined,
       forcedRegime: body.regime as Regime | undefined,
@@ -123,8 +140,11 @@ export default async (req: Request, _context: Context): Promise<Response> => {
       note: body.note.trim(),
     })
     if (!db) {
-      return json(200, { ...snapshot, persisted: false, warning: 'Supabase not configured — override computed but NOT recorded' })
+      return json(200, { ...snapshot, manualSignalIds, persisted: false, warning: 'Supabase not configured — override computed but NOT recorded' })
     }
+    // Attribution rides in the blob too — /history reads only the snapshot
+    // jsonb, so a column-only stamp would never surface to the UI.
+    const stamped = gate.identity ? { ...snapshot, author_email: gate.identity.email } : snapshot
     const { data: row, error } = await db
       .from('macro_snapshots')
       .insert({
@@ -138,13 +158,19 @@ export default async (req: Request, _context: Context): Promise<Response> => {
         degraded: snapshot.degraded,
         postures: snapshot.postures,
         hurdle: snapshot.hurdle ?? null,
+        // Provenance: the rulebook this override was computed under. null only
+        // while threshold_configs is empty (still on the deploy-baked default):
+        // the FK needs an existing row, and inventing one is not this
+        // endpoint's job — same rule as macro-cron.
+        config_version: active.version,
         note: snapshot.note ?? null,
-        snapshot,
+        author_email: gate.identity?.email ?? null,
+        snapshot: stamped,
       })
       .select('id, created_at')
       .single()
     if (error) return json(500, { error: `Failed to record override: ${error.message}` })
-    return json(200, { ...snapshot, persisted: true, id: row.id, createdAt: row.created_at })
+    return json(200, { ...stamped, manualSignalIds, persisted: true, id: row.id, createdAt: row.created_at })
   }
 
   if (req.method !== 'GET') return json(405, { error: 'Method not allowed' })
@@ -172,22 +198,29 @@ export default async (req: Request, _context: Context): Promise<Response> => {
       const recordedAt = Date.parse(stored.row.created_at ?? stored.snapshot.week_of ?? '')
       const fresh = Number.isFinite(recordedAt) && Date.now() - recordedAt <= MAX_SNAPSHOT_AGE_DAYS * 86_400_000
       if (fresh) {
+        // manualSignalIds is best-effort here: it rides from the ACTIVE config
+        // (the snapshot's readings can't say whether a feed exists), and a
+        // failed rulebook read must not 503 a perfectly good stored snapshot —
+        // the field is omitted and the override form degrades to regime-only.
+        const active = await activeConfig(db)
         return json(200, {
           ...stored.snapshot,
           id: stored.row.id,
           createdAt: stored.row.created_at,
           persisted: true,
           sourceNote: 'stored weekly snapshot',
+          ...(active ? { manualSignalIds: manualSignalIdsOf(active.config) } : {}),
         })
       }
       staleWeekOf = stored.snapshot.week_of ?? null
     }
   }
-  const config = await activeConfig(db)
-  if (!config) return json(503, { error: 'Could not load the active rulebook — try again' })
-  const snapshot = await computeLive(config)
+  const active = await activeConfig(db)
+  if (!active) return json(503, { error: 'Could not load the active rulebook — try again' })
+  const snapshot = await computeLive(active.config)
   return json(200, {
     ...snapshot,
+    manualSignalIds: manualSignalIdsOf(active.config),
     live: true,
     persisted: false,
     sourceNote: staleWeekOf

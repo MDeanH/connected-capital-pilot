@@ -4,6 +4,7 @@
 //   GET  /api/deals/:id    → one deal
 //   PATCH /api/deals/:id   → update fields/status
 import type { Config, Context } from '@netlify/functions'
+import { requireAdmin } from './lib/auth.ts'
 import { serviceClient } from './lib/supabase.ts'
 
 const json = (status: number, obj: unknown) =>
@@ -31,6 +32,8 @@ export default async (req: Request, context: Context): Promise<Response> => {
   }
 
   if (req.method === 'DELETE' && id) {
+    const gate = await requireAdmin(req)
+    if (gate.response) return gate.response
     // Deleting a deal removes its recorded decisions with it — a deliberate,
     // gated admin action (the UI double-confirms). Extraction telemetry keeps
     // its rows but drops the link; staged documents rows go with the deal.

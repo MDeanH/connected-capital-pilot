@@ -9,6 +9,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Kicker, PostureChip } from './cc-ui'
 import { fmtNumber } from './format'
+import { authFetch, type AdminFlag } from './auth'
 import type { GateVerdict, Posture } from './deal-types'
 
 interface DecisionRow {
@@ -32,7 +33,10 @@ function fmtDate(iso: string): string {
   return Number.isNaN(d.getTime()) ? iso : dateFmt.format(d)
 }
 
-export default function DealHistory() {
+export default function DealHistory({ isAdmin }: { isAdmin: AdminFlag }) {
+  // Deletes are admin-only where auth is on; 'auth-off' keeps them visible
+  // for everyone, exactly as before auth existed.
+  const canDelete = isAdmin !== false
   const [rows, setRows] = useState<DecisionRow[] | null>(null)
   const [hasMore, setHasMore] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -119,7 +123,7 @@ export default function DealHistory() {
     setNotice(null)
     try {
       const url = r.deal_id ? `/api/deals/${r.deal_id}` : `/api/gate1/decisions/${r.id}`
-      const resp = await fetch(url, { method: 'DELETE' })
+      const resp = await authFetch(url, { method: 'DELETE' })
       const data = await resp.json().catch(() => ({}))
       if (!resp.ok) throw new Error(data.error || `Delete failed (HTTP ${resp.status})`)
       await load()
@@ -184,7 +188,7 @@ export default function DealHistory() {
             <thead>
               <tr>
                 <th>Deal</th><th>Verdict</th><th>Posture</th><th>Kills</th><th>Flags</th>
-                <th>Rulebook</th><th>Adjustments</th><th>Decided</th><th aria-label="Actions"></th>
+                <th>Rulebook</th><th>Adjustments</th><th>Decided</th>{canDelete && <th aria-label="Actions"></th>}
               </tr>
             </thead>
             <tbody>
@@ -206,17 +210,19 @@ export default function DealHistory() {
                   <td>v{r.threshold_config_version}</td>
                   <td>{r.overrides_count || '—'}</td>
                   <td title={r.decided_at}>{fmtDate(r.decided_at)}</td>
-                  <td>
-                    <button
-                      className="dh-delete"
-                      onClick={() => deleteRow(r)}
-                      disabled={deletingId !== null}
-                      title={r.deal_id ? 'Delete this deal and all its recorded decisions' : 'Delete this recorded decision'}
-                      aria-label={r.deal_id ? `Delete deal ${r.deal_name ?? ''}` : 'Delete decision'}
-                    >
-                      {deletingId === r.id ? '…' : 'DELETE'}
-                    </button>
-                  </td>
+                  {canDelete && (
+                    <td>
+                      <button
+                        className="dh-delete"
+                        onClick={() => deleteRow(r)}
+                        disabled={deletingId !== null}
+                        title={r.deal_id ? 'Delete this deal and all its recorded decisions' : 'Delete this recorded decision'}
+                        aria-label={r.deal_id ? `Delete deal ${r.deal_name ?? ''}` : 'Delete decision'}
+                      >
+                        {deletingId === r.id ? '…' : 'DELETE'}
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

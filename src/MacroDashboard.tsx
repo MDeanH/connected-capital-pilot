@@ -8,13 +8,15 @@ import type { MacroSnapshot, MacroSignalReading, MacroQuadrant, Regime, Posture 
 import { PostureChip, Kicker } from './cc-ui'
 import { Term } from './GlossaryTip'
 import { Info } from './Info'
+import { type AdminFlag } from './auth'
 
 interface Props {
   snapshot: MacroSnapshot | null
   loading: boolean
   error: string | null
-  onOverride: (o: { regime?: Regime; note: string }) => Promise<void>
+  onOverride: (o: { regime?: Regime; signalValues?: Record<string, number>; note: string }) => Promise<void>
   onRefresh: () => void
+  isAdmin: AdminFlag
 }
 
 const REGIME_PRETTY: Record<Regime, string> = {
@@ -309,18 +311,47 @@ export function MacroStrip({ snapshot }: { snapshot: MacroSnapshot | null }) {
 // Main dashboard
 // ---------------------------------------------------------------------------
 
-export default function MacroDashboard({ snapshot, loading, error, onOverride, onRefresh }: Props) {
-  const [ovRegime, setOvRegime] = useState<Regime>('soft_landing')
+export default function MacroDashboard({ snapshot, loading, error, onOverride, onRefresh, isAdmin }: Props) {
+  // '' = no forced regime (signals-only override) — the default, so entering a
+  // signal value can never silently force a regime as a side effect.
+  const [ovRegime, setOvRegime] = useState<Regime | ''>('')
+  const [ovSignals, setOvSignals] = useState<Record<string, string>>({})
   const [ovNote, setOvNote] = useState('')
   const [ovBusy, setOvBusy] = useState(false)
   const [ovError, setOvError] = useState<string | null>(null)
+
+  // Configured manual-entry signals (fred: null server-side). The API names
+  // them via manualSignalIds; when the field is absent (older stored payloads,
+  // degraded rulebook read) no inputs render and the form falls back to the
+  // regime-only override exactly as before.
+  const manualIds = (snapshot as { manualSignalIds?: string[] } | null)?.manualSignalIds ?? []
+  const readingById = new Map((snapshot?.signals ?? []).map(s => [s.id, s] as const))
+
+  // Parse typed values; only finite numbers ride. type="number" inputs make a
+  // non-numeric string nearly impossible, but never silently drop one — block
+  // the submit instead.
+  const parsedSignals: Record<string, number> = {}
+  let invalidSignal = false
+  for (const [id, raw] of Object.entries(ovSignals)) {
+    const t = raw.trim()
+    if (!t) continue
+    const n = Number(t)
+    if (Number.isFinite(n)) parsedSignals[id] = n
+    else invalidSignal = true
+  }
+  const hasSignalValues = Object.keys(parsedSignals).length > 0
 
   async function applyOverride() {
     setOvBusy(true)
     setOvError(null)
     try {
-      await onOverride({ regime: ovRegime, note: ovNote.trim() })
+      await onOverride({
+        ...(ovRegime ? { regime: ovRegime } : {}),
+        ...(hasSignalValues ? { signalValues: parsedSignals } : {}),
+        note: ovNote.trim(),
+      })
       setOvNote('')
+      setOvSignals({})
     } catch (e) {
       setOvError(e instanceof Error ? e.message : String(e))
     } finally {
@@ -481,17 +512,50 @@ export default function MacroDashboard({ snapshot, loading, error, onOverride, o
             </div>
           )}
 
-          {/* 7 — Manual override */}
+          {/* 7 — Manual override — admin-only where auth is on; 'auth-off'
+              keeps it visible for everyone, exactly as before */}
+          {isAdmin !== false && (
           <div className="card md-card">
             <div className="md-section-title">Patel override</div>
+            {manualIds.length > 0 && (
+              <div className="md-ov-signals">
+                <div className="md-ov-signals-title">Analyst-entered signals</div>
+                <div className="md-ov-signals-note">
+                  These signals have no data feed — a value typed here is recorded as this
+                  week's reading and marked manual. It lasts only until the next automatic
+                  snapshot; leave blank to keep a signal at NO DATA. A regime override is
+                  not required to submit values (the reason note is).
+                </div>
+                <div className="md-ov-signal-grid">
+                  {manualIds.map(id => {
+                    const reading = readingById.get(id)
+                    const current = reading?.value
+                    return (
+                      <label className="md-field" key={id}>
+                        <span className="md-field-label">{reading?.label ?? id}</span>
+                        <input
+                          type="number"
+                          step="any"
+                          value={ovSignals[id] ?? ''}
+                          onChange={e => setOvSignals(v => ({ ...v, [id]: e.target.value }))}
+                          placeholder={current != null && Number.isFinite(current) ? String(current) : 'no data'}
+                          disabled={ovBusy}
+                        />
+                      </label>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
             <div className="md-override">
               <label className="md-field">
                 <span className="md-field-label">Regime</span>
                 <select
                   value={ovRegime}
-                  onChange={e => setOvRegime(e.target.value as Regime)}
+                  onChange={e => setOvRegime(e.target.value as Regime | '')}
                   disabled={ovBusy}
                 >
+                  <option value="">{manualIds.length > 0 ? 'No forced regime — signals only' : 'No forced regime'}</option>
                   {(Object.keys(REGIME_PRETTY) as Regime[]).map(r => (
                     <option key={r} value={r}>{REGIME_PRETTY[r]}</option>
                   ))}
@@ -510,7 +574,7 @@ export default function MacroDashboard({ snapshot, loading, error, onOverride, o
               <button
                 className="md-apply"
                 onClick={applyOverride}
-                disabled={ovBusy || ovNote.trim() === ''}
+                disabled={ovBusy || ovNote.trim() === '' || invalidSignal || (ovRegime === '' && !hasSignalValues)}
               >
                 {ovBusy ? 'Applying…' : 'Apply override'}
               </button>
@@ -520,8 +584,9 @@ export default function MacroDashboard({ snapshot, loading, error, onOverride, o
                 <span className="md-error-dot" aria-hidden="true" />Error — {ovError}
               </div>
             )}
-            <div className="md-helper">Overrides are logged and hold until next Monday's automatic snapshot.</div>
+            <div className="md-helper">Overrides are logged and hold until next Monday's automatic snapshot, which recomputes from automatic history alone — a forced regime or entered value never outlives the week.</div>
           </div>
+          )}
         </>
       )}
     </div>
@@ -628,9 +693,14 @@ const CSS = `
 .md-field{display:flex;flex-direction:column;gap:.35rem}
 .md-field-grow{flex:1 1 260px}
 .md-field-label{font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted,#5c6b67);font-weight:600}
-.md-field select,.md-field textarea{border:1px solid var(--border,#dcebe7);border-radius:8px;padding:.5rem .7rem;
+.md-field select,.md-field textarea,.md-field input{border:1px solid var(--border,#dcebe7);border-radius:8px;padding:.5rem .7rem;
   background:var(--surface,#fff);font-size:.88rem;color:inherit}
 .md-field textarea{resize:vertical;min-height:2.6rem;width:100%}
+.md-ov-signals{margin-bottom:1.1rem;padding-bottom:1.1rem;border-bottom:1px dashed var(--border,#dcebe7)}
+.md-ov-signals-title{font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted,#5c6b67);font-weight:600;margin-bottom:.25rem}
+.md-ov-signals-note{font-size:.76rem;color:var(--muted,#5c6b67);margin-bottom:.8rem;max-width:64ch}
+.md-ov-signal-grid{display:flex;flex-wrap:wrap;gap:1rem}
+.md-ov-signal-grid .md-field input{width:10rem}
 .md-apply{flex-shrink:0}
 .md-helper{margin-top:.8rem;font-size:.76rem;color:var(--muted,#5c6b67)}
 .md-ov-error{display:flex;align-items:center;gap:.5rem;margin-top:.7rem;font-size:.82rem;color:var(--danger,#c2384a);font-weight:500}

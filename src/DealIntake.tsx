@@ -17,6 +17,9 @@ import Backtest from './Backtest'
 import EvidencePanel from './EvidencePanel'
 import DealHistory from './DealHistory'
 import MarketPathCard from './MarketPathCard'
+import LoginCard from './LoginCard'
+import UsersPanel from './UsersPanel'
+import { authFetch, supabase, useIdentity, type AdminFlag } from './auth'
 import type { AvailableKey } from './JudgmentPanel'
 import type { ExtractionResult } from '../netlify/functions/lib/gate1/fields'
 import type { Gate1Config, MacroSnapshot, Regime } from '../netlify/functions/lib/gate1/types'
@@ -30,11 +33,16 @@ import type {
   Posture,
 } from './deal-types'
 
-type Step = 'intake' | 'review' | 'results' | 'thresholds' | 'macro' | 'backtest' | 'evidence' | 'deals'
-const STEP_IDS: Step[] = ['intake', 'review', 'results', 'thresholds', 'macro', 'backtest', 'evidence', 'deals']
+type Step = 'intake' | 'review' | 'results' | 'thresholds' | 'macro' | 'backtest' | 'evidence' | 'deals' | 'users'
+const STEP_IDS: Step[] = ['intake', 'review', 'results', 'thresholds', 'macro', 'backtest', 'evidence', 'deals', 'users']
 
 const LS_KEY = 'cc_deal_intake_v1'
 const LS_DRAFT_KEY = 'cc_config_draft_v1'
+
+// Matches the crypto.randomUUID() extraction ids IntakeUpload mints — only a
+// UUID-shaped id ever became the extractions row's PK server-side, so only
+// those are worth sending on decide (the recorded sample carries none).
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 /** The live macro payload: snapshot plus market context + persistence honesty flags. */
 type MacroPayload = MacroSnapshot & { persisted?: boolean; live?: boolean; warning?: string }
@@ -146,6 +154,10 @@ export default function DealIntake() {
   // response lands — the displayed verdict no longer matches the inputs, so
   // recording is blocked meanwhile.
   const [previewStale, setPreviewStale] = useState(false)
+  // Bumped when a decide 409s (rulebook/posture moved since the preview) to
+  // force a fresh preview even though no input changed — the analyst must
+  // re-review under the new server state before recording again.
+  const [reviewNonce, setReviewNonce] = useState(0)
   const previewSeqRef = useRef(0)
   const [scoreErr, setScoreErr] = useState<string | null>(null)
   const [deciding, setDeciding] = useState(false)
@@ -166,6 +178,11 @@ export default function DealIntake() {
   const [draft, setDraft] = useState<DraftState | null>(loadDraft)
   const draftConfig = draft?.config ?? null
 
+  // Inner auth layer. With auth unconfigured (public demo) identity is inert
+  // and 'auth-off' keeps every gated control rendering exactly as before.
+  const identity = useIdentity()
+  const isAdmin: AdminFlag = supabase === null ? 'auth-off' : identity.role === 'admin'
+
   const fetchMacro = useCallback(async () => {
     setMacroLoading(true)
     setMacroErr(null)
@@ -181,13 +198,17 @@ export default function DealIntake() {
     }
   }, [])
 
-  useEffect(() => {
-    fetchMacro()
+  const fetchActiveConfig = useCallback(() => {
     fetch('/api/config/active')
       .then(r => r.json())
       .then(d => { if (d?.config) setActiveConfig({ version: d.version ?? 0, config: d.config }) })
       .catch(() => { /* config panel shows its own empty state */ })
-  }, [fetchMacro])
+  }, [])
+
+  useEffect(() => {
+    fetchMacro()
+    fetchActiveConfig()
+  }, [fetchMacro, fetchActiveConfig])
 
   const handleDraftChange = (cfg: Gate1Config | null) => {
     // The first edit OPENS the draft — stamp what it was edited from right
@@ -200,7 +221,7 @@ export default function DealIntake() {
   }
 
   const handleSaveConfig = async (cfg: Gate1Config, note: string) => {
-    const r = await fetch('/api/config', {
+    const r = await authFetch('/api/config', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       // The draft's STORED provenance, not the currently fetched active — a
@@ -217,7 +238,7 @@ export default function DealIntake() {
   }
 
   const handleOverride = async (o: { regime?: Regime; note: string }) => {
-    const r = await fetch('/api/macro/override', {
+    const r = await authFetch('/api/macro/override', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(o),
@@ -309,10 +330,10 @@ export default function DealIntake() {
       }
     }, 400)
     return () => clearTimeout(t)
-  }, [coerced, adjustments, step, canScore, livePosture, draftConfig])
+  }, [coerced, adjustments, step, canScore, livePosture, draftConfig, reviewNonce])
 
   const recordDecision = async () => {
-    if (!canScore || !hasDealName || deciding || draftConfig || previewStale || scoring) return
+    if (!canScore || !hasDealName || !lastResponse || deciding || draftConfig || previewStale || scoring) return
     setDeciding(true)
     setDecision(null)
     try {
@@ -321,12 +342,48 @@ export default function DealIntake() {
       // dealId (from a prior decide of this working deal) pins WHICH row —
       // a bare name always opens a new deal server-side.
       const dealName = typeof coerced.deal_name === 'string' && coerced.deal_name.trim() ? coerced.deal_name.trim() : undefined
-      const r = await fetch('/api/gate1/decide', {
+      // The uuid the client minted at upload — the extractions row's PK. Sent
+      // so the server can stamp that row's deal_id once the decision resolves
+      // a deal (best-effort server-side; the recorded sample carries no id).
+      const extractionId =
+        extraction?.extractionId && UUID_RE.test(extraction.extractionId) ? extraction.extractionId : undefined
+      // authFetch so a signed-in analyst's decision carries their identity
+      // (decided_by_email attribution); signed out it is a plain fetch.
+      const r = await authFetch('/api/gate1/decide', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fields: coerced, adjustments, posture: livePosture, dealName, dealId: dealId ?? undefined }),
+        // No posture override: the server resolves posture + config itself
+        // (snapshot-derived) and compares them against what THIS preview ran
+        // under — expectedPosture / expectedConfigVersion, read off the last
+        // preview response. A mismatch 409s instead of silently recording a
+        // verdict nobody reviewed.
+        body: JSON.stringify({
+          fields: coerced,
+          adjustments,
+          expectedPosture: lastResponse.posture,
+          expectedConfigVersion: lastResponse.configVersion,
+          dealName,
+          dealId: dealId ?? undefined,
+          extractionId,
+        }),
       })
       const data = await r.json()
+      if (r.status === 409) {
+        // The rulebook or macro posture moved between preview and record.
+        // Surface the server's message through the warning slot and mark the
+        // preview stale: the nonce bump forces a fresh preview (inputs are
+        // unchanged) while macro + active config refetch so the analyst
+        // re-reviews under the new state before recording again.
+        setPreviewStale(true)
+        setReviewNonce(n => n + 1)
+        fetchMacro()
+        fetchActiveConfig()
+        setDecision({
+          persisted: false,
+          warning: typeof data?.error === 'string' ? data.error : 'The review is out of date — re-review and record again',
+        })
+        return
+      }
       if (data.error) throw new Error(data.error)
       if (typeof data.dealId === 'string') setDealId(data.dealId)
       setLastResponse(data as Gate1Response)
@@ -417,11 +474,21 @@ export default function DealIntake() {
     backtest: 'BACKTEST',
     evidence: 'EVIDENCE',
     deals: 'DEALS',
+    users: 'USERS',
   }
+
+  // The USERS chip appears only for a signed-in admin — never in auth-off
+  // mode, where there are no accounts to manage.
+  const toolSteps: Step[] = isAdmin === true
+    ? ['thresholds', 'macro', 'backtest', 'evidence', 'deals', 'users']
+    : ['thresholds', 'macro', 'backtest', 'evidence', 'deals']
 
   return (
     <div className="cc-theme di-root">
       <style>{CSS}</style>
+
+      {/* Sign-in card / signed-in chip — only when auth is configured at build time */}
+      {supabase && <LoginCard identity={identity} />}
 
       {/* Sub-nav stepper */}
       <nav className="di-nav" aria-label="Deal intake steps">
@@ -438,7 +505,7 @@ export default function DealIntake() {
           </span>
         ))}
         <span className="di-nav-sep">|</span>
-        {(['thresholds', 'macro', 'backtest', 'evidence', 'deals'] as Step[]).map((s, i) => (
+        {toolSteps.map((s, i) => (
           <span key={s} className="di-nav-step">
             {i > 0 && <span className="di-nav-arrow">·</span>}
             <button
@@ -561,6 +628,7 @@ export default function DealIntake() {
           draft={draftConfig}
           onDraftChange={handleDraftChange}
           onSave={handleSaveConfig}
+          isAdmin={isAdmin}
         />
       )}
 
@@ -572,6 +640,7 @@ export default function DealIntake() {
           error={macroErr}
           onOverride={handleOverride}
           onRefresh={fetchMacro}
+          isAdmin={isAdmin}
         />
       )}
 
@@ -582,7 +651,11 @@ export default function DealIntake() {
       {step === 'evidence' && <EvidencePanel />}
 
       {/* DEALS — the append-only history of recorded decisions */}
-      {step === 'deals' && <DealHistory />}
+      {step === 'deals' && <DealHistory isAdmin={isAdmin} />}
+
+      {/* USERS — admin-only account management (the panel itself shows an
+          honest 401/403 if reached without the role) */}
+      {step === 'users' && <UsersPanel />}
     </div>
   )
 }

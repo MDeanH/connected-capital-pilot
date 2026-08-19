@@ -24,11 +24,146 @@
 // fixed string keyed by the password itself — stateless, no extra secret,
 // and every cookie auto-invalidates the moment the password changes.
 // The landing page stays shareable without credentials.
+//
+// Brute-force throttle: FAILED password attempts (wrong form POST, wrong or
+// malformed Basic Auth header) are counted per client IP in a Netlify Blobs
+// store ("gate-throttle"), fixed 15-minute window, max 10 failures — beyond
+// that the IP gets 429 + Retry-After until the window rolls over. Every failed
+// attempt also eats a constant ~400 ms delay. Successful auths bypass or reset
+// the counter, and cookie-valid requests never touch the store, so the hot
+// path pays zero extra latency.
 
 import type { Context, Config } from "@netlify/edge-functions";
+import { getStore } from "@netlify/blobs";
 
 const COOKIE = "cc_gate";
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 30; // 30 days
+
+// ---- failed-attempt throttle -----------------------------------------------
+const THROTTLE_STORE = "gate-throttle";
+const THROTTLE_WINDOW_MS = 15 * 60 * 1000; // fixed window: 15 minutes
+const THROTTLE_MAX_FAILURES = 10; // failed attempts allowed per window per IP
+const FAIL_DELAY_MS = 400; // constant delay on every failed attempt
+
+type ThrottleRecord = { windowStart: number; failures: number };
+type ThrottleState = { throttled: boolean; retryAfterSec: number };
+
+// context.ip is Netlify's connecting-client IP; the x-nf-client-connection-ip
+// header is the same value as Netlify's proxy injects it (belt and braces).
+function clientIp(request: Request, context: Context): string {
+  return context.ip || request.headers.get("x-nf-client-connection-ip") || "unknown";
+}
+
+// Count one FAILED attempt against this IP and report whether it is now over
+// the limit. Runs concurrently with the constant delay (see throttleFailed).
+//
+// TRADE-OFF — fail open on Blobs errors: if the throttle store is down we fall
+// back to delay-only behavior (the 400 ms tax still applies, the counter and
+// 429 do not). A store outage locking every legitimate user out of the pilot
+// would be worse than briefly losing the attempt cap; the shared password plus
+// the constant delay remain the floor. The read-modify-write below is also not
+// atomic — racing failures may undercount slightly — acceptable for a
+// brute-force damper, not an accounting system.
+async function recordFailure(ip: string): Promise<ThrottleState> {
+  try {
+    const store = getStore(THROTTLE_STORE);
+    const now = Date.now();
+    const rec = (await store.get(ip, { type: "json" })) as Partial<ThrottleRecord> | null;
+    // Shape-check the stored record: a missing or corrupt blob starts a fresh
+    // window rather than NaN-poisoning the counter (which would never throttle).
+    const inWindow =
+      rec != null &&
+      typeof rec.windowStart === "number" &&
+      now - rec.windowStart < THROTTLE_WINDOW_MS;
+    const next: ThrottleRecord = inWindow
+      ? { windowStart: rec.windowStart as number, failures: (Number(rec.failures) || 0) + 1 }
+      : { windowStart: now, failures: 1 };
+    await store.setJSON(ip, next);
+    if (next.failures > THROTTLE_MAX_FAILURES) {
+      const retryAfterSec = Math.max(
+        1,
+        Math.ceil((next.windowStart + THROTTLE_WINDOW_MS - now) / 1000),
+      );
+      return { throttled: true, retryAfterSec };
+    }
+  } catch {
+    // Fail open (see trade-off note above): behave as if under the limit.
+  }
+  return { throttled: false, retryAfterSec: 0 };
+}
+
+// Constant ~400 ms tax on every failed attempt (cheap bot slowdown). The blob
+// round-trip runs inside the same wait, so total added latency is
+// max(400 ms, store RTT) — near-constant, not additive.
+async function throttleFailed(ip: string): Promise<ThrottleState> {
+  const delay = new Promise<void>((resolve) => setTimeout(resolve, FAIL_DELAY_MS));
+  const state = await recordFailure(ip);
+  await delay;
+  return state;
+}
+
+// Successful form login resets the counter so a legit user's earlier typos
+// don't linger. Best-effort: a Blobs error here must never block a login.
+async function clearThrottle(ip: string): Promise<void> {
+  try {
+    await getStore(THROTTLE_STORE).delete(ip);
+  } catch {
+    // Fail open — a stale counter only affects future FAILED attempts.
+  }
+}
+
+function tooManyAttempts(retryAfterSec: number, asJson: boolean): Response {
+  const mins = Math.max(1, Math.ceil(retryAfterSec / 60));
+  if (asJson) {
+    return new Response(
+      JSON.stringify({
+        error: `Too many failed password attempts from your network address. Try again in about ${mins} minute${mins === 1 ? "" : "s"}.`,
+        retryAfterSeconds: retryAfterSec,
+      }),
+      {
+        status: 429,
+        headers: {
+          "Content-Type": "application/json",
+          "Retry-After": String(retryAfterSec),
+          "Cache-Control": "no-store",
+        },
+      },
+    );
+  }
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Too many attempts — Connected Capital</title>
+<style>
+:root{--bg:#eff9f9;--surface:#fff;--accent:#3f7d69;--text:#090e11;--muted:#5c6b67;--border:#dcebe7;--bad:#c2384a}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,'Segoe UI',sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:34px 32px;max-width:380px;width:100%;box-shadow:0 8px 30px rgba(9,14,17,.07)}
+h1{font-size:19px;margin:0 0 4px;letter-spacing:-.01em;color:var(--bad)}
+p{margin:0 0 12px;color:var(--muted);font-size:13.5px;line-height:1.55}
+</style>
+</head>
+<body>
+<main class="card">
+<h1>Too many attempts</h1>
+<p>There have been too many failed password attempts from your network address, so sign-in is paused for about ${mins} minute${mins === 1 ? "" : "s"}.</p>
+<p>If you have the correct password, wait and try again. If you don&rsquo;t, ask the person who sent you this link.</p>
+</main>
+</body>
+</html>`;
+  return new Response(html, {
+    status: 429,
+    headers: {
+      "Content-Type": "text/html; charset=utf-8",
+      "Retry-After": String(retryAfterSec),
+      "Cache-Control": "no-store",
+    },
+  });
+}
+// ---- end throttle ----------------------------------------------------------
 
 async function sessionToken(password: string): Promise<string> {
   const enc = new TextEncoder();
@@ -140,12 +275,20 @@ export default async (request: Request, context: Context) => {
   if (m && m[1] === want) return context.next();
 
   // 2) Basic Auth header (curl / automation; any username, password checked).
+  //    Valid credentials bypass the throttle store entirely (zero added
+  //    latency for automation); a wrong or malformed header is a FAILED
+  //    attempt — counted, delayed, and 429'd over the limit.
   const got = request.headers.get("authorization") || "";
   if (got.startsWith("Basic ")) {
+    let ok = false;
     try {
       const decoded = atob(got.slice(6));
-      if (decoded.slice(decoded.indexOf(":") + 1) === password) return context.next();
-    } catch { /* malformed header — fall through */ }
+      ok = decoded.slice(decoded.indexOf(":") + 1) === password;
+    } catch { /* malformed header — counts as a failed attempt */ }
+    if (ok) return context.next();
+    const { throttled, retryAfterSec } = await throttleFailed(clientIp(request, context));
+    if (throttled) return tooManyAttempts(retryAfterSec, pathname.startsWith("/api/"));
+    // Under the limit: fall through to the normal 401 (JSON for /api, login page otherwise).
   }
 
   // 3) Unauthenticated API calls get JSON, never an HTML page.
@@ -160,7 +303,9 @@ export default async (request: Request, context: Context) => {
   if (request.method === "POST" && (request.headers.get("content-type") || "").includes("application/x-www-form-urlencoded")) {
     const form = await request.formData().catch(() => null);
     if (form && form.get("__cc_gate") === "1") {
+      const ip = clientIp(request, context);
       if (String(form.get("password") ?? "") === password) {
+        await clearThrottle(ip); // success resets the failure counter
         return new Response(null, {
           status: 303,
           headers: {
@@ -169,8 +314,13 @@ export default async (request: Request, context: Context) => {
           },
         });
       }
+      // Wrong password on the form: a FAILED attempt — counted, delayed,
+      // and 429'd (HTML — this is a browser flow) over the limit.
+      const { throttled, retryAfterSec } = await throttleFailed(ip);
+      if (throttled) return tooManyAttempts(retryAfterSec, false);
       return loginPage(true);
     }
+    // POST without our marker field: not a password attempt — never counted.
     return loginPage(false);
   }
 

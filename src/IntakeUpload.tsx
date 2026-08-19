@@ -39,8 +39,11 @@ export default function IntakeUpload({ onExtracted }: Props) {
   const [proforma, setProforma] = useState<PickedSheets | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
-  // Extraction id kept after a poll deadline — the job may still be running,
-  // so CHECK AGAIN resumes polling this id instead of paying for a resubmit.
+  // Extraction id of the accepted background job. Set the moment the server
+  // accepts the submission and cleared ONLY on a terminal result (done/error
+  // from the API) — so neither the poll deadline nor a thrown poll failure can
+  // strand a live job. CHECK AGAIN resumes polling this id instead of paying
+  // for a resubmit.
   const [pendingId, setPendingId] = useState<string | null>(null)
   const omInput = useRef<HTMLInputElement>(null)
   const xlsInput = useRef<HTMLInputElement>(null)
@@ -88,7 +91,11 @@ export default function IntakeUpload({ onExtracted }: Props) {
 
   // Polls /api/extractions/:id until done, error, or the deadline. The cadence
   // backs off as time passes — a ten-minute extraction has no use for a 3s
-  // loop. Hitting the deadline is NOT a failure: the id stays resumable.
+  // loop. Only a terminal API status (done/error) settles the job: a transient
+  // poll failure (network blip, non-ok status, malformed body) is caught INSIDE
+  // the loop and retried until the deadline — the worker is unaffected by our
+  // failure to ask about it. Hitting the deadline is NOT a failure either: the
+  // id stays resumable.
   const pollExtraction = async (extractionId: string) => {
     const started = Date.now()
     while (Date.now() - started < POLL_DEADLINE_MS) {
@@ -98,12 +105,19 @@ export default function IntakeUpload({ onExtracted }: Props) {
       setBusy(`Deep-reading the documents — extracting ~30 cited fields (${clock})…`)
       const wait = elapsed < 60_000 ? 3000 : elapsed < 5 * 60_000 ? 6000 : 12_000
       await new Promise(res => setTimeout(res, wait))
-      const p = await fetch(`/api/extractions/${extractionId}`)
-      if (!p.ok) continue
-      const data = await p.json()
+      let data: any
+      try {
+        const p = await fetch(`/api/extractions/${extractionId}`)
+        if (!p.ok) continue // transient server-side hiccup — keep polling
+        data = await p.json()
+      } catch {
+        continue // fetch rejected or the body wasn't JSON — transient, keep polling
+      }
       if (data.status === 'done') {
         setPendingId(null)
-        onExtracted(data as ExtractionResult)
+        // Carry the extraction id into app state: the decide call needs it to
+        // link the persisted extractions row (whose PK is this id) to the deal.
+        onExtracted({ ...(data as ExtractionResult), extractionId })
         return
       }
       if (data.status === 'error') {
@@ -145,14 +159,21 @@ export default function IntakeUpload({ onExtracted }: Props) {
         const data = await r.json()
         if (data.error) throw new Error(data.error)
         if (data.fields) {
-          onExtracted(data as ExtractionResult)
+          // Synchronous dev-bridge answer: attach the same client-minted id the
+          // background path carries, so the decide call can link either way.
+          onExtracted({ ...(data as ExtractionResult), extractionId })
           return
         }
       } else if (!r.ok && r.status !== 202) {
         throw new Error(`Extraction endpoint unavailable (HTTP ${r.status})`)
       }
 
-      // 202 (background) — poll for the result.
+      // 202 (background) — the submission is accepted and the worker is
+      // running, so the id becomes resumable NOW, before the first poll:
+      // whatever non-terminal way the polling below exits (deadline, or an
+      // unexpected throw), CHECK AGAIN can pick this job back up. Only a
+      // terminal done/error from the API clears it.
+      setPendingId(extractionId)
       await pollExtraction(extractionId)
     } catch (e) {
       setErr(String((e as Error).message ?? e))

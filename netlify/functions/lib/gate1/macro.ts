@@ -64,6 +64,45 @@ const PILOT_STRATEGY = 'development'
 const HISTORY_MONTHS = 60
 
 /**
+ * Per-signal staleness policy: a signal's current reading is unavailable when
+ * its newest observation is older, relative to `weekOf`, than
+ * max(3 × median gap between the series' own observations, 45 days).
+ * Deriving the bound from the series' own cadence self-adapts to daily,
+ * weekly, monthly and quarterly series with no config change: the 3×
+ * multiplier means "about three missed release cycles", and the 45-day floor
+ * keeps high-frequency series from abstaining over ordinary publication lag.
+ * These are definitional freshness policy (like the Sahm trigger), not regime
+ * tunables — hence code constants, not config.
+ */
+const STALE_GAP_MULTIPLE = 3
+const STALE_FLOOR_DAYS = 45
+const DAY_MS = 86_400_000 // definitional: milliseconds per day
+
+const timeOf = (date: string) => new Date(`${date}T00:00:00Z`).getTime()
+
+/**
+ * True when the series' newest observation is too old, relative to `weekOf`,
+ * to vote this week (see the staleness policy above). An empty series is not
+ * "stale" — it is already unavailable via the existing null-value path. With
+ * fewer than 2 observations no cadence can be inferred, so the 45-day floor
+ * alone governs. Series are ascending by date (fred.ts contract).
+ */
+export function isStaleReading(raw: FredPoint[], weekOf: string): boolean {
+  const last = latest(raw)
+  if (!last) return false
+  const gaps: number[] = []
+  for (let i = 1; i < raw.length; i++) gaps.push(timeOf(raw[i].date) - timeOf(raw[i - 1].date))
+  gaps.sort((a, b) => a - b)
+  const medianGap = gaps.length
+    ? gaps.length % 2
+      ? gaps[(gaps.length - 1) / 2]
+      : (gaps[gaps.length / 2 - 1] + gaps[gaps.length / 2]) / 2
+    : 0
+  const bound = Math.max(STALE_GAP_MULTIPLE * medianGap, STALE_FLOOR_DAYS * DAY_MS)
+  return timeOf(weekOf) - timeOf(last.date) > bound
+}
+
+/**
  * Sparkline history for a yoy-transform signal: each monthly point re-expressed
  * as its year-over-year change, by running yoyChange on the raw series truncated
  * at that point — the SAME lag/tolerance logic as the headline value, so the
@@ -126,13 +165,22 @@ export function computeMacroSnapshot(input: MacroComputeInput): MacroSnapshot {
     if (manual !== undefined && manual !== null && Number.isFinite(manual)) {
       value = manual
       asof = weekOf // a manual value is as-of the week it was entered
-    } else if (def.transform === 'yoy') {
-      value = yoyChange(raw)
-      asof = latest(raw)?.date
     } else {
       const last = latest(raw)
-      value = last?.value ?? null
       asof = last?.date
+      if (isStaleReading(raw, weekOf)) {
+        // Newest observation is too old to speak for this week (e.g. a
+        // discontinued series): the reading abstains (null value → null vote,
+        // flowing into the degraded logic) rather than casting a stale vote.
+        // For yoy signals this gates the CURRENT-side observation; the
+        // 12-month-back base already has its own tolerance in yoyChange.
+        // `asof` still stamps when data last arrived. Sparklines unaffected.
+        value = null
+      } else if (def.transform === 'yoy') {
+        value = yoyChange(raw)
+      } else {
+        value = last?.value ?? null
+      }
     }
     // yoy signals' sparklines carry yoy values (matching the vote), not raw levels.
     const monthly = downsampleMonthly(raw)

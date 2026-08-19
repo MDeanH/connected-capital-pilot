@@ -69,6 +69,13 @@ export interface ExtractionResult {
   discrepancies: Discrepancy[]
   model?: string
   recorded?: boolean
+  /**
+   * Client-generated extraction id (crypto.randomUUID()), attached client-side
+   * when the result is handed to the app so the decide call can link the
+   * persisted extractions row to a deal. Never produced by the extractor and
+   * absent on the recorded sample.
+   */
+  extractionId?: string
 }
 
 /**

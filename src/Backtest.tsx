@@ -21,12 +21,36 @@ interface RunRow extends BacktestRow {
   missing: number
 }
 
-// A run is stamped with the posture it was computed under: the results header
-// names it, and switching to a different posture CLEARS the run — GREEN
-// verdicts must never sit on screen while RED is selected.
+// A run is stamped with the posture AND the rulebook version it was computed
+// under: the results header names both, and switching to a different posture
+// CLEARS the run — GREEN verdicts must never sit on screen while RED is
+// selected.
 interface RunState {
   rows: RunRow[]
   posture: Posture
+  /** Threshold-config version every row was graded under (0 = deploy-baked default); null if the endpoint didn't stamp one. */
+  configVersion: number | null
+}
+
+interface CompareState {
+  counts: Record<Posture, number>
+  configVersion: number | null
+}
+
+// Every /preview and /preview-batch response is stamped with the configVersion
+// it was computed under, but each REQUEST loads the newest active config — so
+// a run or comparison that spans several requests must observe ONE version
+// throughout. A rulebook save landing mid-flight would otherwise silently
+// grade different rulebooks as a single result. The pin captures the first
+// version seen; any later response reporting a different one aborts.
+interface VersionPin { v: number | null }
+
+function pinConfigVersion(pin: VersionPin, got: unknown, scope: 'mid-run' | 'mid-comparison') {
+  if (typeof got !== 'number') return // response without a version stamp — nothing to verify against
+  if (pin.v === null) { pin.v = got; return }
+  if (pin.v !== got) {
+    throw new Error(`The rulebook changed ${scope} (v${pin.v} → v${got}) — partial results were discarded. Run it again.`)
+  }
 }
 
 type Call = 'right_block' | 'right_pass' | 'missed_winner' | 'let_through' | 'indeterminate' | 'no_outcome'
@@ -110,7 +134,7 @@ export default function Backtest({ parIrr }: Props) {
   const [source, setSource] = useState<string | null>(null)
   const [posture, setPosture] = useState<Posture>('green')
   const [run, setRun] = useState<RunState | null>(null)
-  const [postureCompare, setPostureCompare] = useState<Record<Posture, number> | null>(null)
+  const [postureCompare, setPostureCompare] = useState<CompareState | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
   const [warnings, setWarnings] = useState<string[]>([])
@@ -144,7 +168,7 @@ export default function Backtest({ parIrr }: Props) {
   // Fallback for environments without /preview-batch — the vite dev bridge
   // serves single-row /api/gate1/* only. Small parallel chunks, same preview
   // endpoint the live intake uses.
-  const evaluateRowByRow = async (deals: BacktestRow[], p: Posture): Promise<RunRow[]> => {
+  const evaluateRowByRow = async (deals: BacktestRow[], p: Posture, pin: VersionPin, scope: 'mid-run' | 'mid-comparison'): Promise<RunRow[]> => {
     const out: RunRow[] = []
     const CHUNK = 5
     for (let i = 0; i < deals.length; i += CHUNK) {
@@ -155,6 +179,7 @@ export default function Backtest({ parIrr }: Props) {
         })
         const data = await r.json()
         if (data.error) throw new Error(`${d.fields.deal_name}: ${data.error}`)
+        pinConfigVersion(pin, data.configVersion, scope)
         return { ...d, verdict: data.result.verdict, kills: data.result.kills, flagPoints: data.result.flagPoints, missing: data.result.missing.length } as RunRow
       }))
       out.push(...part)
@@ -164,8 +189,10 @@ export default function Backtest({ parIrr }: Props) {
 
   // One batch request per posture — the gate1 function rate-limits per IP, so
   // a 60-deal book must never fan out into 60 preview calls. Each batch entry
-  // is shaped like a single /preview response (or a per-row { error }).
-  const evaluate = async (deals: BacktestRow[], p: Posture): Promise<RunRow[]> => {
+  // is shaped like a single /preview response (or a per-row { error }) and
+  // carries the configVersion the request resolved — pinned so multi-request
+  // work never mixes rulebook versions.
+  const evaluate = async (deals: BacktestRow[], p: Posture, pin: VersionPin, scope: 'mid-run' | 'mid-comparison'): Promise<RunRow[]> => {
     const out: RunRow[] = []
     const BATCH = 100 // server-side cap on /preview-batch rows
     for (let i = 0; i < deals.length; i += BATCH) {
@@ -179,9 +206,12 @@ export default function Backtest({ parIrr }: Props) {
         // 400/404/405 without per-row results = no batch endpoint here (the
         // vite dev bridge) — this client never sends an empty or oversized
         // batch, so a real one answers 200 or 5xx. Anything else is a real error.
-        if (r.status === 400 || r.status === 404 || r.status === 405) return evaluateRowByRow(deals, p)
+        if (r.status === 400 || r.status === 404 || r.status === 405) return evaluateRowByRow(deals, p, pin, scope)
         throw new Error(data.error ?? `Batch preview failed (HTTP ${r.status})`)
       }
+      // The whole batch was computed under one config — pin the version it reports.
+      const stamped = data.results.find((e: any) => e && typeof e.configVersion === 'number')
+      pinConfigVersion(pin, stamped?.configVersion, scope)
       part.forEach((d, j) => {
         const entry = data.results[j]
         if (!entry || entry.error) throw new Error(`${d.fields.deal_name}: ${entry?.error ?? 'no result returned'}`)
@@ -196,7 +226,9 @@ export default function Backtest({ parIrr }: Props) {
     setBusy(`Running ${rows.length} deals through Gate 1 (${posture} posture)…`)
     setErr(null)
     try {
-      setRun({ rows: await evaluate(rows, posture), posture })
+      const pin: VersionPin = { v: null }
+      const evaluated = await evaluate(rows, posture, pin, 'mid-run')
+      setRun({ rows: evaluated, posture, configVersion: pin.v })
       setPostureCompare(null)
     } catch (e) {
       setErr(String((e as Error).message ?? e))
@@ -206,15 +238,23 @@ export default function Backtest({ parIrr }: Props) {
   const comparePostures = async () => {
     if (!rows.length) return
     setBusy('Re-running the book under all three postures…')
+    setErr(null)
+    // Clear any previous comparison up front: an aborted comparison must leave
+    // NOTHING on screen — stale counts next to an abort error read as results.
+    setPostureCompare(null)
     try {
       const passCount = (rs: RunRow[]) => rs.filter(x => x.verdict === 'PASS' || x.verdict === 'CONDITIONAL').length
       // Sequential on purpose: one batch request per posture keeps COMPARE at
       // three calls total instead of three fan-outs racing the rate limit.
+      // All three postures share one pin — if the rulebook is saved between
+      // them, the comparison aborts instead of mixing versions, and the local
+      // `counts` (the partial results) are simply never rendered.
       const counts = {} as Record<Posture, number>
+      const pin: VersionPin = { v: null }
       for (const p of ['green', 'yellow', 'red'] as Posture[]) {
-        counts[p] = passCount(await evaluate(rows, p))
+        counts[p] = passCount(await evaluate(rows, p, pin, 'mid-comparison'))
       }
-      setPostureCompare(counts)
+      setPostureCompare({ counts, configVersion: pin.v })
     } catch (e) {
       setErr(String((e as Error).message ?? e))
     } finally { setBusy(null) }
@@ -284,12 +324,19 @@ export default function Backtest({ parIrr }: Props) {
 
       {postureCompare && (
         <div className="card bt-compare">
-          <h3>Posture sensitivity <Term k="posture" /></h3>
+          <h3>
+            Posture sensitivity <Term k="posture" />
+            {postureCompare.configVersion !== null && (
+              <span className="bt-run-posture bt-rp-cfg" title="Every posture in this comparison was graded under this saved rulebook version">
+                rulebook v{postureCompare.configVersion}
+              </span>
+            )}
+          </h3>
           <p className="bt-muted">Deals that would clear the gate (PASS or CONDITIONAL) out of {rows.length}:</p>
           <div className="bt-compare-row">
             {(['green', 'yellow', 'red'] as Posture[]).map(p => (
               <div key={p} className={`bt-compare-cell bt-${p}`}>
-                <div className="bt-compare-n">{postureCompare[p]}</div>
+                <div className="bt-compare-n">{postureCompare.counts[p]}</div>
                 <div className="bt-compare-l">{p.toUpperCase()}</div>
               </div>
             ))}
@@ -303,6 +350,11 @@ export default function Backtest({ parIrr }: Props) {
             <h3>
               The verdict on your history
               <span className={`bt-run-posture bt-rp-${run.posture}`}>run under {run.posture.toUpperCase()} posture</span>
+              {run.configVersion !== null && (
+                <span className="bt-run-posture bt-rp-cfg" title="Every row in this run was graded under this saved rulebook version">
+                  rulebook v{run.configVersion}
+                </span>
+              )}
             </h3>
             <div className="bt-stats">
               <div>
@@ -385,11 +437,12 @@ button.bt-chip.bt-chip-on{background:var(--accent-soft,#e4f5ee);border-color:var
 .bt-busy{margin-top:1rem;color:var(--accent,#3f7d69);font-size:.82rem}
 .bt-err{margin-top:1rem;background:#fbecef;color:#c2384a;border:1px solid #f0c8d0;border-radius:10px;padding:.8rem 1rem;font-size:.85rem}
 .bt-compare h3,.bt-summary h3{font-size:12px;letter-spacing:.08em;text-transform:uppercase;margin:0 0 .8rem;font-weight:600}
-.bt-summary h3{display:flex;align-items:center;gap:.7rem;flex-wrap:wrap}
+.bt-compare h3,.bt-summary h3{display:flex;align-items:center;gap:.7rem;flex-wrap:wrap}
 .bt-run-posture{font-size:10px;letter-spacing:.08em;font-weight:700;padding:2px 9px;border-radius:999px;border:1.5px solid}
 .bt-rp-green{color:#3f7d69;border-color:#3f7d69;background:rgba(63,125,105,.08)}
 .bt-rp-yellow{color:#b8860b;border-color:#b8860b;background:rgba(184,134,11,.08)}
 .bt-rp-red{color:#c2384a;border-color:#c2384a;background:rgba(194,56,74,.08)}
+.bt-rp-cfg{color:var(--muted,#5c6b67);border-color:#9c9c9c;background:rgba(156,156,156,.1);text-transform:uppercase}
 .bt-muted{color:var(--muted,#5c6b67);font-size:.82rem}
 .bt-compare-row{display:flex;gap:1rem}
 .bt-compare-cell{flex:1;text-align:center;border-radius:10px;padding:1rem;border:1px solid var(--border,#dcebe7)}

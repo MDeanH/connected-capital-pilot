@@ -55,7 +55,16 @@ export default async (req: Request): Promise<Response | void> => {
 
     const db = serviceClient()
     if (db) {
+      // The client mints extractionId with crypto.randomUUID(), so a UUID-shaped
+      // id becomes the row's PK — that is what lets the decide call attach a
+      // deal_id to THIS row later and keeps stored fields/citations traceable
+      // after browser state is gone. The trigger regex above is looser than
+      // UUID ([a-z0-9-]{8,64}); a non-UUID id would be rejected by the uuid PK
+      // column and fail the whole insert, so those rows keep the generated PK
+      // (persisted but unlinkable) instead.
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
       await db.from('extractions').insert({
+        ...(isUuid ? { id } : {}),
         status: 'done',
         model: result.model,
         input_docs: {
