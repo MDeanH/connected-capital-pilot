@@ -50,12 +50,25 @@ const NON_NEGATIVE_FIELDS: Array<keyof DealFields> = [
   'hard_cost_contingency_pct',
 ]
 
+// The five boolean deal fields — the canonical list is the kind:'boolean'
+// entries in the lib/gate1/fields.ts registry (keep in sync). Must be boolean
+// (or null/absent) when present: the engine compares with strict ===, so
+// sponsor_integrity_clear: "true" (string) would fail the comparison and flip
+// a hard kill against an affirmative answer. Reject at the boundary instead.
+const BOOLEAN_FIELDS: Array<keyof DealFields> = [
+  'sponsor_integrity_clear', 'site_fully_entitled', 'exit_dependent_single_refi',
+  'has_gmp_or_bonded_gc', 'has_completion_guarantee',
+]
+
 /**
  * Error message for the first invalid field, or null when every present value
- * is a finite, non-negative number. ANY present non-null value that is not a
- * finite number rejects — strings included: a custom client sending
+ * is well-typed: numeric fields must be finite, non-negative numbers; boolean
+ * fields must be booleans. ANY present non-null value of the wrong type
+ * rejects — strings included: a custom client sending
  * construction_loan: "-7000000" used to skip the old typeof-number gate and
- * coerce to a negative inside the engine's arithmetic (`loan / cost`).
+ * coerce to a negative inside the engine's arithmetic (`loan / cost`), and
+ * sponsor_integrity_clear: "true" used to reach the engine's strict boolean
+ * comparison and read as a failed integrity check.
  */
 function invalidField(fields: DealFields): string | null {
   for (const key of NON_NEGATIVE_FIELDS) {
@@ -63,6 +76,11 @@ function invalidField(fields: DealFields): string | null {
     if (v === null || v === undefined) continue
     if (typeof v !== 'number' || !Number.isFinite(v)) return `${key} must be a number`
     if (v < 0) return `${key} must be a non-negative number`
+  }
+  for (const key of BOOLEAN_FIELDS) {
+    const v = fields[key]
+    if (v === null || v === undefined) continue
+    if (typeof v !== 'boolean') return `${key} must be a boolean`
   }
   return null
 }

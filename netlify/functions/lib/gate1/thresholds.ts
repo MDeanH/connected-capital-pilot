@@ -9,8 +9,9 @@ import type {
 /**
  * Resolve every threshold key for (assetClass, posture), most-specific row wins:
  *   (ac, p) → ('*', p) → (ac, '*') → ('*', '*')
- * then overlay per-deal judgment adjustments (reason required — validated at the API layer,
- * re-checked here so the engine can never apply a silent override).
+ * then overlay per-deal judgment adjustments (reason required and value must be a finite
+ * number — validated at the API layer, re-checked here so the engine can never apply a
+ * silent override).
  */
 export function resolveThresholds(
   config: Gate1Config,
@@ -35,6 +36,12 @@ export function resolveThresholds(
   for (const adj of adjustments) {
     if (!adj.reason || !adj.reason.trim()) {
       throw new Error(`Judgment adjustment for "${adj.key}" requires a reason`)
+    }
+    if (typeof adj.value !== 'number' || !Number.isFinite(adj.value)) {
+      // Applied unvalidated, a { value: null } adjustment would coerce to 0 in
+      // the engine's numeric comparisons AND be recorded as the effective
+      // threshold — same rule as the reason guard: never a silent override.
+      throw new Error(`Judgment adjustment for "${adj.key}" requires a finite numeric value`)
     }
     const existing = out[adj.key]
     if (!existing) {

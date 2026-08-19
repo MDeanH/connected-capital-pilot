@@ -49,13 +49,15 @@ export type AdminFlag = boolean | 'auth-off'
 
 /**
  * localStorage keys holding an analyst's confidential working state (deal
- * intake draft, rulebook draft). Owned here so signOut can clear them and
- * DealIntake can stamp/gate them from one definition — the payloads are
- * origin-wide, so on a shared browser they must never outlive the account
- * that wrote them.
+ * intake draft, rulebook draft) and the pending-extraction record (an
+ * extraction id which, polled, returns the extracted fields). Owned here so
+ * signOut can clear them and the intake surfaces can stamp/gate them from one
+ * definition — the payloads are origin-wide, so on a shared browser they must
+ * never outlive the account that wrote them.
  */
 export const INTAKE_STATE_KEY = 'cc_deal_intake_v1'
 export const CONFIG_DRAFT_KEY = 'cc_config_draft_v1'
+export const PENDING_EXTRACTION_KEY = 'cc_pending_extraction_v1'
 
 export interface IdentityState {
   /** False only while the initial session restore / role probe is in flight. */
@@ -140,11 +142,19 @@ export function useIdentity(): IdentityState {
   useEffect(() => {
     if (!userId || !token) {
       setRole(null)
+      // A sign-out can land while the role probe is still in flight: the
+      // probe's .then is cancelled and never resets the flag, so reset it
+      // here too — otherwise `ready` stays false forever and the sign-in
+      // form (gated on ready) never renders again until a reload.
+      setProbing(false)
       return
     }
     const cached = roleCache.get(userId)
     if (cached !== undefined) {
       setRole(cached)
+      // Defensive: the role for this identity is settled, so never leave a
+      // stale in-flight flag behind this early return either.
+      setProbing(false)
       return
     }
     let cancelled = false
@@ -211,10 +221,11 @@ export async function signOut(): Promise<void> {
   // Roles can change between sessions (promotion, disable) — never carry a
   // verdict across a sign-out.
   roleCache.clear()
-  // The intake draft + config draft are this analyst's confidential working
-  // state — clear them outright so the next account (or a signed-out visitor)
-  // on a shared browser never sees the deal or appends decisions to it.
-  for (const k of [INTAKE_STATE_KEY, CONFIG_DRAFT_KEY]) {
+  // The intake draft, config draft and pending-extraction record are this
+  // analyst's confidential working state — clear them outright so the next
+  // account (or a signed-out visitor) on a shared browser never sees the
+  // deal, appends decisions to it, or polls the extraction's fields.
+  for (const k of [INTAKE_STATE_KEY, CONFIG_DRAFT_KEY, PENDING_EXTRACTION_KEY]) {
     try {
       localStorage.removeItem(k)
     } catch { /* storage blocked — non-fatal */ }

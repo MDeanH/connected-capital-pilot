@@ -36,6 +36,44 @@ const EXECUTABLE_IDS = new Set<string>(EXECUTABLE_CHECK_IDS)
 // combined with the resolvability rule below, evidence of a typo'd config.
 const SUPPORTED_ASSET_CLASSES = ['rv_specialty', 'multifamily', 'industrial', 'retail', 'office']
 
+// The pilot fund's lockup term — mirrors PILOT_LOCKUP_YEARS in
+// lib/gate1/macro.ts (a module-private constant there; keep in sync like the
+// asset-class mirror above). computeMacroSnapshot reads the fund's
+// illiquidity premium as the smallest hurdleStack band with
+// PILOT_LOCKUP_YEARS <= maxYears, falling back to `?? 0` when no band
+// matches — so the validator must guarantee at least one band covers it.
+const PILOT_LOCKUP_YEARS = 5
+
+// Posture-tightening DIRECTION per canonical threshold key, for the keys
+// whose direction is fixed by their MEANING in the engine
+// (lib/gate1/engine.ts runCheck) and the pilot spec:
+//   'up'   — floors and stress severities: a worse posture demands MORE.
+//            dev_spread_min_bps is a >= kill line the spec says "tightens as
+//            macro posture worsens"; stress_em_floor is the mini-stress >=
+//            floor the spec says "rises as posture worsens"; and
+//            stress_hard_cost_bump / stress_exit_cap_bump_bps set how hard
+//            mini_stress hits, so a worse posture stresses harder. Resolved
+//            green <= yellow <= red required.
+//   'down' — caps: a worse posture allows LESS. ltc_max and land_basis_max
+//            are <= caps, so tightening means a LOWER value: resolved
+//            green >= yellow >= red required IF a config posture-varies them
+//            (a single ('*','*') row resolves equal across postures and
+//            passes trivially).
+// Keys NOT in this map carry no posture-order constraint: the spec pins no
+// posture behavior for them (the shipped default never posture-varies them),
+// so a config that posture-scopes e.g. yoc_min or contingency_min expresses
+// analyst judgment the server has no canonical direction to enforce — the
+// ThresholdConfig UI's soft warning is the right tier there, and inventing a
+// server-side direction would block legitimate configs.
+const POSTURE_TIGHTENING_DIRECTION: Record<string, 'up' | 'down'> = {
+  dev_spread_min_bps: 'up',
+  stress_hard_cost_bump: 'up',
+  stress_exit_cap_bump_bps: 'up',
+  stress_em_floor: 'up',
+  ltc_max: 'down',
+  land_basis_max: 'down',
+}
+
 /**
  * A saved config becomes the ACTIVE rulebook for every evaluation — a
  * structurally broken one (empty checks, missing macro) bricks the pilot
@@ -89,6 +127,23 @@ export function configShapeError(c: any): string | null {
     if (ch.tip !== undefined && typeof ch.tip !== 'string') {
       return `check "${ch.id}" tip must be a string`
     }
+  }
+  // The registry must be covered COMPLETELY, not just exclusively. The rules
+  // above stop unknown and duplicate ids, but a config that simply OMITS a
+  // canonical check would still validate — and the engine only runs the checks
+  // the config lists (evaluateGate1 maps over config.checks), so the omitted
+  // check doesn't fail or warn, it silently stops being asked: e.g. dropping
+  // sponsor_integrity removes a hard kill from every evaluation with nothing
+  // in any verdict to show for it. Disabling a check is NOT a supported knob —
+  // if it ever becomes one, the feature is an explicit per-check toggle the
+  // engine honors and the verdict surfaces, never omission from the array. So
+  // the configured id set must EQUAL the executable registry: every id present
+  // exactly once (uniqueness enforced above, completeness here).
+  const missingCheckIds = EXECUTABLE_CHECK_IDS.filter((id) => !seenCheckIds.has(id))
+  if (missingCheckIds.length > 0) {
+    return `checks is missing canonical check id${missingCheckIds.length > 1 ? 's' : ''} ${missingCheckIds
+      .map((id) => `"${id}"`)
+      .join(', ')} — every executable check must be configured (an omitted check silently vanishes from every evaluation; disabling a check would be an explicit toggle, which does not exist, not omission)`
   }
   if (!Array.isArray(c.thresholds)) return 'thresholds must be an array'
   for (const r of c.thresholds) {
@@ -164,6 +219,39 @@ export function configShapeError(c: any): string | null {
       const severeRow = pickRowMirror('rent_premium_severe', assetClass, posture)
       if (flagRow && severeRow && severeRow.value < flagRow.value) {
         return `rent_premium_severe resolves to ${severeRow.value}, below rent_premium_flag ${flagRow.value}, for (${assetClass}, ${posture}) — the engine doubles flag points when a deal exceeds BOTH thresholds, so a severe threshold below the flag threshold double-flags every ordinarily-flagged deal in that context; the resolved severe must be >= the resolved flag`
+      }
+    }
+  }
+  // Posture ordering for the direction-mapped keys, enforced over RESOLVED
+  // values: the two adjacent posture pairs must never invert (red laxer than
+  // green means the rulebook LOOSENS as macro conditions worsen — the exact
+  // opposite of what a posture is for, and the ThresholdConfig UI only warns
+  // softly about it). Like the rent-premium rule above, each posture resolves
+  // independently per (asset_class, posture) — a class-scoped red row can
+  // undercut a global green row — so the ordering must hold for the resolved
+  // values in every supported context, not merely row-by-row.
+  for (const [key, direction] of Object.entries(POSTURE_TIGHTENING_DIRECTION)) {
+    for (const assetClass of SUPPORTED_ASSET_CLASSES) {
+      const green = pickRowMirror(key, assetClass, 'green')
+      const yellow = pickRowMirror(key, assetClass, 'yellow')
+      const red = pickRowMirror(key, assetClass, 'red')
+      // Adjacent pairs [laxer posture, tighter posture]; a missing side is
+      // already rejected by the resolvability rule above for engine-consumed
+      // keys, so the guard is purely defensive.
+      const pairs: Array<[string, any, string, any]> = [
+        ['green', green, 'yellow', yellow],
+        ['yellow', yellow, 'red', red],
+      ]
+      for (const [laxName, laxRow, tightName, tightRow] of pairs) {
+        if (!laxRow || !tightRow) continue
+        const inverted = direction === 'up' ? tightRow.value < laxRow.value : tightRow.value > laxRow.value
+        if (inverted) {
+          return `threshold "${key}" inverts across postures for (${assetClass}): resolved ${tightName} ${tightRow.value} is laxer than resolved ${laxName} ${laxRow.value} — ${key} tightens ${
+            direction === 'up'
+              ? 'UPWARD (a worse posture demands more, so resolved green <= yellow <= red)'
+              : 'DOWNWARD (a worse posture allows less, so resolved green >= yellow >= red)'
+          }`
+        }
       }
     }
   }
@@ -302,8 +390,13 @@ export function configShapeError(c: any): string | null {
   if (!Number.isInteger(m.minVotes) || m.minVotes < 1 || m.minVotes > m.signals.length) {
     return `macro minVotes must be an integer between 1 and ${m.signals.length} (the configured signal count) — got ${JSON.stringify(m.minVotes)}; a minVotes above the signal count can never be met, so every future snapshot would be degraded`
   }
-  if (!finite(m.hysteresisWins) || m.hysteresisWins < 1) {
-    return 'macro hysteresisWins must be a finite number >= 1'
+  // computeMacroSnapshot (lib/gate1/macro.ts) compares an INTEGER
+  // consecutive-win count against hysteresisWins (wins >= macro.hysteresisWins)
+  // — a fractional value like 1.5 can never be equaled by a count, so it
+  // silently behaves as the next integer up (2): a tightening nobody asked
+  // for and nothing displays. Require the integer the engine compares against.
+  if (!Number.isInteger(m.hysteresisWins) || m.hysteresisWins < 1) {
+    return `macro hysteresisWins must be an integer >= 1 — got ${JSON.stringify(m.hysteresisWins)}; the engine compares it against an integer count of consecutive wins, so a fractional value silently behaves as the next integer up`
   }
   const qb = m.quadrantBands
   if (!qb || typeof qb !== 'object' || !finite(qb.inflationHotYoy) || !finite(qb.growthRecessionYoy)) {
@@ -341,6 +434,16 @@ export function configShapeError(c: any): string | null {
   if (!Array.isArray(hs.illiquidityBpsByLockupYears) || hs.illiquidityBpsByLockupYears.length === 0 ||
       !hs.illiquidityBpsByLockupYears.every((t: any) => t && finite(t.maxYears) && finite(t.bps))) {
     return 'macro hurdleStack illiquidityBpsByLockupYears must be a non-empty array of { maxYears, bps } finite numbers'
+  }
+  // A non-empty, well-typed table can still fail to cover the one lockup the
+  // engine actually looks up: computeMacroSnapshot matches the first band with
+  // PILOT_LOCKUP_YEARS <= maxYears and falls back to `?? 0`, so a table whose
+  // bands ALL end below the pilot's lockup matches nothing and silently drops
+  // the whole illiquidity premium from every hurdle. Require coverage of the
+  // pilot term (PILOT_LOCKUP_YEARS, mirrored above from lib/gate1/macro.ts).
+  const maxYearsCovered = Math.max(...hs.illiquidityBpsByLockupYears.map((t: any) => t.maxYears))
+  if (maxYearsCovered < PILOT_LOCKUP_YEARS) {
+    return `macro hurdleStack illiquidityBpsByLockupYears tops out at maxYears=${maxYearsCovered}, below the pilot fund's ${PILOT_LOCKUP_YEARS}-year lockup (PILOT_LOCKUP_YEARS in lib/gate1/macro.ts) — the engine would match no band and silently drop the whole illiquidity premium from the hurdle; at least one band needs maxYears >= ${PILOT_LOCKUP_YEARS}`
   }
   for (const key of ['complexityBpsByStrategy', 'regimeBps']) {
     const rec = hs[key]

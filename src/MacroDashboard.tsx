@@ -14,7 +14,10 @@ interface Props {
   snapshot: MacroSnapshot | null
   loading: boolean
   error: string | null
-  onOverride: (o: { regime?: Regime; signalValues?: Record<string, number>; note: string }) => Promise<void>
+  // signalValues entries: number = set this week's reading; null = explicitly
+  // clear the recorded reading (the server honors null as a clear); an absent
+  // id means "carry the recorded reading forward" server-side.
+  onOverride: (o: { regime?: Regime; signalValues?: Record<string, number | null>; note: string }) => Promise<void>
   onRefresh: () => void
   isAdmin: AdminFlag
 }
@@ -322,6 +325,10 @@ export default function MacroDashboard({ snapshot, loading, error, onOverride, o
   // signal value can never silently force a regime as a side effect.
   const [ovRegime, setOvRegime] = useState<Regime | ''>('')
   const [ovSignals, setOvSignals] = useState<Record<string, string>>({})
+  // Signals the analyst has marked "clear the recorded value" (✕ toggle).
+  // Only offered where a recorded reading exists — clearing an empty signal
+  // is meaningless.
+  const [ovClears, setOvClears] = useState<Record<string, boolean>>({})
   const [ovNote, setOvNote] = useState('')
   const [ovBusy, setOvBusy] = useState(false)
   const [ovError, setOvError] = useState<string | null>(null)
@@ -345,7 +352,34 @@ export default function MacroDashboard({ snapshot, loading, error, onOverride, o
     if (Number.isFinite(n)) parsedSignals[id] = n
     else invalidSignal = true
   }
-  const hasSignalValues = Object.keys(parsedSignals).length > 0
+  // Per-signal submission states — mirrors the server's clearing contract
+  // (netlify/functions/macro.ts): for each manual signal id in signalValues,
+  //   value  = set   — a finite number becomes this week's manual reading;
+  //   null   = clear — explicitly wipes the recorded reading back to NO DATA;
+  //   absent = carry — blank-and-untouched leaves the recorded reading to
+  //                    carry forward server-side.
+  // Clears only ride for signals that still show a recorded value (a refresh
+  // can retire a reading after the toggle was set — a stale clear is a no-op
+  // and must not enable a payload-free submit).
+  const signalPayload: Record<string, number | null> = { ...parsedSignals }
+  for (const [id, on] of Object.entries(ovClears)) {
+    if (!on) continue
+    const cur = readingById.get(id)?.value
+    if (cur != null && Number.isFinite(cur)) signalPayload[id] = null
+  }
+  const hasSignalPayload = Object.keys(signalPayload).length > 0
+
+  // Clearing and typing are mutually exclusive per signal: toggling the clear
+  // drops any draft value, and typing (input re-enabled) requires untoggling.
+  function toggleClear(id: string) {
+    setOvClears(c => ({ ...c, [id]: !c[id] }))
+    setOvSignals(v => {
+      if (!(id in v)) return v
+      const next = { ...v }
+      delete next[id]
+      return next
+    })
+  }
 
   async function applyOverride() {
     setOvBusy(true)
@@ -353,11 +387,12 @@ export default function MacroDashboard({ snapshot, loading, error, onOverride, o
     try {
       await onOverride({
         ...(ovRegime ? { regime: ovRegime } : {}),
-        ...(hasSignalValues ? { signalValues: parsedSignals } : {}),
+        ...(hasSignalPayload ? { signalValues: signalPayload } : {}),
         note: ovNote.trim(),
       })
       setOvNote('')
       setOvSignals({})
+      setOvClears({})
     } catch (e) {
       setOvError(e instanceof Error ? e.message : String(e))
     } finally {
@@ -529,24 +564,43 @@ export default function MacroDashboard({ snapshot, loading, error, onOverride, o
                 <div className="md-ov-signals-note">
                   These signals have no data feed — a value typed here is recorded as this
                   week's reading and marked manual. It lasts only until the next automatic
-                  snapshot; leave blank to keep a signal at NO DATA. A regime override is
-                  not required to submit values (the reason note is).
+                  snapshot; a field left blank carries its recorded value forward, and ✕
+                  clears the recorded value back to NO DATA. A regime override is not
+                  required to submit values or clears (the reason note is).
                 </div>
                 <div className="md-ov-signal-grid">
                   {manualIds.map(id => {
                     const reading = readingById.get(id)
                     const current = reading?.value
+                    const hasRecorded = current != null && Number.isFinite(current)
+                    const cleared = hasRecorded && !!ovClears[id]
                     return (
                       <label className="md-field" key={id}>
                         <span className="md-field-label">{reading?.label ?? id}</span>
-                        <input
-                          type="number"
-                          step="any"
-                          value={ovSignals[id] ?? ''}
-                          onChange={e => setOvSignals(v => ({ ...v, [id]: e.target.value }))}
-                          placeholder={current != null && Number.isFinite(current) ? String(current) : 'no data'}
-                          disabled={ovBusy}
-                        />
+                        <span className="md-ov-input-row">
+                          <input
+                            type="number"
+                            step="any"
+                            value={cleared ? '' : ovSignals[id] ?? ''}
+                            onChange={e => setOvSignals(v => ({ ...v, [id]: e.target.value }))}
+                            placeholder={cleared ? 'cleared' : hasRecorded ? String(current) : 'no data'}
+                            disabled={ovBusy || cleared}
+                          />
+                          {hasRecorded && (
+                            <button
+                              type="button"
+                              className="md-clear-btn"
+                              aria-pressed={cleared}
+                              aria-label={cleared
+                                ? `Keep the recorded value for ${reading?.label ?? id}`
+                                : `Clear the recorded value for ${reading?.label ?? id}`}
+                              title={cleared ? 'Keep the recorded value' : 'Clear recorded value — submits as NO DATA'}
+                              onClick={() => toggleClear(id)}
+                              disabled={ovBusy}
+                            >✕</button>
+                          )}
+                        </span>
+                        {cleared && <span className="md-clear-note">clears to NO DATA on apply</span>}
                       </label>
                     )
                   })}
@@ -580,7 +634,7 @@ export default function MacroDashboard({ snapshot, loading, error, onOverride, o
               <button
                 className="md-apply"
                 onClick={applyOverride}
-                disabled={ovBusy || ovNote.trim() === '' || invalidSignal || (ovRegime === '' && !hasSignalValues)}
+                disabled={ovBusy || ovNote.trim() === '' || invalidSignal || (ovRegime === '' && !hasSignalPayload)}
               >
                 {ovBusy ? 'Applying…' : 'Apply override'}
               </button>
@@ -707,6 +761,14 @@ const CSS = `
 .md-ov-signals-note{font-size:.76rem;color:var(--muted,#5c6b67);margin-bottom:.8rem;max-width:64ch}
 .md-ov-signal-grid{display:flex;flex-wrap:wrap;gap:1rem}
 .md-ov-signal-grid .md-field input{width:10rem}
+.md-ov-input-row{display:flex;align-items:center;gap:.45rem}
+.md-clear-btn{flex-shrink:0;width:1.75rem;height:1.75rem;display:inline-flex;align-items:center;justify-content:center;padding:0;
+  border:1px solid var(--border,#dcebe7);border-radius:8px;background:var(--surface,#fff);color:var(--muted,#5c6b67);
+  font-size:.78rem;line-height:1;cursor:pointer}
+.md-clear-btn:hover:not(:disabled){color:var(--danger,#c2384a);border-color:var(--danger,#c2384a)}
+.md-clear-btn[aria-pressed="true"]{color:#fff;background:var(--danger,#c2384a);border-color:var(--danger,#c2384a)}
+.md-clear-btn:disabled{opacity:.5;cursor:default}
+.md-clear-note{font-size:.7rem;color:var(--danger,#c2384a);font-weight:500}
 .md-apply{flex-shrink:0}
 .md-helper{margin-top:.8rem;font-size:.76rem;color:var(--muted,#5c6b67)}
 .md-ov-error{display:flex;align-items:center;gap:.5rem;margin-top:.7rem;font-size:.82rem;color:var(--danger,#c2384a);font-weight:500}

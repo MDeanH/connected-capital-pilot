@@ -3,7 +3,8 @@
 // There is deliberately no blank-form path — the recorded sample (a captured
 // extraction of the client's example documents) exists so the flow can be
 // demoed before ANTHROPIC_API_KEY is configured.
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { PENDING_EXTRACTION_KEY, supabase, useIdentity } from './auth'
 import { Kicker } from './cc-ui'
 import { docToText } from './docx'
 import { workbookToCsvText } from './excel'
@@ -18,36 +19,53 @@ const POLL_DEADLINE_MS = 15.5 * 60_000
 
 // The pending extraction id also lives in localStorage, not just component
 // state: a tab navigation or refresh mid-job would otherwise strand a
-// still-running 15-minute extraction into a paid resubmit. The id is safe to
-// store — it is a client-minted random UUID that contains no deal data; the
-// extracted content stays server-side until a poll returns it. A stored record
-// older than the worker's window is useless (the job is terminal by then), so
-// restore only inside ~16 minutes of the submission.
-const PENDING_STORE_KEY = 'cc_pending_extraction_v1'
+// still-running 15-minute extraction into a paid resubmit. The id itself
+// contains no deal data — but polling it returns the extracted fields, so the
+// record is OWNER-STAMPED like the intake payload (the key is origin-wide
+// localStorage on a possibly shared browser): a record stamped by a different
+// account — or an owned record read while signed out — is discarded on load,
+// and signOut clears the key outright. Legacy/unstamped records read as
+// anonymous (owner null), so auth-off deployments restore exactly as before.
+// A stored record older than the worker's window is useless (the job is
+// terminal by then), so restore only inside ~16 minutes of the submission.
 const PENDING_RESTORE_WINDOW_MS = 16 * 60_000
 
-function readStoredPendingId(): string | null {
+function readStoredPendingId(owner: string | null): string | null {
   try {
-    const raw = localStorage.getItem(PENDING_STORE_KEY)
+    const raw = localStorage.getItem(PENDING_EXTRACTION_KEY)
     if (raw) {
-      const rec = JSON.parse(raw) as { id?: unknown; submittedAt?: unknown }
+      const rec = JSON.parse(raw) as { id?: unknown; submittedAt?: unknown; owner?: unknown }
+      const recOwner: string | null = typeof rec?.owner === 'string' ? rec.owner : null
       const age = Date.now() - Date.parse(String(rec?.submittedAt ?? ''))
       if (
+        recOwner === owner &&
         typeof rec?.id === 'string' && /^[a-z0-9-]{8,64}$/i.test(rec.id) &&
         Number.isFinite(age) && age >= 0 && age < PENDING_RESTORE_WINDOW_MS
       ) {
         return rec.id
       }
-      localStorage.removeItem(PENDING_STORE_KEY) // stale or malformed — clean up
+      localStorage.removeItem(PENDING_EXTRACTION_KEY) // stale, malformed, or another identity's — discard
     }
   } catch { /* localStorage unavailable (private mode etc.) — resume degrades to in-memory */ }
   return null
 }
 
-function writeStoredPending(id: string | null) {
+function writeStoredPending(id: string | null, owner: string | null) {
   try {
-    if (id) localStorage.setItem(PENDING_STORE_KEY, JSON.stringify({ id, submittedAt: new Date().toISOString() }))
-    else localStorage.removeItem(PENDING_STORE_KEY)
+    if (id) localStorage.setItem(PENDING_EXTRACTION_KEY, JSON.stringify({ id, owner, submittedAt: new Date().toISOString() }))
+    else localStorage.removeItem(PENDING_EXTRACTION_KEY)
+  } catch { /* storage unavailable — component state still covers this tab */ }
+}
+
+// Anonymous → signed-in re-stamp (mirrors the intake payload): same id and
+// same submittedAt — re-dating would wrongly extend the restore window — only
+// the owner changes, so the same human's job survives a reload signed in.
+function restampStoredPending(owner: string | null) {
+  try {
+    const raw = localStorage.getItem(PENDING_EXTRACTION_KEY)
+    if (!raw) return
+    const rec = JSON.parse(raw) as { id?: unknown; submittedAt?: unknown }
+    localStorage.setItem(PENDING_EXTRACTION_KEY, JSON.stringify({ id: rec?.id, owner, submittedAt: rec?.submittedAt }))
   } catch { /* storage unavailable — component state still covers this tab */ }
 }
 
@@ -78,9 +96,14 @@ export default function IntakeUpload({ onExtracted }: Props) {
   // accepts the submission and cleared ONLY on a terminal result (done/error
   // from the API) — so neither the poll deadline nor a thrown poll failure can
   // strand a live job. CHECK AGAIN resumes polling this id instead of paying
-  // for a resubmit. Initialized from localStorage so a refresh or tab
-  // navigation mid-job restores the affordance instead of stranding the job.
-  const [pendingId, setPendingId] = useState<string | null>(readStoredPendingId)
+  // for a resubmit. Restored from localStorage (owner-checked) so a refresh or
+  // tab navigation mid-job restores the affordance instead of stranding the
+  // job. Auth-off builds (no Supabase client) resolve identity synchronously —
+  // always anonymous — so the record restores right here in the initializer,
+  // exactly as it always has; auth-capable builds start empty (the owner isn't
+  // known until the async session restore settles) and hydrate in the
+  // identity-gated effect below.
+  const [pendingId, setPendingId] = useState<string | null>(() => (supabase === null ? readStoredPendingId(null) : null))
   // True while pendingId came from storage (a previous page load) rather than
   // this session's own submission — drives honest resume copy: the job MAY
   // still be running, or may have finished/failed while we weren't watching.
@@ -90,10 +113,53 @@ export default function IntakeUpload({ onExtracted }: Props) {
   const clearPending = () => {
     setPendingId(null)
     setPendingRestored(false)
-    writeStoredPending(null)
+    writeStoredPending(null, null)
   }
   const omInput = useRef<HTMLInputElement>(null)
   const xlsInput = useRef<HTMLInputElement>(null)
+
+  // --- Owner-gated hydration of the pending record (mirrors DealIntake) ----
+  // hydratedRef: true once the owner-checked restore has run (immediately on
+  // auth-off builds, where the initializer restored synchronously). ownerRef:
+  // the identity the CURRENT in-memory pending job belongs to — writes stamp
+  // this (never the live identity) so a job can't be re-labelled inside a
+  // sign-in/out transition tick.
+  const identity = useIdentity()
+  const hydratedRef = useRef(supabase === null)
+  const ownerRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    if (!identity.sessionReady) return // owner unknown — do not touch storage yet
+    const owner = identity.userId
+    if (!hydratedRef.current) {
+      // First hydration on an auth-capable build, now that the session
+      // restore settled and the owner is definitive.
+      hydratedRef.current = true
+      ownerRef.current = owner
+      const stored = readStoredPendingId(owner)
+      if (stored) {
+        setPendingId(stored)
+        setPendingRestored(true)
+      }
+      return
+    }
+    if (owner === ownerRef.current) return
+    const prev = ownerRef.current
+    ownerRef.current = owner
+    if (prev === null) {
+      // Anonymous work, then sign-in: the same human at the keyboard — keep
+      // the resumable job and re-stamp the stored record as theirs so it
+      // survives a reload under the signed-in identity.
+      if (pendingId) restampStoredPending(owner)
+      return
+    }
+    // Signed out (or the account changed): the pending job belongs to the
+    // previous account — drop the affordance. signOut already cleared the
+    // stored record; the owner check above discards any straggler on load.
+    setPendingId(null)
+    setPendingRestored(false)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- pendingId is read only behind the owner guard; re-running on it would be a no-op
+  }, [identity.sessionReady, identity.userId])
 
   // PDFs go up as base64 (the API reads them natively, citations get page
   // numbers); .docx/.txt convert to plain text in the browser, so their
@@ -144,6 +210,12 @@ export default function IntakeUpload({ onExtracted }: Props) {
   // failure to ask about it. Hitting the deadline is NOT a failure either: the
   // id stays resumable.
   const pollExtraction = async (extractionId: string) => {
+    // The job is bound to the identity it was submitted/restored under. If a
+    // signed-in owner changes mid-poll (sign-out, different account), the
+    // extracted fields must not be delivered into the new identity's UI —
+    // anonymous → signed-in is the same human (see the hydration effect) and
+    // stays deliverable.
+    const jobOwner = ownerRef.current
     const started = Date.now()
     while (Date.now() - started < POLL_DEADLINE_MS) {
       const elapsed = Date.now() - started
@@ -171,6 +243,13 @@ export default function IntakeUpload({ onExtracted }: Props) {
         throw new Error(data?.error ?? 'Extraction result expired')
       }
       if (data.status === 'done') {
+        if (jobOwner !== null && ownerRef.current !== jobOwner) {
+          // Identity changed while we were polling: the transition effect
+          // already dropped the pending state and signOut cleared the stored
+          // record — stop silently, never hand the result to whoever is at
+          // the keyboard now.
+          return
+        }
         clearPending()
         // Carry the extraction id into app state: the decide call needs it to
         // link the persisted extractions row (whose PK is this id) to the deal.
@@ -182,6 +261,9 @@ export default function IntakeUpload({ onExtracted }: Props) {
         throw new Error(data.error ?? 'Extraction failed')
       }
     }
+    // A mid-poll identity change severs the job here too — re-instating the
+    // id would hand the previous account's resumable job to the new identity.
+    if (jobOwner !== null && ownerRef.current !== jobOwner) return
     // Deadline lapse is non-terminal: keep the id resumable in state. Storage
     // already holds it from the 202 acceptance (with the true submittedAt), so
     // no re-write here — re-stamping would wrongly extend the restore window.
@@ -236,7 +318,10 @@ export default function IntakeUpload({ onExtracted }: Props) {
       // a terminal done/error from the API clears it.
       setPendingId(extractionId)
       setPendingRestored(false)
-      writeStoredPending(extractionId)
+      // Stamped with the owning identity (ownerRef — see hydration above):
+      // null until the session restore settles or on auth-off builds, where
+      // the record reads back exactly as before auth existed.
+      writeStoredPending(extractionId, ownerRef.current)
       await pollExtraction(extractionId)
     } catch (e) {
       setErr(String((e as Error).message ?? e))
