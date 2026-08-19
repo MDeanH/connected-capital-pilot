@@ -76,6 +76,12 @@ function NumInput({ value, onCommit, ariaLabel }: {
         const v = Number(e.target.value)
         if (e.target.value.trim() !== '' && Number.isFinite(v)) onCommit(v)
       }}
+      onBlur={e => {
+        // A blank/unparseable field never committed — snap the visible text back
+        // to the committed value so what the analyst sees is what will be saved.
+        const v = Number(e.target.value)
+        if (e.target.value.trim() === '' || !Number.isFinite(v)) e.target.value = String(value)
+      }}
     />
   )
 }

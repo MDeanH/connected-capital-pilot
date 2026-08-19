@@ -178,7 +178,13 @@ export interface MacroQuadrant {
 
 /** Prevailing-market context for the comparison panel (S&P + financing rates). */
 export interface MarketContext {
+  /**
+   * OLDEST observation date among the series present ('' when none). Invariant:
+   * no displayed value is older than asof — freshness is never overstated.
+   */
   asof: string
+  /** Per-series observation dates (absent on rows persisted before this field). */
+  asofBySeries?: { sofr?: string; mortgage30y?: string; treasury10y?: string; sp500?: string }
   sofr: number | null
   mortgage30y: number | null
   treasury10y: number | null

@@ -16,6 +16,107 @@ import { serviceClient } from './lib/supabase.ts'
 const json = (status: number, obj: unknown) =>
   new Response(JSON.stringify(obj), { status, headers: { 'Content-Type': 'application/json' } })
 
+type Db = NonNullable<ReturnType<typeof serviceClient>>
+
+// Amount/rate/count fields that must be finite and >= 0 when present — a
+// negative construction loan flips LTC negative (sailing past the leverage
+// kill) and inflates the mini-stress. stabilized_noi_untrended is deliberately
+// absent: bad economics should score badly, not 400.
+const NON_NEGATIVE_FIELDS: Array<keyof DealFields> = [
+  'total_project_cost', 'hard_costs', 'land_cost', 'construction_loan', 'total_equity',
+  'guarantor_net_worth', 'assumed_rent_monthly', 'market_comp_rent_monthly',
+  'interest_reserve_months', 'construction_duration_months', 'lease_up_months_assumed',
+  'submarket_leaseup_months', 'sponsor_completed_comparables', 'exit_cap_rate',
+  'market_cap_rate_today', 'loan_interest_rate', 'sponsor_coinvest_pct',
+  'hard_cost_contingency_pct',
+]
+
+/** First invalid field name, or null when every present numeric is finite and >= 0. */
+function invalidField(fields: DealFields): string | null {
+  for (const key of NON_NEGATIVE_FIELDS) {
+    const v = fields[key]
+    if (typeof v === 'number' && (!Number.isFinite(v) || v < 0)) return key
+  }
+  return null
+}
+
+const RULEBOOK_UNAVAILABLE = 'Could not load the active rulebook — try again'
+
+// Active config: highest Supabase version, else the shipped default (version 0).
+// null = the query itself FAILED — callers must 503, never score (let alone
+// record) under the baked default while a saved rulebook may exist.
+async function loadActiveConfig(db: Db): Promise<{ config: Gate1Config; version: number } | null> {
+  const { data, error } = await db
+    .from('threshold_configs')
+    .select('version, config')
+    .order('version', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (error) return null
+  return data ? { config: data.config as Gate1Config, version: data.version } : { config: DEFAULT_CONFIG, version: 0 }
+}
+
+/** Latest macro snapshot — best-effort: null on error or an empty table. */
+async function loadLatestSnapshot(db: Db): Promise<{ id: string; postures: Record<string, Posture> } | null> {
+  const { data } = await db
+    .from('macro_snapshots')
+    .select('id, postures')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  return data ? { id: data.id as string, postures: data.postures as Record<string, Posture> } : null
+}
+
+// POST /api/gate1/preview-batch — the Backtest path: a whole book in one
+// request, so N deals × 3 postures never fans out against the per-IP rate
+// limit. Config, macro snapshot and posture resolve ONCE; each row then runs
+// the same compute as /preview minus judgment adjustments (a backtest grades
+// the rulebook, not per-deal overrides). An invalid row becomes a per-row
+// { error } entry rather than sinking the whole batch.
+const BATCH_MAX_ROWS = 100
+
+async function previewBatch(body: any): Promise<Response> {
+  const rows = body?.rows
+  if (!Array.isArray(rows) || rows.length === 0) {
+    return json(400, { error: 'rows must be a non-empty array of deal fields' })
+  }
+  if (rows.length > BATCH_MAX_ROWS) {
+    return json(400, { error: `Batch is capped at ${BATCH_MAX_ROWS} rows — split the book and run again` })
+  }
+
+  const db = serviceClient()
+  let config: Gate1Config = DEFAULT_CONFIG
+  let configVersion = 0
+  let snapshot: Awaited<ReturnType<typeof loadLatestSnapshot>> = null
+  if (db) {
+    const active = await loadActiveConfig(db)
+    if (!active) return json(503, { error: RULEBOOK_UNAVAILABLE })
+    config = active.config
+    configVersion = active.version
+    snapshot = await loadLatestSnapshot(db)
+  }
+
+  const requested: Posture | undefined = body.posture || undefined
+  const results = rows.map((raw: unknown) => {
+    const fields = raw as DealFields
+    if (!fields || typeof fields !== 'object' || !fields.asset_class) {
+      return { error: 'Missing deal fields (asset_class required)' }
+    }
+    const badField = invalidField(fields)
+    if (badField) return { error: `${badField} must be a non-negative number` }
+    const snapPosture = snapshot ? snapshot.postures[fields.asset_class] ?? snapshot.postures['*'] : undefined
+    const posture: Posture = requested ?? snapPosture ?? 'green'
+    const postureSource = requested ? 'request' : snapPosture ? 'macro_snapshot' : 'default'
+    const macroSnapshotId = snapshot && (!requested || requested === snapPosture) ? snapshot.id : null
+    try {
+      return computeGate1({ fields }, config, configVersion, posture, postureSource, macroSnapshotId)
+    } catch (e: any) {
+      return { error: e?.message ?? 'Evaluation failed' }
+    }
+  })
+  return json(200, { results })
+}
+
 async function listDecisions(url: URL): Promise<Response> {
   const db = serviceClient()
   if (!db) return json(503, { error: 'Persistence not configured (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY)' })
@@ -82,7 +183,6 @@ export default async (req: Request, context: Context): Promise<Response> => {
     return listDecisions(url)
   }
   if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 })
-  const action = url.pathname.endsWith('/decide') ? 'decide' : 'preview'
 
   let body: any
   try {
@@ -91,10 +191,15 @@ export default async (req: Request, context: Context): Promise<Response> => {
     return json(400, { error: 'Invalid JSON body' })
   }
 
+  if (url.pathname.endsWith('/preview-batch')) return previewBatch(body)
+  const action = url.pathname.endsWith('/decide') ? 'decide' : 'preview'
+
   const fields = body.fields as DealFields | undefined
   if (!fields || typeof fields !== 'object' || !fields.asset_class) {
     return json(400, { error: 'Missing deal fields (asset_class required)' })
   }
+  const badField = invalidField(fields)
+  if (badField) return json(400, { error: `${badField} must be a non-negative number` })
   const adjustments: JudgmentAdjustment[] = Array.isArray(body.adjustments) ? body.adjustments : []
 
   const db = serviceClient()
@@ -103,16 +208,13 @@ export default async (req: Request, context: Context): Promise<Response> => {
   let config: Gate1Config = DEFAULT_CONFIG
   let configVersion = 0
   if (db) {
-    const { data } = await db
-      .from('threshold_configs')
-      .select('version, config')
-      .order('version', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-    if (data) {
-      config = data.config as Gate1Config
-      configVersion = data.version
-    }
+    const active = await loadActiveConfig(db)
+    // A FAILED query is not an empty table — scoring (or recording) under the
+    // baked version-0 default while a saved rulebook may exist would be silent
+    // rule drift, so refuse previews and decides alike.
+    if (!active) return json(503, { error: RULEBOOK_UNAVAILABLE })
+    config = active.config
+    configVersion = active.version
   }
 
   // Posture: latest macro snapshot for this asset class; request override; else green.
@@ -120,14 +222,9 @@ export default async (req: Request, context: Context): Promise<Response> => {
   let macroSnapshotId: string | null = null
   let postureSource = body.posture ? 'request' : 'default'
   if (db) {
-    const { data } = await db
-      .from('macro_snapshots')
-      .select('id, postures')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-    if (data) {
-      const p = (data.postures as Record<string, Posture>)[fields.asset_class] ?? (data.postures as any)['*']
+    const snapshot = await loadLatestSnapshot(db)
+    if (snapshot) {
+      const p = snapshot.postures[fields.asset_class] ?? snapshot.postures['*']
       if (p && !body.posture) {
         posture = p
         postureSource = 'macro_snapshot'
@@ -135,7 +232,7 @@ export default async (req: Request, context: Context): Promise<Response> => {
       // Link the snapshot only when the effective posture IS the snapshot's
       // answer for this asset class — a manual what-if posture must not
       // record a snapshot reference it didn't use (audit/replay integrity).
-      if (!body.posture || body.posture === p) macroSnapshotId = data.id
+      if (!body.posture || body.posture === p) macroSnapshotId = snapshot.id
     }
   }
 
@@ -231,6 +328,6 @@ export default async (req: Request, context: Context): Promise<Response> => {
 }
 
 export const config: Config = {
-  path: ['/api/gate1/preview', '/api/gate1/decide', '/api/gate1/decisions', '/api/gate1/decisions/:id'],
+  path: ['/api/gate1/preview', '/api/gate1/preview-batch', '/api/gate1/decide', '/api/gate1/decisions', '/api/gate1/decisions/:id'],
   rateLimit: { windowSize: 60, windowLimit: 120, aggregateBy: 'ip' },
 }

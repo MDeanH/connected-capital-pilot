@@ -53,12 +53,17 @@ function fmtSignalValue(s: MacroSignalReading): string {
   return s.value.toLocaleString('en-US', { maximumFractionDigits: 2 })
 }
 
-/** Rate/return display: FRED-style levels (4.31) print as-is with %, decimal
- *  shares (0.12) are scaled. */
-function fmtRatePct(v: number | null | undefined): string {
+/** Rate LEVEL display: FRED series (SOFR/DGS10/MORTGAGE30US) are already in
+ *  percentage points, so 4.31 → "4.31%" and 0.50 → "0.50%" — never rescaled. */
+function fmtRateLevelPct(v: number | null | undefined): string {
   if (v == null || !Number.isFinite(v)) return '—'
-  const pct = Math.abs(v) < 1 ? v * 100 : v
-  return `${pct.toFixed(2)}%`
+  return `${v.toFixed(2)}%`
+}
+
+/** Return FRACTION display: S&P returns are decimal shares, so 0.12 → "12.00%". */
+function fmtReturnPct(v: number | null | undefined): string {
+  if (v == null || !Number.isFinite(v)) return '—'
+  return `${(v * 100).toFixed(2)}%`
 }
 
 function fmtSignedPct1(v: number): string {
@@ -450,27 +455,27 @@ export default function MacroDashboard({ snapshot, loading, error, onOverride, o
               <div className="md-market-grid">
                 <div className="md-stat">
                   <div className="md-stat-label"><Term k="sofr">SOFR</Term></div>
-                  <div className="md-stat-value">{fmtRatePct(snapshot.market.sofr)}</div>
+                  <div className="md-stat-value">{fmtRateLevelPct(snapshot.market.sofr)}</div>
                 </div>
                 <div className="md-stat">
                   <div className="md-stat-label">10Y Treasury</div>
-                  <div className="md-stat-value">{fmtRatePct(snapshot.market.treasury10y)}</div>
+                  <div className="md-stat-value">{fmtRateLevelPct(snapshot.market.treasury10y)}</div>
                 </div>
                 <div className="md-stat">
                   <div className="md-stat-label">30Y Mortgage</div>
-                  <div className="md-stat-value">{fmtRatePct(snapshot.market.mortgage30y)}</div>
+                  <div className="md-stat-value">{fmtRateLevelPct(snapshot.market.mortgage30y)}</div>
                 </div>
                 <div className="md-stat">
                   <div className="md-stat-label">S&amp;P 500 · 1y</div>
-                  <div className="md-stat-value">{fmtRatePct(snapshot.market.sp500.ret1y)}</div>
+                  <div className="md-stat-value">{fmtReturnPct(snapshot.market.sp500.ret1y)}</div>
                 </div>
                 <div className="md-stat">
                   <div className="md-stat-label">S&amp;P 500 · 3y ann.</div>
-                  <div className="md-stat-value">{fmtRatePct(snapshot.market.sp500.ret3y)}</div>
+                  <div className="md-stat-value">{fmtReturnPct(snapshot.market.sp500.ret3y)}</div>
                 </div>
                 <div className="md-stat">
                   <div className="md-stat-label">S&amp;P 500 · 5y ann.</div>
-                  <div className="md-stat-value">{fmtRatePct(snapshot.market.sp500.ret5y)}</div>
+                  <div className="md-stat-value">{fmtReturnPct(snapshot.market.sp500.ret5y)}</div>
                 </div>
               </div>
             </div>

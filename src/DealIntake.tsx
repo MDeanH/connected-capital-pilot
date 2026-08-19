@@ -103,6 +103,11 @@ export default function DealIntake() {
   const [extraction, setExtraction] = useState<ExtractionResult | null>(() => saved?.extraction ?? null)
   const [lastResponse, setLastResponse] = useState<Gate1Response | null>(null)
   const [scoring, setScoring] = useState(false)
+  // True from the moment a change schedules a re-preview until that preview's
+  // response lands — the displayed verdict no longer matches the inputs, so
+  // recording is blocked meanwhile.
+  const [previewStale, setPreviewStale] = useState(false)
+  const previewSeqRef = useRef(0)
   const [scoreErr, setScoreErr] = useState<string | null>(null)
   const [deciding, setDeciding] = useState(false)
   const [decision, setDecision] = useState<Pick<Gate1Response, 'persisted' | 'warning' | 'decisionId'> | null>(null)
@@ -151,7 +156,7 @@ export default function DealIntake() {
     const r = await fetch('/api/config', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ config: cfg, note }),
+      body: JSON.stringify({ config: cfg, note, baseVersion: activeConfig?.version ?? 0 }),
     })
     const data = await r.json()
     if (r.ok && data.version) {
@@ -210,6 +215,10 @@ export default function DealIntake() {
   // Draft configs from the thresholds editor apply here (and only here).
   useEffect(() => {
     if (step !== 'results' || !canScore) return
+    // Each scheduled preview takes a sequence number; only the latest one may
+    // touch state, so an out-of-order response can't clobber a newer verdict.
+    const seq = ++previewSeqRef.current
+    setPreviewStale(true)
     const t = setTimeout(async () => {
       setScoring(true)
       setScoreErr(null)
@@ -224,23 +233,27 @@ export default function DealIntake() {
             configOverride: draftConfig ?? undefined,
           }),
         })
+        if (previewSeqRef.current !== seq) return
         const ct = r.headers.get('content-type') || ''
         if (!ct.includes('application/json'))
           throw new Error('Gate 1 engine offline — run `vite` (dev middleware) or `netlify dev`.')
         const data = await r.json()
+        if (previewSeqRef.current !== seq) return
         if (data.error) throw new Error(data.error)
         setLastResponse(data as Gate1Response)
+        setPreviewStale(false)
       } catch (e: unknown) {
+        if (previewSeqRef.current !== seq) return
         setScoreErr(String((e as Error)?.message || e))
       } finally {
-        setScoring(false)
+        if (previewSeqRef.current === seq) setScoring(false)
       }
     }, 400)
     return () => clearTimeout(t)
   }, [coerced, adjustments, step, canScore, livePosture, draftConfig])
 
   const recordDecision = async () => {
-    if (!canScore || !hasDealName || deciding || draftConfig) return
+    if (!canScore || !hasDealName || deciding || draftConfig || previewStale || scoring) return
     setDeciding(true)
     setDecision(null)
     try {
@@ -409,12 +422,14 @@ export default function DealIntake() {
                         putting a different verdict in the ledger than the one shown. */}
                     <button
                       onClick={recordDecision}
-                      disabled={deciding || !!draftConfig || !hasDealName}
+                      disabled={deciding || !!draftConfig || !hasDealName || previewStale || scoring}
                       title={draftConfig
                         ? 'Draft thresholds are active — save the rulebook as a new version (or clear the draft) before recording'
                         : !hasDealName
                           ? 'Enter a deal name on the review step — an unnamed decision cannot be linked to a deal'
-                          : undefined}
+                          : previewStale || scoring
+                            ? 'Preview updating…'
+                            : undefined}
                     >
                       {deciding
                         ? 'RECORDING…'

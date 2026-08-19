@@ -1,9 +1,12 @@
 // Pilot access gate — password login page on every path of this deploy.
 //
-// OPT-IN BY ENV: when PILOT_PASSWORD is not set, the gate does nothing — so
-// this code is inert on the public client site and on any site until the
-// password is explicitly configured. Set PILOT_PASSWORD on a site BEFORE
-// giving that site Supabase credentials (the deal ledger must not be open).
+// OPT-IN BY ENV: when PILOT_PASSWORD is not set, pages are served ungated —
+// the public client site (no Supabase, no password) stays fully open. But the
+// privileged state fails CLOSED: if a site has SUPABASE_SERVICE_ROLE_KEY and
+// no PILOT_PASSWORD, every /api/* path returns 503 until the password is set,
+// so deletes, rulebook writes, macro overrides and the deal ledger can never
+// be publicly reachable. Operator order: set PILOT_PASSWORD on a site BEFORE
+// giving that site Supabase credentials; if you see the 503, set it now.
 //
 // Why a login PAGE and not HTTP Basic Auth: many environments (in-app
 // browsers, webviews, some Edge/Windows setups) never show the native Basic
@@ -82,9 +85,24 @@ ${err}
 
 export default async (request: Request, context: Context) => {
   const password = Netlify.env.get("PILOT_PASSWORD") || "";
-  if (!password) return context.next();
-
   const { pathname } = new URL(request.url);
+
+  if (!password) {
+    // Fail closed on the privileged state only: Supabase credentials without a
+    // password must not leave the API (deletes, rulebook writes, macro
+    // overrides, the ledger) publicly reachable. Pages stay served, and the
+    // public client site (no Supabase either) stays fully open.
+    if (Netlify.env.get("SUPABASE_SERVICE_ROLE_KEY") && pathname.startsWith("/api/")) {
+      return new Response(
+        JSON.stringify({
+          error:
+            "API disabled: privileged integrations require PILOT_PASSWORD — this site has SUPABASE_SERVICE_ROLE_KEY configured but no gate password. Set PILOT_PASSWORD on this site to re-enable the API.",
+        }),
+        { status: 503, headers: { "Content-Type": "application/json" } },
+      );
+    }
+    return context.next();
+  }
   if (pathname === "/" || pathname === "/how-it-works.html") return context.next();
 
   const want = await sessionToken(password);

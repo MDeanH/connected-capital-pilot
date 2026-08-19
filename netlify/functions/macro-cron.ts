@@ -15,19 +15,33 @@ export default async (): Promise<Response> => {
   let cfg: Gate1Config = DEFAULT_CONFIG
   let previous: MacroSnapshot | null = null
   if (db) {
-    const { data: cfgRow } = await db
+    const { data: cfgRow, error: cfgError } = await db
       .from('threshold_configs')
       .select('config')
       .order('version', { ascending: false })
       .limit(1)
       .maybeSingle()
+    if (cfgError) {
+      // Same rule as the snapshot lookup below: a failed read must not pass
+      // for "no saved config" — computing under stale default thresholds is
+      // worse than skipping the week.
+      console.error(`macro-cron: config lookup failed — ${cfgError.message}`)
+      return new Response(`config lookup failed: ${cfgError.message}`, { status: 500 })
+    }
     if (cfgRow) cfg = cfgRow.config as Gate1Config
-    const { data: prevRow } = await db
+    const { data: prevRow, error: prevError } = await db
       .from('macro_snapshots')
       .select('*')
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle()
+    if (prevError) {
+      // A failed lookup must not pass for "no history": computing without the
+      // previous snapshot bypasses hysteresis and can persist an immediate
+      // regime flip. Skip the week instead — that is recoverable.
+      console.error(`macro-cron: previous-snapshot lookup failed — ${prevError.message}`)
+      return new Response(`previous-snapshot lookup failed: ${prevError.message}`, { status: 500 })
+    }
     if (prevRow) previous = (prevRow.snapshot ?? prevRow) as MacroSnapshot
   }
 

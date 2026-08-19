@@ -64,6 +64,24 @@ const PILOT_STRATEGY = 'development'
 const HISTORY_MONTHS = 60
 
 /**
+ * Sparkline history for a yoy-transform signal: each monthly point re-expressed
+ * as its year-over-year change, by running yoyChange on the raw series truncated
+ * at that point — the SAME lag/tolerance logic as the headline value, so the
+ * last history point and the current reading always agree. Points without a
+ * 12-month-earlier base observation yield null there and are dropped, never faked.
+ */
+function yoyHistory(raw: FredPoint[], monthly: FredPoint[]): FredPoint[] {
+  const out: FredPoint[] = []
+  let end = 0 // raw and monthly are both ascending, so the prefix bound only advances
+  for (const p of monthly) {
+    while (end < raw.length && raw[end].date <= p.date) end++
+    const value = yoyChange(raw.slice(0, end))
+    if (value !== null) out.push({ date: p.date, value })
+  }
+  return out
+}
+
+/**
  * Map a signal value to a posture vote using the def's direction + bands.
  * high_is_bad:  value <= green → green; <= yellow → yellow; else red.
  * high_is_good: value >= green → green; >= yellow → yellow; else red.
@@ -116,7 +134,9 @@ export function computeMacroSnapshot(input: MacroComputeInput): MacroSnapshot {
       value = last?.value ?? null
       asof = last?.date
     }
-    const history = downsampleMonthly(raw).slice(-HISTORY_MONTHS)
+    // yoy signals' sparklines carry yoy values (matching the vote), not raw levels.
+    const monthly = downsampleMonthly(raw)
+    const history = (def.transform === 'yoy' ? yoyHistory(raw, monthly) : monthly).slice(-HISTORY_MONTHS)
     return {
       id: def.id,
       label: def.label,
@@ -233,21 +253,37 @@ export function computeMacroSnapshot(input: MacroComputeInput): MacroSnapshot {
   }
 }
 
-/** Prevailing-market panel: latest financing rates + S&P 500 annualized returns. */
+/**
+ * Prevailing-market panel: latest financing rates + S&P 500 annualized returns.
+ * The shared `asof` is the OLDEST observation date among the series actually
+ * present. Invariant: no displayed value is older than `asof` — a stalled feed
+ * can never be labeled with a fresher series' date, so freshness is only ever
+ * understated, never overstated. Per-series dates are in `asofBySeries`.
+ */
 export function buildMarketContext(series: {
   sofr: FredPoint[]
   mortgage30y: FredPoint[]
   treasury10y: FredPoint[]
   sp500: FredPoint[]
 }): MarketContext {
-  const asof =
-    [series.sofr, series.mortgage30y, series.treasury10y, series.sp500]
-      .map((s) => latest(s)?.date)
-      .filter((d): d is string => !!d)
-      .sort()
-      .pop() ?? ''
+  const dates = {
+    sofr: latest(series.sofr)?.date,
+    mortgage30y: latest(series.mortgage30y)?.date,
+    treasury10y: latest(series.treasury10y)?.date,
+    sp500: latest(series.sp500)?.date,
+  }
+  const present = Object.values(dates)
+    .filter((d): d is string => !!d)
+    .sort()
+  const asofBySeries = {
+    ...(dates.sofr ? { sofr: dates.sofr } : {}),
+    ...(dates.mortgage30y ? { mortgage30y: dates.mortgage30y } : {}),
+    ...(dates.treasury10y ? { treasury10y: dates.treasury10y } : {}),
+    ...(dates.sp500 ? { sp500: dates.sp500 } : {}),
+  }
   return {
-    asof,
+    asof: present[0] ?? '',
+    ...(present.length ? { asofBySeries } : {}),
     sofr: latest(series.sofr)?.value ?? null,
     mortgage30y: latest(series.mortgage30y)?.value ?? null,
     treasury10y: latest(series.treasury10y)?.value ?? null,

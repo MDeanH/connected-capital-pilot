@@ -132,9 +132,11 @@ export default function Backtest({ parIrr }: Props) {
     setRun(rr => (rr ? put(rr) : rr))
   }
 
-  const evaluate = async (deals: BacktestRow[], p: Posture): Promise<RunRow[]> => {
+  // Fallback for environments without /preview-batch — the vite dev bridge
+  // serves single-row /api/gate1/* only. Small parallel chunks, same preview
+  // endpoint the live intake uses.
+  const evaluateRowByRow = async (deals: BacktestRow[], p: Posture): Promise<RunRow[]> => {
     const out: RunRow[] = []
-    // Small parallel chunks — same preview endpoint the live intake uses.
     const CHUNK = 5
     for (let i = 0; i < deals.length; i += CHUNK) {
       const part = await Promise.all(deals.slice(i, i + CHUNK).map(async d => {
@@ -147,6 +149,35 @@ export default function Backtest({ parIrr }: Props) {
         return { ...d, verdict: data.result.verdict, kills: data.result.kills, flagPoints: data.result.flagPoints, missing: data.result.missing.length } as RunRow
       }))
       out.push(...part)
+    }
+    return out
+  }
+
+  // One batch request per posture — the gate1 function rate-limits per IP, so
+  // a 60-deal book must never fan out into 60 preview calls. Each batch entry
+  // is shaped like a single /preview response (or a per-row { error }).
+  const evaluate = async (deals: BacktestRow[], p: Posture): Promise<RunRow[]> => {
+    const out: RunRow[] = []
+    const BATCH = 100 // server-side cap on /preview-batch rows
+    for (let i = 0; i < deals.length; i += BATCH) {
+      const part = deals.slice(i, i + BATCH)
+      const r = await fetch('/api/gate1/preview-batch', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rows: part.map(d => toDealFields(d.fields)), posture: p }),
+      })
+      const data = await r.json().catch(() => ({}))
+      if (!Array.isArray(data.results)) {
+        // 400/404/405 without per-row results = no batch endpoint here (the
+        // vite dev bridge) — this client never sends an empty or oversized
+        // batch, so a real one answers 200 or 5xx. Anything else is a real error.
+        if (r.status === 400 || r.status === 404 || r.status === 405) return evaluateRowByRow(deals, p)
+        throw new Error(data.error ?? `Batch preview failed (HTTP ${r.status})`)
+      }
+      part.forEach((d, j) => {
+        const entry = data.results[j]
+        if (!entry || entry.error) throw new Error(`${d.fields.deal_name}: ${entry?.error ?? 'no result returned'}`)
+        out.push({ ...d, verdict: entry.result.verdict, kills: entry.result.kills, flagPoints: entry.result.flagPoints, missing: entry.result.missing.length } as RunRow)
+      })
     }
     return out
   }
@@ -167,11 +198,14 @@ export default function Backtest({ parIrr }: Props) {
     if (!rows.length) return
     setBusy('Re-running the book under all three postures…')
     try {
-      const [g, y, r] = await Promise.all(
-        (['green', 'yellow', 'red'] as Posture[]).map(p => evaluate(rows, p)),
-      )
       const passCount = (rs: RunRow[]) => rs.filter(x => x.verdict === 'PASS' || x.verdict === 'CONDITIONAL').length
-      setPostureCompare({ green: passCount(g), yellow: passCount(y), red: passCount(r) })
+      // Sequential on purpose: one batch request per posture keeps COMPARE at
+      // three calls total instead of three fan-outs racing the rate limit.
+      const counts = {} as Record<Posture, number>
+      for (const p of ['green', 'yellow', 'red'] as Posture[]) {
+        counts[p] = passCount(await evaluate(rows, p))
+      }
+      setPostureCompare(counts)
     } catch (e) {
       setErr(String((e as Error).message ?? e))
     } finally { setBusy(null) }

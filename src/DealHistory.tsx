@@ -39,7 +39,15 @@ export default function DealHistory() {
   const [loadingMore, setLoadingMore] = useState(false)
   const [degraded, setDegraded] = useState(false)
   const [err, setErr] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  // Success notes are transient — they clear themselves after a few seconds.
+  useEffect(() => {
+    if (!notice) return
+    const t = setTimeout(() => setNotice(null), 6000)
+    return () => clearTimeout(t)
+  }, [notice])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -96,25 +104,34 @@ export default function DealHistory() {
 
   const deleteRow = useCallback(async (r: DecisionRow) => {
     const name = r.deal_name ?? 'this deal'
+    // The loaded pages only show SOME of a deal's decisions when older pages
+    // exist — never present that count as the delete's exact scope.
     const siblings = (rows ?? []).filter(x => r.deal_id && x.deal_id === r.deal_id).length
+    const scope = hasMore
+      ? `ALL of its recorded decisions? (${siblings} shown here; older pages may hold more.)`
+      : 'ALL of its recorded decisions?'
     const msg = r.deal_id
-      ? `Delete the deal “${name}” and its ${siblings} recorded decision${siblings === 1 ? '' : 's'}?\n\nThis permanently removes them from the history. It cannot be undone.`
+      ? `Delete the deal “${name}” and ${scope}\n\nThis permanently removes them from the history. It cannot be undone.`
       : `Delete this recorded decision for “${name}”?\n\nThis permanently removes it from the history. It cannot be undone.`
     if (!window.confirm(msg)) return
     setDeletingId(r.id)
     setErr(null)
+    setNotice(null)
     try {
       const url = r.deal_id ? `/api/deals/${r.deal_id}` : `/api/gate1/decisions/${r.id}`
       const resp = await fetch(url, { method: 'DELETE' })
       const data = await resp.json().catch(() => ({}))
       if (!resp.ok) throw new Error(data.error || `Delete failed (HTTP ${resp.status})`)
       await load()
+      if (r.deal_id && typeof data.decisionsDeleted === 'number') {
+        setNotice(`Deleted “${name}” — ${data.decisionsDeleted} recorded decision${data.decisionsDeleted === 1 ? '' : 's'} removed.`)
+      }
     } catch (e: unknown) {
       setErr(String((e as Error)?.message || e))
     } finally {
       setDeletingId(null)
     }
-  }, [rows, load])
+  }, [rows, hasMore, load])
 
   return (
     <div className="dh-root">
@@ -136,6 +153,7 @@ export default function DealHistory() {
 
       {loading && !rows && <div className="dh-busy" role="status">Loading decision history…</div>}
       {err && <div className="dh-err" role="alert">{err}</div>}
+      {notice && <div className="dh-notice" role="status">{notice}</div>}
 
       {degraded && (
         <div className="card dh-degraded" role="note">
@@ -224,6 +242,7 @@ const CSS = `
 .dh-actions button{letter-spacing:.08em;font-size:12px}
 .dh-busy{color:var(--accent,#3f7d69);font-size:.82rem}
 .dh-err{background:#fbecef;color:#c2384a;border:1px solid #f0c8d0;border-radius:10px;padding:.8rem 1rem;font-size:.85rem}
+.dh-notice{background:#e4f5ee;color:#2c574a;border:1px solid #bcded3;border-radius:10px;padding:.8rem 1rem;font-size:.85rem}
 .dh-degraded{padding:1.5rem;border:1px solid #f0e0b0;background:#fbf3df}
 .dh-degraded h3{font-size:12px;letter-spacing:.08em;text-transform:uppercase;margin:0 0 .8rem;font-weight:600;color:#5b4a16}
 .dh-degraded p{color:#5b4a16;font-size:.85rem;line-height:1.6;margin:0 0 .8rem}
