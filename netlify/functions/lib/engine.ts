@@ -22,13 +22,6 @@ export function mulberry32(seed: number): () => number {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
-function randn(rng: () => number): number {
-  // Box-Muller
-  let u = 0, v = 0;
-  while (u === 0) u = rng();
-  while (v === 0) v = rng();
-  return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
-}
 
 // ---- numeric helpers -------------------------------------------------------
 const mean = (a: number[]) => a.reduce((s, x) => s + x, 0) / a.length;
@@ -210,7 +203,7 @@ export function scoreOpportunity(p: ScoreParams) {
 
   // sensitivity: perturb on the eff pool
   const baseP = base.pTarget;
-  const sensOne = (label: string, pool: number[], mu: number, sigma: number, holding: number) => {
+  const sensOne = (label: string, pool: number[], _mu: number, _sigma: number, holding: number) => {
     const r2 = mulberry32((p.seed ?? 12345) + label.length * 7919);
     const irrs = simulateIrrs(pool, holding, p.ppy, Math.max(4000, Math.floor(nSims / 4)), r2);
     const pp = irrs.filter((x) => x >= p.target).length / irrs.length;

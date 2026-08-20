@@ -9,7 +9,8 @@
     "gate1": "tsx netlify/functions/lib/gate1/golden.ts",
     "gate1:macro": "tsx netlify/functions/lib/gate1/golden-macro.ts",
     "gate:evidence": "tsx scripts/check-evidence-sync.ts",
-    "build": "npm run parity && npm run gate1 && npm run gate1:macro && npm run gate:evidence && tsc -b && vite build",
+    "build": "npm run parity && npm run gate1 && npm run gate1:macro && npm run gate:evidence && tsc -b && tsc -p tsconfig.functions.json && vite build",
+    "typecheck:functions": "tsc -p tsconfig.functions.json",
     "preview": "vite preview",
     "deploy": "bash scripts/deploy-netlify.sh"
   },
