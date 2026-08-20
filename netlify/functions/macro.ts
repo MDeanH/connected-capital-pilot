@@ -7,7 +7,7 @@
 // is I/O only: FRED fetches, Supabase reads/writes, HTTP shape.
 
 import type { Config, Context } from '@netlify/functions'
-import { requireAdmin } from './lib/auth.ts'
+import { requireAccount, requireAdmin } from './lib/auth.ts'
 import { fetchSeriesMap } from './lib/gate1/fred.ts'
 import { buildMarketContext, computeMacroSnapshot, MARKET_SERIES, utcWeekStart } from './lib/gate1/macro.ts'
 import { DEFAULT_CONFIG } from './lib/gate1/preview.ts'
@@ -237,11 +237,22 @@ export default async (req: Request, _context: Context): Promise<Response> => {
       })
       .select('id, created_at')
       .single()
-    if (error) return json(500, { error: `Failed to record override: ${error.message}` })
+    if (error) {
+      // Raw Postgres text names columns/constraints — log it, not to the client.
+      console.error(`macro: override insert failed — ${error.message}`)
+      return json(500, { error: 'Could not record the override — try again' })
+    }
     return json(200, { ...stamped, manualSignalIds, persisted: true, id: row.id, createdAt: row.created_at })
   }
 
   if (req.method !== 'GET') return json(405, { error: 'Method not allowed' })
+
+  // Data-surface identity gate (see requireAccount): a no-op unless accounts
+  // are switched on, then /latest and /history demand a valid, non-disabled
+  // identity. With Supabase unconfigured this waves through, so the public
+  // build's live-FRED compute keeps working.
+  const access = await requireAccount(req)
+  if (access.response) return access.response
 
   if (path.endsWith('/history')) {
     if (!db) return json(200, [])

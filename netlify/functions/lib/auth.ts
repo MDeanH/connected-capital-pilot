@@ -102,3 +102,31 @@ export async function requireAdmin(req: Request): Promise<AuthGate> {
   }
   return gate
 }
+
+/**
+ * Whether per-identity enforcement is switched on for the shared data surface.
+ * Both conditions are required: Supabase must be configured (so identities
+ * exist at all) AND REQUIRE_ACCOUNTS must be '1'.
+ *
+ * Turning this ON is Michael's decision and PRESUPPOSES a working sign-in path:
+ * with it on, every gated data endpoint 401s without a valid Bearer JWT. With
+ * it OFF (the default) the pilot stays open to anonymous gate-cookie holders
+ * and the public db-null build is untouched.
+ */
+export function accountsRequired(): boolean {
+  return authConfigured() && process.env.REQUIRE_ACCOUNTS === '1'
+}
+
+/**
+ * Data-surface identity gate. A no-op — { identity: null }, exact legacy
+ * behavior — unless accounts are switched on (accountsRequired()); then it
+ * demands a valid, non-disabled identity. Because identityFromRequest rejects
+ * a disabled profile, enabling accounts makes "disable a user" immediately
+ * revoke that user's read/write access. Shared by the deals CRUD, the macro
+ * reads, and the gate1 decisions/decide surface — the one place the flag is
+ * consulted, so all three stay in lockstep.
+ */
+export async function requireAccount(req: Request): Promise<AuthGate> {
+  if (!accountsRequired()) return { identity: null }
+  return requireIdentity(req)
+}

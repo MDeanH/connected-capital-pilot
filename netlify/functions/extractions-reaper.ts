@@ -64,6 +64,10 @@ export default async (): Promise<Response> => {
     const payloadKeys: string[] = []
     for await (const page of store.list({ paginate: true })) {
       for (const { key } of page.blobs) {
+        // 'payload-' uniquely marks a staged-document blob: extract-submit and
+        // the extractions GET both require a v4-UUID id, which can never begin
+        // with 'payload-', so a status record can no longer collide into the
+        // payload key space (or a payload into the record space).
         if (key.startsWith(PAYLOAD_PREFIX)) payloadKeys.push(key)
         else recordKeys.push(key)
       }

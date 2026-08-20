@@ -39,7 +39,12 @@ const expired = () =>
 export default async (req: Request, context: Context): Promise<Response> => {
   if (req.method !== 'GET') return new Response('Method not allowed', { status: 405 })
   const id = String((context.params as any)?.id ?? '').trim()
-  if (!id || !/^[a-z0-9-]{8,64}$/i.test(id)) return json(400, { error: 'Invalid extraction id' })
+  // Ids are Blobs keys; require the canonical v4 UUID the client mints so a
+  // request can never read a reserved 'payload-<id>' staged-document blob (the
+  // full base64 OM) by asking for it here as a status record.
+  if (!id || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) {
+    return json(400, { error: 'Invalid extraction id' })
+  }
   const store = getStore('extractions')
   const data = (await store.get(id, { type: 'json' })) as Record<string, any> | null
   if (!data) return json(200, { status: 'running' })

@@ -20,10 +20,14 @@
 // was simply handed the URL and a password. The form works everywhere.
 // Basic Auth is STILL accepted as a header (curl/automation compatibility).
 //
-// Session: a correct login sets an HttpOnly cookie holding an HMAC of a
-// fixed string keyed by the password itself — stateless, no extra secret,
-// and every cookie auto-invalidates the moment the password changes.
-// The landing page stays shareable without credentials.
+// Session: a correct login sets an HttpOnly cookie carrying an issued-at and
+// an expiry, signed (HMAC-SHA-256) with a key that is NOT the raw password —
+// GATE_SIGNING_SECRET when set, otherwise a value derived from the password via
+// a fixed-salt HMAC. Because the signed message always includes the expiry, a
+// captured cookie is never a constant-message oracle for brute-forcing the key
+// offline; the server also rejects the cookie once its 30-day expiry passes.
+// (Changing PILOT_PASSWORD or GATE_SIGNING_SECRET invalidates outstanding
+// cookies.) The landing page stays shareable without credentials.
 //
 // Brute-force throttle: FAILED password attempts (wrong form POST, wrong or
 // malformed Basic Auth header) are counted per client IP in a Netlify Blobs
@@ -165,14 +169,107 @@ p{margin:0 0 12px;color:var(--muted);font-size:13.5px;line-height:1.55}
 }
 // ---- end throttle ----------------------------------------------------------
 
-async function sessionToken(password: string): Promise<string> {
+// ---- session cookie: signed, expiring, and NOT a password oracle -----------
+// The cookie is a stateless token of the form base64url(payload).hex(hmac).
+// The payload carries an issued-at and an expiry; the HMAC is keyed on a secret
+// that is NOT the raw pilot password. Because the signed message always carries
+// a fresh expiry (never a fixed constant), a captured cookie cannot be replayed
+// through an offline brute-force to recover the signing key — and, crucially,
+// the key is not the password, so even that would not yield PILOT_PASSWORD.
+
+// The HMAC key: GATE_SIGNING_SECRET when present, otherwise a value DERIVED
+// from the password (fixed-salt HMAC) — never the raw password as the key, so
+// a captured cookie is not an oracle for the password itself.
+async function signingKey(password: string): Promise<CryptoKey> {
   const enc = new TextEncoder();
-  const key = await crypto.subtle.importKey(
+  const secret = Netlify.env.get("GATE_SIGNING_SECRET");
+  // Key material: the dedicated signing secret when set, otherwise raw bytes
+  // DERIVED from the password (never the raw password as the HMAC key).
+  const material = secret
+    ? enc.encode(secret)
+    : new Uint8Array(await deriveKeyBytes(password));
+  return crypto.subtle.importKey(
+    "raw", material, { name: "HMAC", hash: "SHA-256" }, false, ["sign"],
+  );
+}
+
+// Derive raw signing-key bytes from the password via a fixed-salt HMAC, so the
+// cookie is signed with a key that is not the password itself.
+async function deriveKeyBytes(password: string): Promise<ArrayBuffer> {
+  const enc = new TextEncoder();
+  const pwKey = await crypto.subtle.importKey(
     "raw", enc.encode(password), { name: "HMAC", hash: "SHA-256" }, false, ["sign"],
   );
-  const sig = await crypto.subtle.sign("HMAC", key, enc.encode("cc-gate-ok-v1"));
-  return [...new Uint8Array(sig)].map(b => b.toString(16).padStart(2, "0")).join("");
+  return crypto.subtle.sign("HMAC", pwKey, enc.encode("cc-gate-key-derivation-v1"));
 }
+
+function base64url(bytes: Uint8Array): string {
+  let s = "";
+  for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+  return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+function fromBase64url(s: string): Uint8Array {
+  const pad = s.length % 4 === 0 ? "" : "=".repeat(4 - (s.length % 4));
+  const bin = atob(s.replace(/-/g, "+").replace(/_/g, "/") + pad);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+
+function toHex(bytes: Uint8Array): string {
+  return [...bytes].map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+// Length-checked, non-short-circuiting comparison over encoded bytes — used for
+// the cookie MAC and the password so neither leaks its content through timing.
+function constantTimeEqual(a: string, b: string): boolean {
+  const enc = new TextEncoder();
+  const ab = enc.encode(a);
+  const bb = enc.encode(b);
+  if (ab.length !== bb.length) return false;
+  let diff = 0;
+  for (let i = 0; i < ab.length; i++) diff |= ab[i] ^ bb[i];
+  return diff === 0;
+}
+
+// Mint a fresh cookie value for a successful login. The 30-day lifetime is
+// baked into the signed payload; COOKIE_MAX_AGE keeps the browser Max-Age in
+// step with the server-checked expiry.
+async function mintCookie(password: string): Promise<string> {
+  const enc = new TextEncoder();
+  const iat = Math.floor(Date.now() / 1000);
+  const exp = iat + COOKIE_MAX_AGE;
+  const b64 = base64url(enc.encode(`${iat}.${exp}`));
+  const key = await signingKey(password);
+  const sig = new Uint8Array(await crypto.subtle.sign("HMAC", key, enc.encode(b64)));
+  return `${b64}.${toHex(sig)}`;
+}
+
+// Verify a cookie value: recompute the MAC over the payload, constant-time
+// compare, then reject once the baked-in expiry has passed. A tampered or
+// expired cookie fails closed (returns false -> the request is re-challenged).
+async function verifyCookie(value: string, password: string): Promise<boolean> {
+  const dot = value.lastIndexOf(".");
+  if (dot <= 0) return false;
+  const b64 = value.slice(0, dot);
+  const mac = value.slice(dot + 1);
+  const enc = new TextEncoder();
+  const key = await signingKey(password);
+  const expected = toHex(new Uint8Array(await crypto.subtle.sign("HMAC", key, enc.encode(b64))));
+  if (!constantTimeEqual(mac, expected)) return false;
+  // MAC verified: the payload is authentic, so its expiry can be trusted.
+  let payload: string;
+  try {
+    payload = new TextDecoder().decode(fromBase64url(b64));
+  } catch {
+    return false;
+  }
+  const exp = Number(payload.split(".")[1]);
+  if (!Number.isFinite(exp)) return false;
+  return Math.floor(Date.now() / 1000) < exp;
+}
+// ---- end session cookie ----------------------------------------------------
 
 function loginPage(wrongPassword: boolean): Response {
   const err = wrongPassword
@@ -267,12 +364,10 @@ export default async (request: Request, context: Context) => {
     pathname === "/evidence-network.html"
   ) return context.next();
 
-  const want = await sessionToken(password);
-
-  // 1) Session cookie from a previous login.
+  // 1) Session cookie from a previous login (signed + expiry-checked).
   const cookies = request.headers.get("cookie") || "";
-  const m = cookies.match(/(?:^|;\s*)cc_gate=([a-f0-9]{64})/);
-  if (m && m[1] === want) return context.next();
+  const m = cookies.match(/(?:^|;\s*)cc_gate=([A-Za-z0-9._-]+)/);
+  if (m && await verifyCookie(m[1], password)) return context.next();
 
   // 2) Basic Auth header (curl / automation; any username, password checked).
   //    Valid credentials bypass the throttle store entirely (zero added
@@ -283,7 +378,7 @@ export default async (request: Request, context: Context) => {
     let ok = false;
     try {
       const decoded = atob(got.slice(6));
-      ok = decoded.slice(decoded.indexOf(":") + 1) === password;
+      ok = constantTimeEqual(decoded.slice(decoded.indexOf(":") + 1), password);
     } catch { /* malformed header — counts as a failed attempt */ }
     if (ok) return context.next();
     const { throttled, retryAfterSec } = await throttleFailed(clientIp(request, context));
@@ -304,13 +399,14 @@ export default async (request: Request, context: Context) => {
     const form = await request.formData().catch(() => null);
     if (form && form.get("__cc_gate") === "1") {
       const ip = clientIp(request, context);
-      if (String(form.get("password") ?? "") === password) {
+      if (constantTimeEqual(String(form.get("password") ?? ""), password)) {
         await clearThrottle(ip); // success resets the failure counter
+        const cookie = await mintCookie(password);
         return new Response(null, {
           status: 303,
           headers: {
             Location: pathname,
-            "Set-Cookie": `${COOKIE}=${want}; Path=/; Max-Age=${COOKIE_MAX_AGE}; HttpOnly; Secure; SameSite=Lax`,
+            "Set-Cookie": `${COOKIE}=${cookie}; Path=/; Max-Age=${COOKIE_MAX_AGE}; HttpOnly; Secure; SameSite=Lax`,
           },
         });
       }

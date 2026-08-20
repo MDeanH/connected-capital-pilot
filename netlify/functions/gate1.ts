@@ -14,13 +14,21 @@
 // preview-batch keep body.posture as a what-if override.
 
 import type { Config, Context } from '@netlify/functions'
-import { identityFromRequest, requireAdmin } from './lib/auth.ts'
+import { identityFromRequest, requireAccount, requireAdmin } from './lib/auth.ts'
 import { computeGate1, DEFAULT_CONFIG } from './lib/gate1/preview.ts'
 import type { DealFields, Gate1Config, JudgmentAdjustment, Posture } from './lib/gate1/types.ts'
 import { serviceClient } from './lib/supabase.ts'
 
 const json = (status: number, obj: unknown) =>
   new Response(JSON.stringify(obj), { status, headers: { 'Content-Type': 'application/json' } })
+
+// Postgres error strings name tables/columns/constraints — never surface them.
+// Log the raw message server-side; hand the client a generic, operation-scoped
+// one. PostgREST resolves errors as { error }, so `error` here never threw.
+const dbFail = (clientMsg: string, error: { message?: string }, where: string): Response => {
+  console.error(`gate1: ${where} failed — ${error?.message ?? 'unknown error'}`)
+  return json(500, { error: clientMsg })
+}
 
 type Db = NonNullable<ReturnType<typeof serviceClient>>
 
@@ -284,7 +292,7 @@ async function listDecisions(url: URL): Promise<Response> {
     .order('created_at', { ascending: false })
     .order('id', { ascending: false })
     .limit(limit + 1)
-  if (error) return json(500, { error: error.message })
+  if (error) return dbFail('Could not load decisions — try again', error, 'GET decisions')
   const hasMore = (data ?? []).length > limit
   const decisions = (data ?? []).slice(0, limit).map((r: any) => ({
     id: r.id,
@@ -317,11 +325,15 @@ export default async (req: Request, context: Context): Promise<Response> => {
     const db = serviceClient()
     if (!db) return json(503, { error: 'Persistence not configured (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY)' })
     const { error, count } = await db.from('gate_decisions').delete({ count: 'exact' }).eq('id', decisionId)
-    if (error) return json(500, { error: error.message })
+    if (error) return dbFail('Could not delete the decision — try again', error, 'DELETE decision')
     return count ? json(200, { ok: true }) : json(404, { error: 'Decision not found' })
   }
   if (url.pathname.endsWith('/decisions')) {
     if (req.method !== 'GET') return new Response('Method not allowed', { status: 405 })
+    // Data-surface identity gate: a no-op unless accounts are switched on, then
+    // reading the decision ledger demands a valid, non-disabled identity.
+    const access = await requireAccount(req)
+    if (access.response) return access.response
     return listDecisions(url)
   }
   if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 })
@@ -348,6 +360,16 @@ export default async (req: Request, context: Context): Promise<Response> => {
 
   if (url.pathname.endsWith('/preview-batch')) return previewBatch(body)
   const action = url.pathname.endsWith('/decide') ? 'decide' : 'preview'
+
+  // Data-surface identity gate — decide only (preview/preview-batch stay open,
+  // stateless). A no-op unless accounts are switched on, then recording a
+  // decision demands a valid, non-disabled identity. Attribution still resolves
+  // its own identity below, so a signed-in user is credited even with the flag
+  // off; this only decides whether an unauthenticated decide is refused.
+  if (action === 'decide') {
+    const access = await requireAccount(req)
+    if (access.response) return access.response
+  }
 
   const fields = body.fields as DealFields | undefined
   if (!fields || typeof fields !== 'object' || !fields.asset_class) {
@@ -559,6 +581,9 @@ export default async (req: Request, context: Context): Promise<Response> => {
     .select('id, created_at')
     .single()
   if (error) {
+    // Raw Postgres text names tables/columns/constraints — log it server-side,
+    // never in the client response.
+    console.error(`gate1: decide ledger insert failed — ${error.message}`)
     // The ledger insert failed and no dealId reaches the client, so a retry
     // would mint another empty duplicate deal. Best-effort delete the deals
     // row — but ONLY one minted by THIS request: born this request, it cannot
@@ -574,12 +599,12 @@ export default async (req: Request, context: Context): Promise<Response> => {
       if (cleanupError) {
         console.error(`gate1: rollback of deal ${dealId} failed after ledger insert error — ${cleanupError.message}`)
         return json(500, {
-          error: `Failed to record decision: ${error.message}`,
+          error: 'Could not record the decision — try again',
           warning: `A partially created deal (${dealId}) could not be cleaned up and may remain — retrying may create a duplicate deal`,
         })
       }
     }
-    return json(500, { error: `Failed to record decision: ${error.message}` })
+    return json(500, { error: 'Could not record the decision — try again' })
   }
 
   // Wave-A follow-through: the client minted extractionId at upload time (the
@@ -594,7 +619,14 @@ export default async (req: Request, context: Context): Promise<Response> => {
     typeof body.extractionId === 'string' && UUID_RE.test(body.extractionId) ? body.extractionId : null
   if (dealId && extractionId) {
     try {
-      await db.from('extractions').update({ deal_id: dealId }).eq('id', extractionId)
+      // Stamp ONLY an as-yet-unlinked extraction. The fresh-upload flow mints
+      // the row with deal_id null (see extract-run-background.ts), so the
+      // .is('deal_id', null) guard leaves that path working while refusing to
+      // re-point a row already tied to another deal — otherwise a caller who
+      // learned someone else's extraction UUID could hijack its linkage. A row
+      // already tied to a DIFFERENT deal simply matches zero rows (no error);
+      // best-effort by contract, so a 0-row update never blocks the response.
+      await db.from('extractions').update({ deal_id: dealId }).eq('id', extractionId).is('deal_id', null)
     } catch { /* best effort — never blocks the ledger write */ }
   }
 

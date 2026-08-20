@@ -115,11 +115,21 @@ export default async (req: Request): Promise<Response | void> => {
           discrepancies: result.discrepancies,
           completed_at: completedAt,
         })
-        provenance = error ? `failed: ${error.message}` : 'stored'
+        // The raw PostgREST message can echo row values (extracted deal
+        // content) and is served on the done record — keep it server-side only
+        // and store a generic marker (nothing client-side parses this field).
+        if (error) {
+          console.error('extract-run-background: provenance insert failed for', id, error.message)
+          provenance = 'failed'
+        } else {
+          provenance = 'stored'
+        }
       } catch (e: any) {
         // Transport-level rejection (fetch failed before PostgREST answered) —
-        // same policy: record it on the done blob, don't fail the extraction.
-        provenance = `failed: ${String(e?.message ?? e)}`
+        // same policy: record a generic failure on the done blob, log detail
+        // server-side, and don't fail the extraction.
+        console.error('extract-run-background: provenance insert threw for', id, e)
+        provenance = 'failed'
       }
     }
     // db-null deploys (the public client site) take the no-provenance branch:
@@ -132,8 +142,16 @@ export default async (req: Request): Promise<Response | void> => {
       ...(provenance ? { provenance } : {}),
     })
   } catch (e: any) {
+    // The thrown error may be a JSON.parse SyntaxError over TRUNCATED model
+    // output — its message can carry a fragment of the confidential extracted
+    // text. Never echo it onto the served record: log the detail server-side
+    // and store a generic failure message for the client.
+    console.error('extract-run-background: extraction failed for', id, e)
     try {
-      await store.setJSON(id || 'unknown', { status: 'error', error: String(e?.message ?? e) })
+      await store.setJSON(id || 'unknown', {
+        status: 'error',
+        error: 'Extraction failed while processing the documents — please resubmit',
+      })
     } catch {
       console.error('extract-run-background: failed to record error for', id, e)
     }
