@@ -512,9 +512,34 @@ export function configShapeError(c: any): string | null {
       return `macro signal "${need.id}" must have direction "${need.direction}" (got ${JSON.stringify(s.direction)}) — the macro engine consumes it by role: ${need.role}, so this signal's tightening direction is fixed by its meaning; a flipped direction (even with bands reordered to match) inverts its vote in the weighted regime score`
     }
   }
+  // signalWeights is a LEGACY MIRROR of signals[].weight — the ThresholdConfig
+  // editor writes both in lockstep (src/ThresholdConfig.tsx: "keep the legacy
+  // weight map in lockstep"), but the macro engine (computeMacroSnapshot in
+  // lib/gate1/macro.ts) reads each signal's weight EXCLUSIVELY from the signal
+  // object's .weight and never consults signalWeights. So a config whose
+  // signalWeights disagrees with signals[].weight persists two contradictory
+  // weightings, only the latter affecting the vote tally and regime score — e.g.
+  // signalWeights.gdp=0 while signals[gdp].weight=10 activates fine yet gdp still
+  // votes at full weight. Enforce the mirror as an exact 1:1: every signal id
+  // present in signalWeights with an EQUAL value, and no signalWeights key that
+  // isn't a signal id. This codifies the editor's existing behavior and keeps the
+  // map part of the saved contract (the shipped default and the seeded v1 both
+  // carry signalWeights already equal to signals[].weight, so both pass).
+  const signalWeightById = new Map<string, number>(m.signals.map((s: any) => [s.id, s.weight]))
   for (const [id, w] of Object.entries(m.signalWeights)) {
     if (!finite(w) || (w as number) < 0) {
       return `macro signalWeights["${id}"] must be a finite number >= 0`
+    }
+    if (!signalWeightById.has(id)) {
+      return `macro signalWeights has key "${id}" that is not a signal id — signalWeights mirrors signals[].weight exactly (the editor keeps them in lockstep and the engine reads only signals[].weight), so it may carry no extra keys; keys must be one of: ${[...signalWeightById.keys()].join(', ')}`
+    }
+    if (signalWeightById.get(id) !== (w as number)) {
+      return `macro signalWeights["${id}"] is ${w} but signals[].weight for "${id}" is ${signalWeightById.get(id)} — signalWeights is a legacy mirror of signals[].weight and the macro engine reads only signals[].weight, so the two must be equal or the config persists two contradictory weightings for "${id}"`
+    }
+  }
+  for (const id of signalWeightById.keys()) {
+    if (!(id in m.signalWeights)) {
+      return `macro signal "${id}" is missing from signalWeights — signalWeights mirrors signals[].weight exactly (every signal id present with an equal value), so a signal absent from the map leaves the two representations out of sync`
     }
   }
   // computeMacroSnapshot (lib/gate1/macro.ts) flags a snapshot degraded when
@@ -728,7 +753,17 @@ export default async (req: Request, _context: Context): Promise<Response> => {
     if (error) return json(503, { error: 'Could not load the config version list — try again' })
     rows = data ?? []
   }
-  return json(200, [...rows, { version: 0, note: VERSION_ZERO.note, author: null }])
+  // Append the synthetic default v0 ONLY when the ledger returned no real
+  // version-0 row. gate1.ts self-heals a genuine threshold_configs v0 row into
+  // the ledger after the first persisted decision (its version-0 self-heal), so
+  // once any decision exists the query already returns version 0 — appending a
+  // synthetic one on top would list version 0 twice in every such database. A
+  // fresh database (no rows at all, hence no version-0 row) still gets the
+  // synthetic v0, so every environment lists a version 0 exactly once. Rows are
+  // ordered version-descending, so the stored v0 already sorts last and the
+  // synthetic append lands last too — the ordering is identical either way.
+  const hasStoredZero = rows.some((r) => r.version === 0)
+  return json(200, hasStoredZero ? rows : [...rows, { version: 0, note: VERSION_ZERO.note, author: null }])
 }
 
 export const config: Config = {

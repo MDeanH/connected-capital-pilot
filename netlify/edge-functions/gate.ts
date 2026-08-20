@@ -3,9 +3,12 @@
 // OPT-IN BY ENV: when PILOT_PASSWORD is not set, pages are served ungated —
 // the public client site (no Supabase, no password) stays fully open. But the
 // privileged state fails CLOSED: if a site has SUPABASE_SERVICE_ROLE_KEY and
-// no PILOT_PASSWORD, every /api/* path returns 503 until the password is set,
-// so deletes, rulebook writes, macro overrides and the deal ledger can never
-// be publicly reachable. Likewise for paid model spend: ANTHROPIC_API_KEY on
+// no PILOT_PASSWORD, every privileged path returns 503 until the password is
+// set — both the public /api/* routes AND the internal /.netlify/functions/*
+// namespace Netlify also exposes each function at — so deletes, rulebook writes,
+// macro overrides and the deal ledger can never be publicly reachable (a check
+// on /api/* alone would leave the identical function reachable at its internal
+// path). Likewise for paid model spend: ANTHROPIC_API_KEY on
 // an open site 503s the extraction paths (/api/extract, /api/extract-run,
 // /api/extractions/*) unless the operator explicitly opts in by setting
 // PUBLIC_EXTRACTION=allow (the public client site's rate-limited demo runs
@@ -21,13 +24,15 @@
 // Basic Auth is STILL accepted as a header (curl/automation compatibility).
 //
 // Session: a correct login sets an HttpOnly cookie carrying an issued-at and
-// an expiry, signed (HMAC-SHA-256) with a key that is NOT the raw password —
-// GATE_SIGNING_SECRET when set, otherwise a value derived from the password via
-// a fixed-salt HMAC. Because the signed message always includes the expiry, a
-// captured cookie is never a constant-message oracle for brute-forcing the key
-// offline; the server also rejects the cookie once its 30-day expiry passes.
-// (Changing PILOT_PASSWORD or GATE_SIGNING_SECRET invalidates outstanding
-// cookies.) The landing page stays shareable without credentials.
+// an expiry, signed (HMAC-SHA-256) with GATE_SIGNING_SECRET — an independent,
+// high-entropy secret that is REQUIRED whenever the gate is active. The key is
+// never derived from the password: a password-derived key would turn a captured
+// cookie into an offline password oracle (guess password -> derive key ->
+// recompute MAC). If GATE_SIGNING_SECRET is unset the gate fails closed (503 on
+// gated paths, no cookie issued) rather than fall back to the password. The
+// server also rejects the cookie once its 30-day expiry passes. (Changing
+// GATE_SIGNING_SECRET invalidates outstanding cookies.) The landing page stays
+// shareable without credentials.
 //
 // Brute-force throttle: FAILED password attempts (wrong form POST, wrong or
 // malformed Basic Auth header) are counted per client IP in a Netlify Blobs
@@ -171,36 +176,25 @@ p{margin:0 0 12px;color:var(--muted);font-size:13.5px;line-height:1.55}
 
 // ---- session cookie: signed, expiring, and NOT a password oracle -----------
 // The cookie is a stateless token of the form base64url(payload).hex(hmac).
-// The payload carries an issued-at and an expiry; the HMAC is keyed on a secret
-// that is NOT the raw pilot password. Because the signed message always carries
-// a fresh expiry (never a fixed constant), a captured cookie cannot be replayed
-// through an offline brute-force to recover the signing key — and, crucially,
-// the key is not the password, so even that would not yield PILOT_PASSWORD.
+// The payload carries an issued-at and an expiry; the HMAC is keyed on the
+// dedicated GATE_SIGNING_SECRET, which is independent of the pilot password.
+// Because the key is not derived from the password, a captured cookie is never
+// an offline oracle for PILOT_PASSWORD; the gate refuses to operate (503 on
+// gated paths) when GATE_SIGNING_SECRET is unset rather than fall back to a
+// password-derived key.
 
-// The HMAC key: GATE_SIGNING_SECRET when present, otherwise a value DERIVED
-// from the password (fixed-salt HMAC) — never the raw password as the key, so
-// a captured cookie is not an oracle for the password itself.
-async function signingKey(password: string): Promise<CryptoKey> {
-  const enc = new TextEncoder();
-  const secret = Netlify.env.get("GATE_SIGNING_SECRET");
-  // Key material: the dedicated signing secret when set, otherwise raw bytes
-  // DERIVED from the password (never the raw password as the HMAC key).
-  const material = secret
-    ? enc.encode(secret)
-    : new Uint8Array(await deriveKeyBytes(password));
+// The HMAC key material is GATE_SIGNING_SECRET — an independent, high-entropy
+// value that is REQUIRED whenever the gate is active. There is NO password-
+// derived fallback: deriving the key from PILOT_PASSWORD would make a captured
+// cookie an offline password oracle (guess password -> derive key -> recompute
+// MAC -> compare, with the brute-force throttle never in the loop). The handler
+// returns 503 on gated paths when GATE_SIGNING_SECRET is unset, so by the time
+// a cookie is minted or verified the secret is guaranteed present.
+async function signingKey(secret: string): Promise<CryptoKey> {
+  const material = new TextEncoder().encode(secret);
   return crypto.subtle.importKey(
     "raw", material, { name: "HMAC", hash: "SHA-256" }, false, ["sign"],
   );
-}
-
-// Derive raw signing-key bytes from the password via a fixed-salt HMAC, so the
-// cookie is signed with a key that is not the password itself.
-async function deriveKeyBytes(password: string): Promise<ArrayBuffer> {
-  const enc = new TextEncoder();
-  const pwKey = await crypto.subtle.importKey(
-    "raw", enc.encode(password), { name: "HMAC", hash: "SHA-256" }, false, ["sign"],
-  );
-  return crypto.subtle.sign("HMAC", pwKey, enc.encode("cc-gate-key-derivation-v1"));
 }
 
 function base64url(bytes: Uint8Array): string {
@@ -236,12 +230,12 @@ function constantTimeEqual(a: string, b: string): boolean {
 // Mint a fresh cookie value for a successful login. The 30-day lifetime is
 // baked into the signed payload; COOKIE_MAX_AGE keeps the browser Max-Age in
 // step with the server-checked expiry.
-async function mintCookie(password: string): Promise<string> {
+async function mintCookie(secret: string): Promise<string> {
   const enc = new TextEncoder();
   const iat = Math.floor(Date.now() / 1000);
   const exp = iat + COOKIE_MAX_AGE;
   const b64 = base64url(enc.encode(`${iat}.${exp}`));
-  const key = await signingKey(password);
+  const key = await signingKey(secret);
   const sig = new Uint8Array(await crypto.subtle.sign("HMAC", key, enc.encode(b64)));
   return `${b64}.${toHex(sig)}`;
 }
@@ -249,13 +243,13 @@ async function mintCookie(password: string): Promise<string> {
 // Verify a cookie value: recompute the MAC over the payload, constant-time
 // compare, then reject once the baked-in expiry has passed. A tampered or
 // expired cookie fails closed (returns false -> the request is re-challenged).
-async function verifyCookie(value: string, password: string): Promise<boolean> {
+async function verifyCookie(value: string, secret: string): Promise<boolean> {
   const dot = value.lastIndexOf(".");
   if (dot <= 0) return false;
   const b64 = value.slice(0, dot);
   const mac = value.slice(dot + 1);
   const enc = new TextEncoder();
-  const key = await signingKey(password);
+  const key = await signingKey(secret);
   const expected = toHex(new Uint8Array(await crypto.subtle.sign("HMAC", key, enc.encode(b64))));
   if (!constantTimeEqual(mac, expected)) return false;
   // MAC verified: the payload is authentic, so its expiry can be trusted.
@@ -321,6 +315,35 @@ ${err}
   });
 }
 
+// A "privileged" (non-public) path is anything on the /api/* surface OR the
+// internal /.netlify/functions/<name> namespace that Netlify also exposes each
+// function at. A fail-closed check that only matched /api/* would leave the
+// identical function reachable, unauthenticated, at its internal path. The
+// exempt PUBLIC set (/, /how-it-works.html, /evidence-network.html, static
+// assets) matches neither prefix, so this predicate is false for them.
+function isPrivilegedPath(pathname: string): boolean {
+  return pathname.startsWith("/api/") || pathname.startsWith("/.netlify/functions/");
+}
+
+// The paid-extraction surface, in BOTH namespaces. Public routes and the
+// internal function paths they map to:
+//   /api/extract       <- extract-submit
+//   /api/extract-run   <- extract-run-background
+//   /api/extractions/* <- extractions
+// (extractions-reaper is a Supabase-only cron with no Anthropic spend; it needs
+// no Anthropic fail-closed and is already covered by isPrivilegedPath.)
+function isExtractionPath(pathname: string): boolean {
+  return (
+    pathname === "/api/extract" ||
+    pathname === "/api/extract-run" ||
+    pathname.startsWith("/api/extractions") ||
+    pathname === "/.netlify/functions/extract-submit" ||
+    pathname === "/.netlify/functions/extract-run-background" ||
+    pathname === "/.netlify/functions/extractions" ||
+    pathname.startsWith("/.netlify/functions/extractions/")
+  );
+}
+
 export default async (request: Request, context: Context) => {
   const password = Netlify.env.get("PILOT_PASSWORD") || "";
   const { pathname } = new URL(request.url);
@@ -328,9 +351,10 @@ export default async (request: Request, context: Context) => {
   if (!password) {
     // Fail closed on the privileged state only: Supabase credentials without a
     // password must not leave the API (deletes, rulebook writes, macro
-    // overrides, the ledger) publicly reachable. Pages stay served, and the
+    // overrides, the ledger) publicly reachable — at either the /api/* route or
+    // the internal /.netlify/functions/* path. Pages stay served, and the
     // public client site (no Supabase either) stays fully open.
-    if (Netlify.env.get("SUPABASE_SERVICE_ROLE_KEY") && pathname.startsWith("/api/")) {
+    if (Netlify.env.get("SUPABASE_SERVICE_ROLE_KEY") && isPrivilegedPath(pathname)) {
       return new Response(
         JSON.stringify({
           error:
@@ -340,12 +364,13 @@ export default async (request: Request, context: Context) => {
       );
     }
     // Same fail-closed default for paid model spend: an Anthropic key on an
-    // open site must not leave extraction publicly invocable by accident.
+    // open site must not leave extraction publicly invocable by accident, at
+    // either the /api/* route or the internal /.netlify/functions/* path.
     // PUBLIC_EXTRACTION=allow is the explicit opt-in for a public demo.
     if (
       Netlify.env.get("ANTHROPIC_API_KEY") &&
       Netlify.env.get("PUBLIC_EXTRACTION") !== "allow" &&
-      (pathname === "/api/extract" || pathname === "/api/extract-run" || pathname.startsWith("/api/extractions"))
+      isExtractionPath(pathname)
     ) {
       return new Response(
         JSON.stringify({
@@ -364,10 +389,27 @@ export default async (request: Request, context: Context) => {
     pathname === "/evidence-network.html"
   ) return context.next();
 
+  // The cookie scheme REQUIRES an independent, high-entropy GATE_SIGNING_SECRET.
+  // Without it the gate cannot mint or verify a session cookie safely — a
+  // password-derived key would make a captured cookie an offline password
+  // oracle — so every gated path fails closed here (no cookie can be issued).
+  // The exempt PUBLIC pages above already returned, so they stay reachable even
+  // in this misconfigured state.
+  const signingSecret = Netlify.env.get("GATE_SIGNING_SECRET");
+  if (!signingSecret) {
+    return new Response(
+      JSON.stringify({
+        error:
+          "Gate misconfigured: this site has PILOT_PASSWORD set but no GATE_SIGNING_SECRET. Set a high-entropy GATE_SIGNING_SECRET to enable sign-in — the gate will not fall back to a password-derived signing key.",
+      }),
+      { status: 503, headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } },
+    );
+  }
+
   // 1) Session cookie from a previous login (signed + expiry-checked).
   const cookies = request.headers.get("cookie") || "";
   const m = cookies.match(/(?:^|;\s*)cc_gate=([A-Za-z0-9._-]+)/);
-  if (m && await verifyCookie(m[1], password)) return context.next();
+  if (m && await verifyCookie(m[1], signingSecret)) return context.next();
 
   // 2) Basic Auth header (curl / automation; any username, password checked).
   //    Valid credentials bypass the throttle store entirely (zero added
@@ -401,7 +443,7 @@ export default async (request: Request, context: Context) => {
       const ip = clientIp(request, context);
       if (constantTimeEqual(String(form.get("password") ?? ""), password)) {
         await clearThrottle(ip); // success resets the failure counter
-        const cookie = await mintCookie(password);
+        const cookie = await mintCookie(signingSecret);
         return new Response(null, {
           status: 303,
           headers: {

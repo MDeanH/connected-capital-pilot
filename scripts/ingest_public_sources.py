@@ -12,7 +12,7 @@ Sources needing API keys or logins are recorded as skipped with the reason.
 
 Usage:
     python scripts/ingest_public_sources.py            # ingest everything feasible
-    python scripts/ingest_public_sources.py --only vix_history,french_factors
+    python scripts/ingest_public_sources.py --only cboe_index_history,french_factors
     python scripts/ingest_public_sources.py --list
 """
 
@@ -596,7 +596,14 @@ def main():
 
     todo = list(SOURCES)
     if args.only:
-        todo = [s.strip() for s in args.only.split(",") if s.strip() in SOURCES]
+        requested = [s.strip() for s in args.only.split(",") if s.strip()]
+        unknown = [s for s in requested if s not in SOURCES]
+        if unknown:
+            print(f"error: unknown --only source id(s): {', '.join(unknown)}", file=sys.stderr)
+            print(f"valid source ids: {', '.join(SOURCES)}", file=sys.stderr)
+            print("(use --list for descriptions)", file=sys.stderr)
+            sys.exit(2)
+        todo = requested
 
     # merge into the existing manifest so partial runs never clobber prior results
     manifest = {"sources": {}, "skipped": SKIPPED}
