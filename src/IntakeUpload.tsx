@@ -4,7 +4,7 @@
 // extraction of the client's example documents) exists so the flow can be
 // demoed before ANTHROPIC_API_KEY is configured.
 import { useEffect, useRef, useState } from 'react'
-import { PENDING_EXTRACTION_KEY, supabase, useIdentity } from './auth'
+import { authFetch, PENDING_EXTRACTION_KEY, supabase, useIdentity } from './auth'
 import { Kicker } from './cc-ui'
 import { docToText } from './docx'
 import { workbookToCsvText } from './excel'
@@ -227,7 +227,7 @@ export default function IntakeUpload({ onExtracted }: Props) {
       let data: any = null
       let expired = false
       try {
-        const p = await fetch(`/api/extractions/${extractionId}`)
+        const p = await authFetch(`/api/extractions/${extractionId}`)
         expired = p.status === 410
         if (!p.ok && !expired) continue // transient server-side hiccup — keep polling
         data = await p.json().catch(() => null)
@@ -282,7 +282,7 @@ export default function IntakeUpload({ onExtracted }: Props) {
     clearPending() // a fresh submission supersedes any resumable job (state AND storage)
     try {
       const extractionId = crypto.randomUUID()
-      const r = await fetch('/api/extract', {
+      const r = await authFetch('/api/extract', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

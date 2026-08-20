@@ -495,15 +495,34 @@ export function configShapeError(c: any): string | null {
   // — inverting the regime score and every fund-wide posture derived from it,
   // exactly the axis the transform pin above does NOT cover. So each canonical
   // signal's direction is pinned to its meaning here alongside its transform.
+  //
+  // There is one more axis the transform/direction pins leave open: the FRED
+  // SOURCE id. fetchSeriesMap (lib/gate1/fred.ts, driven by macro.ts and
+  // macro-cron.ts via `ids[def.id] = def.fred`) keys the fetched series by SIGNAL
+  // id while pulling whatever FRED series signals[].fred names — so
+  // input.series['gdp'] holds whatever series the gdp signal's fred points at.
+  // The engine then reads those id-keyed slots RAW by their canonical meaning:
+  // the technical-recession override reads input.series['gdp'] as real GDP, the
+  // quadrant reads gdp/core_pce as yoy growth/inflation, and the Sahm override
+  // compares sahm's value against the published 0.5 trigger. A config that keeps
+  // gdp as yoy/high_is_good but repoints its fred at PCEPILFE passes every rule
+  // above yet feeds inflation into the growth override and quadrant (inflation
+  // treated as real growth); sahm repointed off SAHMREALTIME breaks the 0.5
+  // trigger. So each canonical signal's fred source is pinned here too, to the id
+  // the engine's reading assumes (confirmed against default-config.json and the
+  // seeded v1 in supabase/seed.sql — both carry exactly these).
   const ENGINE_SIGNAL_ROLES = [
-    { id: 'sahm', transform: 'level', direction: 'high_is_bad', role: 'the Sahm-rule hard recession override compares its value, as a level, against the published 0.5 trigger' },
-    { id: 'gdp', transform: 'yoy', direction: 'high_is_good', role: 'the quadrant reads its value as yoy real-GDP growth (and its raw series drives the technical-recession override)' },
-    { id: 'core_pce', transform: 'yoy', direction: 'high_is_bad', role: 'the quadrant reads its value as yoy inflation' },
+    { id: 'sahm', fred: 'SAHMREALTIME', transform: 'level', direction: 'high_is_bad', role: 'the Sahm-rule hard recession override compares its value, as a level, against the published 0.5 trigger' },
+    { id: 'gdp', fred: 'GDPC1', transform: 'yoy', direction: 'high_is_good', role: 'the quadrant reads its value as yoy real-GDP growth (and its raw series drives the technical-recession override)' },
+    { id: 'core_pce', fred: 'PCEPILFE', transform: 'yoy', direction: 'high_is_bad', role: 'the quadrant reads its value as yoy inflation' },
   ] as const
   for (const need of ENGINE_SIGNAL_ROLES) {
     const s = m.signals.find((x: any) => x && x.id === need.id)
     if (!s) {
       return `macro signals must include id "${need.id}" — the macro engine (lib/gate1/macro.ts) consumes that exact id: ${need.role}. Without it that engine behavior is silently disabled`
+    }
+    if (s.fred !== need.fred) {
+      return `macro signal "${need.id}" must have fred "${need.fred}" (got ${JSON.stringify(s.fred)}) — the macro engine consumes it by role: ${need.role}, and the fetch keys the series by signal id while pulling whatever FRED series fred names, so a different source silently feeds the wrong series into the exact slot the engine reads (e.g. gdp pointed at PCEPILFE treats inflation as real growth)`
     }
     if (s.transform !== need.transform) {
       return `macro signal "${need.id}" must have transform "${need.transform}" (got ${JSON.stringify(s.transform)}) — the macro engine consumes it by role: ${need.role}, so any other transform feeds the wrong units into that hard-coded comparison`

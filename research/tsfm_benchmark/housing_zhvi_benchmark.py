@@ -55,6 +55,10 @@ REPO = os.path.abspath(os.path.join(HERE, "..", ".."))
 # at another checkout (the original run used an author-machine path).
 MAIN_CHECKOUT = os.environ.get("ADT_CHECKOUT", REPO)
 OUT_DIR = os.path.join(HERE, "housing_results")
+# Sidecar stamped beside summary.csv / dm_tests.csv carrying the same integrity
+# fingerprint, so a consumer (bake_market_path.py) can confirm the report-stage
+# metrics were produced from the same inputs as baselines.json / tsfm.json.
+REPORT_META = "report.meta.json"
 
 L = 120          # context, months (10y)
 H = 12           # horizon, months
@@ -274,6 +278,33 @@ def _require_matching_artifacts(base: dict, tsfm: dict) -> None:
                 "between baselines.json and tsfm.json. Re-run --stage tsfm.")
 
 
+def _require_matching_report(base: dict, report_meta: dict | None) -> None:
+    """Fail closed unless the report CSVs were produced from the same inputs as
+    baselines.json. bake_market_path.py reads summary.csv / dm_tests.csv to decide
+    each market's gatePassed (p<0.05 and rMAE<1), but those CSVs carry no
+    fingerprint of their own. This checks the report.meta.json sidecar that
+    stage_report() stamps beside them: without it, re-running --stage baselines +
+    --stage tsfm after a data / date / protocol change while skipping --stage
+    report would leave stale p-values / rMAE deciding the shipped tilt while the
+    baselines/tsfm fingerprint guard still passed. Same fail-closed contract as
+    _require_matching_artifacts()."""
+    base_fp = base.get("fingerprint")
+    report_fp = (report_meta or {}).get("fingerprint")
+    if not base_fp or not report_fp:
+        raise SystemExit(
+            "ABORT: report.meta.json is missing or unstamped (report stage not "
+            "re-run, or produced by an older code revision). Cannot confirm the "
+            "summary.csv / dm_tests.csv metrics match the current baselines/tsfm. "
+            "Re-run --stage report before baking.")
+    if base_fp != report_fp:
+        raise SystemExit(
+            "ABORT (STALE REPORT): report.meta.json fingerprint does not match "
+            f"baselines.json (baselines={base_fp[:12]}..., report={report_fp[:12]}...). "
+            "The summary.csv / dm_tests.csv metrics were computed from different "
+            "data / evaluation dates / protocol than the current forecasts. Re-run "
+            "--stage report before baking.")
+
+
 def stage_report() -> None:
     with open(os.path.join(OUT_DIR, "baselines.json")) as f:
         base = json.load(f)
@@ -369,7 +400,18 @@ def stage_report() -> None:
     dm_df.to_csv(os.path.join(OUT_DIR, "dm_tests.csv"), index=False)
     if len(cov_df):
         cov_df.to_csv(os.path.join(OUT_DIR, "coverage.csv"), index=False)
+
+    # Stamp the report CSVs with the same integrity fingerprint as the artifacts
+    # they were merged from, so a consumer can fail closed on stale metrics. When
+    # tsfm.json is present _require_matching_artifacts() has already confirmed
+    # base and tsfm share this fingerprint, so base's value is canonical.
+    report_fp = base.get("fingerprint")
+    artifacts = ["summary.csv", "dm_tests.csv"] + (["coverage.csv"] if len(cov_df) else [])
+    with open(os.path.join(OUT_DIR, REPORT_META), "w") as f:
+        json.dump({"fingerprint": report_fp, "artifacts": artifacts}, f)
     print("\nwrote summary.csv / dm_tests.csv / coverage.csv in", OUT_DIR)
+    print("wrote", REPORT_META, "fingerprint",
+          report_fp[:12] if report_fp else "MISSING (base.json unstamped)")
 
 
 if __name__ == "__main__":

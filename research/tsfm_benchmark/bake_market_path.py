@@ -56,6 +56,14 @@ def main():
     # prior: same guard stage_report() uses, since this consumer aligns the two
     # by (task, window) with no freshness check of its own.
     hb._require_matching_artifacts(base, tsfm)
+    # dm_tests.csv / summary.csv (read below to decide each market's gatePassed)
+    # carry no fingerprint of their own, so a baselines+tsfm rerun that skipped
+    # --stage report would leave stale p-values / rMAE deciding the shipped tilt
+    # while the guard above still passed. Fail closed unless the report sidecar's
+    # fingerprint matches the artifacts we just verified.
+    meta_path = os.path.join(res, hb.REPORT_META)
+    report_meta = json.load(open(meta_path)) if os.path.exists(meta_path) else None
+    hb._require_matching_report(base, report_meta)
     idx = [tuple(t) for t in tsfm["index"]]
     tf = tsfm["models"][MODEL]
 

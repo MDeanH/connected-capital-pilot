@@ -14,7 +14,35 @@ import { serviceClient } from './lib/supabase.ts'
 // constant locally; none exports it.
 const MAX_SNAPSHOT_AGE_DAYS = 14
 
-export default async (): Promise<Response> => {
+export default async (req: Request): Promise<Response> => {
+  // Scheduler-only guard. This run persists the week's macro posture, and the
+  // same-week duplicate guard below means the FIRST run of a week wins: an early
+  // manual hit by any pilot-cookie holder (an analyst, when REQUIRE_ACCOUNTS is
+  // on) would stamp that week's posture and make the legitimate 13:00-UTC Monday
+  // run skip as a duplicate. So only Netlify's SCHEDULED invocation may run this.
+  //
+  // Netlify v2 scheduled-invocation contract (confirmed against the Netlify
+  // serverless coding-context docs — the @netlify/functions types describe the
+  // schedule config but NOT the request shape): a scheduled invocation carries a
+  // JSON-encoded body with a `next_run` property, the ISO-8601 timestamp of the
+  // next scheduled run (the documented `const { next_run } = await req.json()`
+  // pattern). Ordinary HTTP callers — a browser navigation, a crafted fetch from
+  // a cookie holder — do not carry it. Accept only that signal; reject anything
+  // lacking it with 403. Rejecting on a missing/unparseable body is safe because
+  // `next_run` is a confirmed part of every genuine scheduled call, so the guard
+  // cannot reject a real weekly run.
+  let scheduled = false
+  try {
+    const body = await req.json()
+    scheduled = body != null && typeof body.next_run === 'string' && body.next_run.length > 0
+  } catch {
+    // No body, or one that is not JSON — not a scheduled invocation.
+    scheduled = false
+  }
+  if (!scheduled) {
+    return new Response('Forbidden: macro-cron runs only on the Netlify schedule', { status: 403 })
+  }
+
   const db = serviceClient()
 
   // The date this run's snapshot would carry (computeMacroSnapshot stamps it

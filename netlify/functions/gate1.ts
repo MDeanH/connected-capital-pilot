@@ -14,7 +14,8 @@
 // preview-batch keep body.posture as a what-if override.
 
 import type { Config, Context } from '@netlify/functions'
-import { identityFromRequest, requireAccount, requireAdmin } from './lib/auth.ts'
+import { accountsRequired, identityFromRequest, requireAccount, requireAdmin } from './lib/auth.ts'
+import type { Identity } from './lib/auth.ts'
 import { computeGate1, DEFAULT_CONFIG } from './lib/gate1/preview.ts'
 import type { DealFields, Gate1Config, JudgmentAdjustment, Posture } from './lib/gate1/types.ts'
 import { serviceClient } from './lib/supabase.ts'
@@ -366,9 +367,16 @@ export default async (req: Request, context: Context): Promise<Response> => {
   // decision demands a valid, non-disabled identity. Attribution still resolves
   // its own identity below, so a signed-in user is credited even with the flag
   // off; this only decides whether an unauthenticated decide is refused.
+  // When enforcement is ON, requireAccount VERIFIES this request's identity here
+  // (a valid, non-disabled Identity, or an early 401/503). Hold onto it so the
+  // attribution stamp below can REUSE it rather than re-resolving — a second
+  // lookup could hit a transient profiles-read blip and flatten a known author
+  // to null, dropping decided_by_email on a decision that was in fact signed in.
+  let accountIdentity: Identity | null = null
   if (action === 'decide') {
     const access = await requireAccount(req)
     if (access.response) return access.response
+    accountIdentity = access.identity ?? null
   }
 
   const fields = body.fields as DealFields | undefined
@@ -497,10 +505,15 @@ export default async (req: Request, context: Context): Promise<Response> => {
     return json(200, { ...payload, persisted: false, warning: 'Supabase not configured — decision computed but NOT recorded' })
   }
 
-  // Attribution only, never a gate: decide stays open to anonymous gate-cookie
-  // users (no Bearer token → null, exactly the pre-auth rows) until Michael
-  // flips the pilot fully to accounts.
-  const identity = await identityFromRequest(req)
+  // Attribution. With enforcement ON, requireAccount already verified this
+  // request's identity above — REUSE it, so a transient profiles-read blip in a
+  // second lookup can't flatten a known author to null and drop
+  // decided_by_email on an authenticated decision. With enforcement OFF (the
+  // default), decide stays open to anonymous gate-cookie users (no Bearer token
+  // → null, exactly the pre-auth rows), so fall back to the best-effort
+  // attribution lookup — a transient failure there still just yields an
+  // unattributed row, never a blocked write.
+  const identity = accountsRequired() ? accountIdentity : await identityFromRequest(req)
 
   // The ledger FK requires the stamped config version to exist as a ROW, but
   // version 0 is deploy-baked and never saved. Self-heal: on a fresh database

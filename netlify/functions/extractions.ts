@@ -5,6 +5,7 @@
 // have started); the client owns the give-up timeout.
 import type { Config, Context } from '@netlify/functions'
 import { getStore } from '@netlify/blobs'
+import { requireAccount } from './lib/auth.ts'
 
 // EXPIRY — privacy rationale. Terminal result blobs hold extracted deal
 // fields, verbatim citation quotes from the sponsor's documents, and
@@ -38,6 +39,13 @@ const expired = () =>
 
 export default async (req: Request, context: Context): Promise<Response> => {
   if (req.method !== 'GET') return new Response('Method not allowed', { status: 405 })
+  // Result polling returns extracted deal fields and verbatim citation quotes —
+  // confidential deal content. Gate it with the same account check as the submit
+  // entry so, with accounts on (REQUIRE_ACCOUNTS=1 + Supabase), a signed-out or
+  // disabled cookie holder cannot read another analyst's extraction. A no-op
+  // ({ identity: null }, today's behavior) when accounts are off.
+  const access = await requireAccount(req)
+  if (access.response) return access.response
   const id = String((context.params as any)?.id ?? '').trim()
   // Ids are Blobs keys; require the canonical v4 UUID the client mints so a
   // request can never read a reserved 'payload-<id>' staged-document blob (the

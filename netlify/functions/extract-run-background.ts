@@ -68,7 +68,13 @@ export default async (req: Request): Promise<Response | void> => {
     if (!claim.modified) return // lost the race — another worker owns this job
     claimed = true
 
-    const payload = (await store.get(`payload-${id}`, { type: 'json' })) as ExtractRequest | null
+    // Strong read, same as the status-record read above: extract-submit writes
+    // payload-<id> then immediately triggers this worker, so an
+    // eventually-consistent get can miss the just-written payload and return
+    // null even though the claim was won — publishing a terminal 'documents not
+    // found' and then DELETING the payload in finally, turning a paid
+    // extraction into an unrecoverable error.
+    const payload = (await store.get(`payload-${id}`, { type: 'json', consistency: 'strong' })) as ExtractRequest | null
     if (!payload) {
       await store.setJSON(id, { status: 'error', error: 'Staged documents not found — resubmit the extraction' })
       return

@@ -9,6 +9,7 @@
 import { createHmac } from 'node:crypto'
 import type { Config } from '@netlify/functions'
 import { getStore } from '@netlify/blobs'
+import { requireAccount } from './lib/auth.ts'
 import type { ExtractRequest } from './lib/gate1/extract-core.ts'
 
 const MAX_BODY_BYTES = 4_500_000
@@ -81,6 +82,16 @@ async function bumpDailyCount(): Promise<void> {
 
 export default async (req: Request): Promise<Response> => {
   if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 })
+
+  // Data-surface identity gate — a no-op ({ identity: null }, today's behavior)
+  // unless accounts are switched on (REQUIRE_ACCOUNTS=1 with Supabase
+  // configured); then submitting a PAID extraction demands a valid,
+  // non-disabled identity, matching the deals / macro / decisions surfaces so
+  // disabling a user revokes their extraction access. The recorded-sample demo
+  // never hits this endpoint, so that flow is unaffected. The worker trigger
+  // (/api/extract-run) is HMAC-authenticated, not gated here.
+  const access = await requireAccount(req)
+  if (access.response) return access.response
 
   const raw = await req.text()
   if (raw.length > MAX_BODY_BYTES) {

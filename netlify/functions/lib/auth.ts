@@ -50,6 +50,20 @@ type ResolvedIdentity =
   | { identity: Identity | null; indeterminate?: never }
   | { indeterminate: true; identity?: never }
 
+/**
+ * Tell a TRANSIENT getUser() failure (retry) apart from a genuine token verdict
+ * (sign in again). supabase-js resolves both as a returned { error }: an
+ * AuthError whose `status` is the HTTP status of the auth backend's response, or
+ * 0/undefined when the request never reached it (a network failure — see
+ * AuthRetryableFetchError, constructed with status 0). A 5xx or a zero/absent
+ * status is transport failure → retryable; a 4xx (401/403/400 — the
+ * invalid/expired/malformed-token verdicts) is definitive → not retryable.
+ */
+const getUserErrorIsRetryable = (error: { status?: number } | null | undefined): boolean => {
+  const status = error?.status
+  return typeof status !== 'number' || status === 0 || status >= 500
+}
+
 async function resolveIdentity(req: Request): Promise<ResolvedIdentity> {
   const db = serviceClient()
   if (!db) return { identity: null }
@@ -62,12 +76,25 @@ async function resolveIdentity(req: Request): Promise<ResolvedIdentity> {
   let email: string
   try {
     const { data, error } = await db.auth.getUser(token)
+    if (error) {
+      // Mirror the profiles-read handling: a RETRYABLE getUser failure (network
+      // / auth backend 5xx) is a transient transport error, not a token verdict.
+      // Surface it as indeterminate so the gate answers 503 and the client's
+      // bounded retry re-attempts, instead of flashing a valid session as
+      // "sign in required" (a false 401). A genuine invalid/expired JWT (4xx)
+      // stays a definitive absence → { identity: null } → 401.
+      if (getUserErrorIsRetryable(error)) return { indeterminate: true }
+      return { identity: null }
+    }
     // A verified user without an email can never match a profile — treat as anonymous.
-    if (error || !data.user?.email) return { identity: null }
+    if (!data.user?.email) return { identity: null }
     userId = data.user.id
     email = data.user.email
   } catch {
-    return { identity: null }
+    // supabase-js normally resolves { error }, but a DNS/socket failure can still
+    // throw — a transport failure, not a token verdict, so indeterminate (503 →
+    // retry), never a false 401.
+    return { indeterminate: true }
   }
 
   const { data: profile, error: profileError } = await db
