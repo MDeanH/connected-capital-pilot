@@ -70,6 +70,15 @@ export interface ExtractionResult {
   model?: string
   recorded?: boolean
   /**
+   * Audit-persistence outcome, set by the background worker on the served
+   * 'done' record: 'stored' = the extraction row (model, citations,
+   * discrepancies) landed in Supabase; 'failed' = that insert failed, so the
+   * extracted values are usable but UNAUDITED and a decision recorded now won't
+   * link to a stored extraction. Absent on db-null deploys (the field is
+   * omitted) and on the recorded sample. Never produced by the extractor.
+   */
+  provenance?: 'stored' | 'failed'
+  /**
    * Client-generated extraction id (crypto.randomUUID()), attached client-side
    * when the result is handed to the app so the decide call can link the
    * persisted extractions row to a deal. Never produced by the extractor and

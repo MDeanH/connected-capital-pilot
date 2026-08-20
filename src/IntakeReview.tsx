@@ -17,6 +17,13 @@ interface Props {
   missingKeys: string[]
   /** Per-field extraction metadata (confidence + source citation), when an extraction ran. */
   meta?: Record<string, ExtractedField>
+  /**
+   * Audit-persistence outcome of a LIVE extraction. 'failed' means the server
+   * could not save this extraction's audit row (model, citations,
+   * discrepancies) — the values below stay usable, but they are unaudited.
+   * Undefined on db-null deploys and the recorded sample (no warning shown).
+   */
+  provenance?: 'stored' | 'failed'
 }
 
 function confidenceLevel(ex: ExtractedField | undefined): 'high' | 'med' | 'low' | null {
@@ -90,7 +97,7 @@ function FieldInput({ f, value, onChange }: {
   )
 }
 
-export default function IntakeReview({ fields, onChange, missingKeys, meta }: Props) {
+export default function IntakeReview({ fields, onChange, missingKeys, meta, provenance }: Props) {
   const missing = new Set(missingKeys)
   const allDefs = FIELD_GROUPS.flatMap(g => g.fields)
   const missingLabels = allDefs.filter(f => missing.has(f.key)).map(f => f.label)
@@ -120,6 +127,15 @@ export default function IntakeReview({ fields, onChange, missingKeys, meta }: Pr
           </p>
         )}
       </div>
+      {provenance === 'failed' && (
+        <div role="alert" className="card ir-provwarn">
+          <b>Audit record not saved.</b> This extraction ran and the values below are
+          usable for scoring, but its audit row — the model, citations, and cross-document
+          discrepancies — could <b>not</b> be stored. The extracted values are therefore
+          <b> unaudited</b>, and a decision you record now won't link back to a saved
+          extraction. Re-run the extraction if you need a persisted audit trail.
+        </div>
+      )}
       {missingLabels.length > 0 && (
         <div role="status" className="card ir-attention">
           <b>The documents didn't answer ({missingLabels.length}):</b> {missingLabels.join(', ')}
@@ -176,6 +192,7 @@ const CSS = `
 .ir-summary b{font-weight:600}
 .ir-cite{margin-left:.5rem;display:inline-block;vertical-align:middle}
 .ir-attention{background:#fbf3df;border-color:#f0e0b0;color:#5b4a16;font-size:.85rem;padding:1rem 1.25rem;margin-bottom:1.25rem;line-height:1.6}
+.ir-provwarn{background:#fbe9e7;border-color:#e0a8a1;border-left:4px solid #c2384a;color:#7a2320;font-size:.85rem;padding:1rem 1.25rem;margin-bottom:1.25rem;line-height:1.6}
 .ir-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1.5rem;align-items:start}
 .ir-group{padding:1.5rem}
 .ir-group h3{font-size:12px;letter-spacing:.08em;text-transform:uppercase;margin:0 0 .75rem;font-weight:600}

@@ -10,7 +10,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Kicker, PostureChip } from './cc-ui'
 import { fmtNumber } from './format'
-import { authFetch, type AdminFlag } from './auth'
+import { authFetch, useIdentity, type AdminFlag } from './auth'
 import type { GateVerdict, Posture } from './deal-types'
 
 interface DecisionRow {
@@ -38,6 +38,12 @@ export default function DealHistory({ isAdmin }: { isAdmin: AdminFlag }) {
   // Deletes are admin-only where auth is on; 'auth-off' keeps them visible
   // for everyone, exactly as before auth existed.
   const canDelete = isAdmin !== false
+  // GET /api/gate1/decisions is identity-gated (requireAccount) when accounts
+  // are on, so the reads below go through authFetch and re-run when the signed-in
+  // identity changes — a visitor who signs in after the initial anonymous load
+  // recovers the history without a reload. userId stays null in auth-off builds,
+  // so the load effect fires exactly once there, as before.
+  const { userId } = useIdentity()
   const [rows, setRows] = useState<DecisionRow[] | null>(null)
   const [hasMore, setHasMore] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -60,7 +66,7 @@ export default function DealHistory({ isAdmin }: { isAdmin: AdminFlag }) {
     setDegraded(false)
     setHasMore(false)
     try {
-      const r = await fetch('/api/gate1/decisions')
+      const r = await authFetch('/api/gate1/decisions')
       const ct = r.headers.get('content-type') || ''
       if (!ct.includes('application/json'))
         throw new Error('Decision history needs the deployed API — run `netlify dev` (plain vite has no persistence).')
@@ -89,7 +95,7 @@ export default function DealHistory({ isAdmin }: { isAdmin: AdminFlag }) {
       // Compound cursor (timestamp|id) from the last loaded row: the id
       // tiebreaker keeps rows that share the boundary created_at from being
       // skipped by the server's keyset filter.
-      const r = await fetch(`/api/gate1/decisions?before=${encodeURIComponent(`${oldest.decided_at}|${oldest.id}`)}`)
+      const r = await authFetch(`/api/gate1/decisions?before=${encodeURIComponent(`${oldest.decided_at}|${oldest.id}`)}`)
       const ct = r.headers.get('content-type') || ''
       if (!ct.includes('application/json'))
         throw new Error('Decision history needs the deployed API — run `netlify dev` (plain vite has no persistence).')
@@ -108,7 +114,9 @@ export default function DealHistory({ isAdmin }: { isAdmin: AdminFlag }) {
     }
   }, [rows])
 
-  useEffect(() => { load() }, [load])
+  // Load on mount and re-load when the signed-in identity changes, so a
+  // sign-in after an anonymous (401'd) first load recovers without a reload.
+  useEffect(() => { load() }, [load, userId])
 
   const deleteRow = useCallback(async (r: DecisionRow) => {
     const name = r.deal_name ?? 'this deal'

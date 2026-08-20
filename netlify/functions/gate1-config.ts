@@ -89,6 +89,42 @@ const POSTURE_TIGHTENING_DIRECTION: Record<string, 'up' | 'down'> = {
   land_basis_max: 'down',
 }
 
+// Value DOMAINS for the mini_stress severities, keyed by canonical threshold
+// key. configShapeError otherwise accepts ANY finite value, but these keys have
+// a MEANING (lib/gate1/engine.ts stressedEquityMultiple / the mini_stress case)
+// that fixes their sign: a severity on the wrong side of its domain makes the
+// stressed (hard-kill) case MORE favorable than baseline, so a deal that should
+// FAIL the stress passes. Each row's value is checked against its key's domain
+// (below), so no scope can smuggle an out-of-domain severity in.
+//   stress_hard_cost_bump    — overrun = hard_costs * bump, ADDED to equity;
+//                              a negative bump SHRINKS the stressed equity. >= 0.
+//   stress_exit_cap_bump_bps — stressedCap = exit_cap + bump/1e4; a negative
+//                              bump LOWERS the cap → higher exit value. >= 0.
+//   stress_selling_costs     — netProceeds *= (1 - sellingCosts); a value < 0
+//                              inflates proceeds, and >= 1 zeroes or negates
+//                              them (1 - x <= 0). Domain [0, 1).
+//   stress_em_floor          — the >= pass line the stressed equity multiple is
+//                              graded against; a floor <= 0 lets any nonnegative
+//                              stressed multiple pass the hard kill. > 0.
+const STRESS_SEVERITY_DOMAINS: Record<string, { ok: (v: number) => boolean; range: string }> = {
+  stress_hard_cost_bump: {
+    ok: (v) => v >= 0,
+    range: '>= 0 (a fraction of hard costs added to stressed equity; a negative bump shrinks stressed equity, making the stress case more favorable than baseline)',
+  },
+  stress_exit_cap_bump_bps: {
+    ok: (v) => v >= 0,
+    range: '>= 0 (basis points added to the exit cap; a negative bump lowers the cap and raises exit value, making the stress case more favorable than baseline)',
+  },
+  stress_selling_costs: {
+    ok: (v) => v >= 0 && v < 1,
+    range: 'within [0, 1) (a fraction of exit value charged at sale; a value < 0 inflates net proceeds and one >= 1 zeroes or negates them)',
+  },
+  stress_em_floor: {
+    ok: (v) => v > 0,
+    range: '> 0 (the equity-multiple pass floor the stressed multiple must clear; a floor <= 0 lets any nonnegative stressed multiple pass the hard kill)',
+  },
+}
+
 /**
  * A saved config becomes the ACTIVE rulebook for every evaluation — a
  * structurally broken one (empty checks, missing macro) bricks the pilot
@@ -210,6 +246,22 @@ export function configShapeError(c: any): string | null {
     }
     if (r.posture !== '*' && !(r.posture in POSTURE_KEYS)) {
       return `threshold row for "${r.key}" is scoped to unknown posture "${r.posture}" — posture must be '*' or one of: ${POSTURES.join(', ')}`
+    }
+    // Key-specific value domain for the mini_stress severities: a finite value
+    // alone is not enough — a severity on the wrong side of its domain makes the
+    // stressed (hard-kill) case MORE favorable than baseline (STRESS_SEVERITY_
+    // DOMAINS above), so a deal that should fail the stress would pass. Checked
+    // per row (every resolved candidate), so no scope can smuggle one in.
+    const stressDomain = STRESS_SEVERITY_DOMAINS[r.key]
+    if (stressDomain) {
+      if (!stressDomain.ok(r.value)) {
+        return `threshold row for "${r.key}" has value ${r.value}, outside its allowed range ${stressDomain.range} — a mini_stress severity outside its domain can make the stressed case more favorable than baseline, so a deal that should fail the stress would pass`
+      }
+    } else if (/_bump/.test(r.key) && r.value < 0) {
+      // Any future bump-style severity is negative-favorable like the two
+      // canonical bumps above; hold the line on the whole class, not just the
+      // two known keys.
+      return `threshold row for "${r.key}" has a negative value ${r.value} — a bump-style stress severity must be >= 0, since a negative bump makes the stressed case more favorable than baseline`
     }
   }
   // Row presence keys off the engine's CANONICAL key set (what runCheck's

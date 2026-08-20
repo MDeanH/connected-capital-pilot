@@ -59,12 +59,26 @@ type MacroPayload = MacroSnapshot & { persisted?: boolean; live?: boolean; warni
  */
 type DraftState = { config: Gate1Config; baseVersion: number }
 
-function loadDraft(): DraftState | null {
+/**
+ * Restore the persisted rulebook draft — but only for the identity that saved
+ * it, mirroring loadSaved. The payload is origin-wide localStorage, so on a
+ * shared browser an unstamped draft would otherwise let user B (or a signed-out
+ * visitor) open Thresholds and score previews under user A's draft. A draft
+ * stamped with a different owner — or an owned draft read while signed out — is
+ * DISCARDED outright (removed, never re-stamped). Legacy drafts without a stamp
+ * read as anonymous (owner null), so auth-off deployments restore as before.
+ */
+function loadDraft(owner: string | null): DraftState | null {
   try {
     const raw = localStorage.getItem(LS_DRAFT_KEY)
     if (!raw) return null
     const p = JSON.parse(raw)
     if (!p || typeof p !== 'object') return null
+    const savedOwner: string | null = typeof p.owner === 'string' ? p.owner : null
+    if (savedOwner !== owner) {
+      localStorage.removeItem(LS_DRAFT_KEY)
+      return null
+    }
     if ('config' in p) {
       return p.config && typeof p.config === 'object'
         ? { config: p.config as Gate1Config, baseVersion: typeof p.baseVersion === 'number' ? p.baseVersion : 0 }
@@ -199,7 +213,12 @@ export default function DealIntake() {
   const [macroErr, setMacroErr] = useState<string | null>(null)
   // Active threshold config version + the analyst's local draft (previews only).
   const [activeConfig, setActiveConfig] = useState<{ version: number; config: Gate1Config } | null>(null)
-  const [draft, setDraft] = useState<DraftState | null>(loadDraft)
+  // Auth-off builds resolve identity synchronously (always anonymous), so the
+  // owner-stamped draft restores here in the initializer, as before. Auth-capable
+  // builds start empty and hydrate the draft only after the session restore
+  // settles (the owner-gated effect below) — restoring beforehand could show the
+  // previous analyst's draft to whoever is at the keyboard.
+  const [draft, setDraft] = useState<DraftState | null>(() => (supabase === null ? loadDraft(null) : null))
   const draftConfig = draft?.config ?? null
 
   // Inner auth layer. Auth is ACTIVE only when the build has client keys AND
@@ -242,6 +261,10 @@ export default function DealIntake() {
       ownerRef.current = owner
       const s = loadSaved(owner)
       if (s) applyLoaded(s)
+      // The rulebook draft is owner-gated the same way: load only what this
+      // identity owns (loadDraft discards a mismatched draft outright).
+      const d = loadDraft(owner)
+      if (d) setDraft(d)
       return
     }
     if (owner === ownerRef.current) return
@@ -249,19 +272,20 @@ export default function DealIntake() {
     ownerRef.current = owner
     if (prev === null) {
       // Anonymous work, then sign-in: the same human at the keyboard — keep
-      // the in-memory state and re-stamp the stored payload as theirs now, so
-      // it survives a reload under the signed-in identity.
+      // the in-memory state and re-stamp the stored payloads as theirs now, so
+      // they survive a reload under the signed-in identity.
       try {
         localStorage.setItem(LS_KEY, JSON.stringify({ owner, fields, adjustments, step, extraction, dealId }))
+        if (draft) localStorage.setItem(LS_DRAFT_KEY, JSON.stringify({ owner, ...draft }))
       } catch { /* storage full/blocked — non-fatal */ }
       return
     }
     // Signed out (or the account changed): the on-screen state belongs to the
     // previous account — reset it and restore whatever the new identity owns
     // (sign-out already cleared the keys; expiry leaves a payload loadSaved
-    // now discards). The config draft re-loads the same way.
+    // now discards). The config draft re-loads the same owner-gated way.
     applyLoaded(loadSaved(owner))
-    setDraft(loadDraft())
+    setDraft(loadDraft(owner))
     // eslint-disable-next-line react-hooks/exhaustive-deps -- state reads are the render's own; re-running on them would be a no-op behind the owner guard
   }, [identity.sessionReady, identity.userId])
 
@@ -269,7 +293,10 @@ export default function DealIntake() {
     setMacroLoading(true)
     setMacroErr(null)
     try {
-      const r = await fetch('/api/macro/latest')
+      // GET /api/macro/latest is identity-gated (requireAccount) when accounts
+      // are on, so this goes through authFetch; it degrades to plain fetch when
+      // signed-out/unconfigured, unchanged in auth-off builds.
+      const r = await authFetch('/api/macro/latest')
       const data = await r.json()
       if (data.error) throw new Error(data.error)
       setMacro(data as MacroPayload)
@@ -287,10 +314,19 @@ export default function DealIntake() {
       .catch(() => { /* config panel shows its own empty state */ })
   }, [])
 
+  // Macro is identity-gated (requireAccount) when accounts are on: fetch on
+  // mount AND refetch when the signed-in identity changes, so a user who signs
+  // in after the initial anonymous (401'd) request recovers the dashboard
+  // without a reload. fetchMacro is stable, so identity.userId is the trigger;
+  // it stays null in auth-off builds, so this fires exactly once there.
   useEffect(() => {
     fetchMacro()
+  }, [fetchMacro, identity.userId])
+
+  // The active config read is not identity-gated — fetch it once on mount.
+  useEffect(() => {
     fetchActiveConfig()
-  }, [fetchMacro, fetchActiveConfig])
+  }, [fetchActiveConfig])
 
   const handleDraftChange = (cfg: Gate1Config | null) => {
     // The first edit OPENS the draft — stamp what it was edited from right
@@ -298,7 +334,10 @@ export default function DealIntake() {
     const next = cfg ? { config: cfg, baseVersion: draft?.baseVersion ?? activeConfig?.version ?? 0 } : null
     setDraft(next)
     try {
-      next ? localStorage.setItem(LS_DRAFT_KEY, JSON.stringify(next)) : localStorage.removeItem(LS_DRAFT_KEY)
+      // Stamp the owning identity (ownerRef — see hydration above) so a shared
+      // browser never hands this draft to the next account; loadDraft discards
+      // a mismatched stamp on restore.
+      next ? localStorage.setItem(LS_DRAFT_KEY, JSON.stringify({ owner: ownerRef.current, ...next })) : localStorage.removeItem(LS_DRAFT_KEY)
     } catch { /* non-fatal */ }
   }
 
@@ -686,6 +725,7 @@ export default function DealIntake() {
             onChange={handleFieldChange}
             missingKeys={missingKeys}
             meta={extraction?.fields}
+            provenance={extraction?.provenance}
           />
           <div className="di-stickybar">
             <span className="di-muted">{filledCount} of {ALL_FIELDS.length} fields confirmed</span>

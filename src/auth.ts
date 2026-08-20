@@ -21,20 +21,47 @@ export const supabase: SupabaseClient | null = url && anonKey ? createClient(url
 // The build keys alone do not prove the SERVER runs its auth layer: the VITE_
 // keys are committed, so even the public demo build (whose server has no
 // SUPABASE_SERVICE_ROLE_KEY and waves every gate through) constructs a client.
-// One probe of GET /api/auth/status per page load resolves the server's side;
-// a failed probe resolves false for this round but is not cached, so the next
-// mount retries.
-let serverAuthPromise: Promise<boolean> | null = null
+// One probe of GET /api/auth/status per page load resolves the server's side.
+//
+// Only a real 200 settles the verdict (enabled true/false). A transport failure
+// or a transient non-OK must NEVER latch a definitive false — that would hide
+// the sign-in card on an auth-enabled deploy until a full reload. Those retry
+// with bounded backoff (the same idiom as the role probe below) and, once the
+// budget is spent with no 200, resolve to null (INDETERMINATE — authEnabled
+// stays null and the auth UI stays hidden rather than wrongly settled) without
+// caching, so the next mount probes afresh. A clean 200 saying disabled still
+// resolves false, preserving the auth-unconfigured happy path.
+let serverAuthPromise: Promise<boolean | null> | null = null
 
-function serverAuthEnabled(): Promise<boolean> {
+// Up to 3 attempts total — mirrors the role probe's PROBE_RETRY_DELAYS_MS.
+const STATUS_RETRY_DELAYS_MS = [1_000, 4_000]
+
+async function statusProbeOnce(): Promise<{ enabled: boolean | null; definitive: boolean }> {
+  try {
+    const r = await fetch('/api/auth/status')
+    if (!r.ok) return { enabled: null, definitive: false } // transient non-OK — retry
+    const d = (await r.json()) as { enabled?: unknown }
+    return { enabled: d.enabled === true, definitive: true }
+  } catch {
+    return { enabled: null, definitive: false } // network error — transient
+  }
+}
+
+function serverAuthEnabled(): Promise<boolean | null> {
   if (!serverAuthPromise) {
-    serverAuthPromise = fetch('/api/auth/status')
-      .then(r => (r.ok ? (r.json() as Promise<{ enabled?: unknown }>) : Promise.reject(new Error(`status ${r.status}`))))
-      .then(d => d.enabled === true)
-      .catch(() => {
-        serverAuthPromise = null
-        return false
-      })
+    serverAuthPromise = (async () => {
+      for (let attempt = 0; ; attempt++) {
+        const { enabled, definitive } = await statusProbeOnce()
+        if (definitive) return enabled
+        if (attempt >= STATUS_RETRY_DELAYS_MS.length) {
+          // No definitive answer within the retry budget — do not cache a
+          // verdict; drop the memo so the next mount retries from scratch.
+          serverAuthPromise = null
+          return null
+        }
+        await sleep(STATUS_RETRY_DELAYS_MS[attempt])
+      }
+    })()
   }
   return serverAuthPromise
 }

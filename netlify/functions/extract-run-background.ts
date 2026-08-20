@@ -90,7 +90,7 @@ export default async (req: Request): Promise<Response | void> => {
     // succeeds when the insert fails — we prefer serving a paid result with a
     // visible provenance warning over failing it after the fact because an
     // audit row didn't stick.
-    let provenance: string | undefined
+    let provenance: 'stored' | 'failed' | undefined
     const db = serviceClient()
     if (db) {
       // The client mints extractionId with crypto.randomUUID(), so a UUID-shaped
