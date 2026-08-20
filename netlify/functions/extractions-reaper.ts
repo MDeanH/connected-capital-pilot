@@ -37,6 +37,18 @@ const PAYLOAD_PREFIX = 'payload-'
 // partial pass rather than time out; the daily cadence catches up, and every
 // decision below is idempotent.
 const TIME_BUDGET_MS = 8_000
+// Reserve wall-clock for the payload pass so the record pass can never starve
+// it. Both passes share the budget, but the record pass runs FIRST (the payload
+// pass dates payloads off the records it reads), so on a populated store (up to
+// ~200 submits/day × 7 days of status records) the record loop could consume
+// the whole budget — leaving the payload loop to break on its first iteration
+// EVERY run and let full base64 OMs + sheet text, the most sensitive content in
+// the store, accrue unbounded. Capping the record pass short guarantees payload
+// cleanup time each run; a record pass truncated by the cap only defers some
+// payloads to the next run (the onlyIfNew stamp below already tolerates an
+// incomplete records map).
+const PAYLOAD_RESERVE_MS = 3_000
+const RECORD_PASS_BUDGET_MS = TIME_BUDGET_MS - PAYLOAD_RESERVE_MS
 
 const parseFirstDate = (...candidates: unknown[]): number => {
   for (const c of candidates) {
@@ -76,7 +88,9 @@ export default async (): Promise<Response> => {
 
     const records = new Map<string, Record<string, any>>()
     for (const id of recordKeys) {
-      if (Date.now() - started > TIME_BUDGET_MS) { partial = true; break }
+      // Capped short of the full budget: the payload pass below MUST get time
+      // this run (its content is the most sensitive in the store).
+      if (Date.now() - started > RECORD_PASS_BUDGET_MS) { partial = true; break }
       try {
         const data = (await store.get(id, { type: 'json' })) as Record<string, any> | null
         if (!data || typeof data !== 'object') continue // deleted since listing, or not a record

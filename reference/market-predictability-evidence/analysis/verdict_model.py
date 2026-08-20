@@ -239,8 +239,11 @@ def predict(fam):
     """Predict a verdict for one built family dict. Returns (verdict, trace)."""
     if rule_apply(LOCKED_SUPPORTED_RULE, fam):
         return SUPPORTED, f"passes {fmt(LOCKED_SUPPORTED_RULE)}"
-    p = fam["scores"]["p"] or 0
-    if p <= 1 and fam["type"] != "method":
+    p = fam["scores"]["p"]
+    # An UNASSESSED P (None) is missing evidence, not evidence of a low score:
+    # do NOT coerce it to 0. Reserve the "ruled out" verdict for a real numeric
+    # P<=1; leave an unassessed P to fall through to "Not established".
+    if p is not None and p <= 1 and fam["type"] != "method":
         return INEFFECTIVE, "P<=1 (predictive accuracy ruled out/in-sample only)"
     return "Not established / Promising", (
         "fails the credibility floor but is not affirmatively refuted — "

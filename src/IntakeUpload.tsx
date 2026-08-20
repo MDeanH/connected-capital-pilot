@@ -26,9 +26,17 @@ const POLL_DEADLINE_MS = 15.5 * 60_000
 // account — or an owned record read while signed out — is discarded on load,
 // and signOut clears the key outright. Legacy/unstamped records read as
 // anonymous (owner null), so auth-off deployments restore exactly as before.
-// A stored record older than the worker's window is useless (the job is
-// terminal by then), so restore only inside ~16 minutes of the submission.
-const PENDING_RESTORE_WINDOW_MS = 16 * 60_000
+// A stored record stays resumable for the SERVER's result-retention window, not
+// just the worker's 15-minute runtime: a job that finishes near its limit (or
+// after brief queueing) writes a PAID terminal result that Blobs keeps for
+// RETENTION_DAYS (extractions.ts), so a reload any time inside that window must
+// still be able to CHECK AGAIN and fetch it — a ~16-minute cutoff would instead
+// discard the id and force an expensive resubmit of the same documents. Past
+// the window the server has deleted the record (a later GET just reports
+// 'running' forever), so there is nothing left to resume. Keep aligned with
+// RETENTION_MS in extractions.ts — it can't be imported here without pulling
+// server-only Blobs deps into the client bundle (the reaper imports it directly).
+const PENDING_RESTORE_WINDOW_MS = 7 * 24 * 60 * 60_000 // == RETENTION_MS (extractions.ts)
 
 function readStoredPendingId(owner: string | null): string | null {
   try {
@@ -421,7 +429,7 @@ export default function IntakeUpload({ onExtracted }: Props) {
           <button className="secondary" onClick={() => checkAgain(pendingId)}>CHECK AGAIN</button>
           <span className="iu-resume-note">
             {pendingRestored
-              ? 'an extraction submitted from this browser a few minutes ago may still be running — CHECK AGAIN picks it back up instead of starting (and paying for) a new one'
+              ? 'an extraction submitted earlier from this browser may still be running — or may have already finished. CHECK AGAIN picks it back up instead of starting (and paying for) a new one'
               : 'keeps watching the submitted extraction — does not start a new one'}
           </span>
         </div>

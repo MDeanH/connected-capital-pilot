@@ -16,6 +16,8 @@
 import type { Config, Context } from '@netlify/functions'
 import { accountsRequired, identityFromRequest, requireAccount, requireAdmin } from './lib/auth.ts'
 import type { Identity } from './lib/auth.ts'
+import { fetchSeriesMap } from './lib/gate1/fred.ts'
+import { computeMacroSnapshot, MARKET_SERIES, utcWeekStart } from './lib/gate1/macro.ts'
 import { computeGate1, DEFAULT_CONFIG } from './lib/gate1/preview.ts'
 import type { DealFields, Gate1Config, JudgmentAdjustment, Posture } from './lib/gate1/types.ts'
 import { serviceClient } from './lib/supabase.ts'
@@ -156,6 +158,26 @@ async function loadLatestSnapshot(db: Db): Promise<{ snapshot: SnapshotRef | nul
       ? { id: data.id as string, postures: data.postures as Record<string, Posture>, createdAt: data.created_at as string }
       : null,
   }
+}
+
+// The SAME live compute /api/macro/latest falls back to when the table is empty
+// (macro.ts computeLive): assemble the configured FRED series map and run the
+// shared pure macro logic. The FRED fetch and regime scoring live in fred.ts /
+// lib/gate1/macro.ts — this only orchestrates them, so the postures returned are
+// identical to the ones the intake preview showed. Used to resolve posture on a
+// fresh deploy BEFORE the first weekly snapshot exists: without it, decide
+// defaults green while the live preview posture is the live regime's
+// (yellow/red under stagflation/recession), and the expectedPosture handshake
+// 409s on every record attempt — a deadlock until the cron writes the first row.
+// No stored row exists, so callers keep macroSnapshotId null (the resolved
+// posture is stamped into the recorded result instead). fetchSeriesMap never
+// throws (fred.ts contract) — an unreachable FRED degrades to soft_landing/green
+// on BOTH sides, so they still agree.
+async function liveMacroPostures(config: Gate1Config): Promise<Record<string, Posture>> {
+  const ids: Record<string, string> = { ...MARKET_SERIES }
+  for (const def of config.macro.signals ?? []) if (def.fred) ids[def.id] = def.fred
+  const series = await fetchSeriesMap(ids)
+  return computeMacroSnapshot({ config, weekOf: utcWeekStart(new Date()), series }).postures
 }
 
 // POST /api/gate1/preview-batch — the Backtest path: a whole book in one
@@ -460,6 +482,24 @@ export default async (req: Request, context: Context): Promise<Response> => {
       // decide always links here (no override), restoring the snapshot link
       // the old client-sent posture override used to break.
       if (!postureOverride || postureOverride === p) macroSnapshotId = snapshot.id
+    } else if (snap.snapshot === null && !postureOverride) {
+      // The table is GENUINELY empty (fresh deploy, before the first weekly
+      // cron run) — not a stale row nulled above (that path kept its override,
+      // and the no-override stale case already 503'd). /api/macro/latest
+      // live-computes in exactly this case and the intake preview runs under
+      // that posture, so decide must resolve from the SAME live compute rather
+      // than defaulting green — otherwise a stagflation/recession live regime
+      // (yellow/red) never matches decide's green and the expectedPosture
+      // handshake 409s on every record, deadlocking the ledger until a snapshot
+      // is written. No stored row → macroSnapshotId stays null (posture is
+      // stamped into the recorded result). Applies to preview too (no override),
+      // keeping both sides on one posture source.
+      const livePostures = await liveMacroPostures(config)
+      const p = livePostures[fields.asset_class] ?? livePostures['*']
+      if (p) {
+        posture = p
+        postureSource = 'macro_live'
+      }
     }
   }
 
