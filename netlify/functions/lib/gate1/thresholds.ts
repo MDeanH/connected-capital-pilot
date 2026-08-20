@@ -40,8 +40,10 @@ function stressSeverityOutOfDomain(key: string, value: number): boolean {
  *   (ac, p) → ('*', p) → (ac, '*') → ('*', '*')
  * then overlay per-deal judgment adjustments (reason required and value must be a finite
  * number — validated at the API layer, re-checked here so the engine can never apply a
- * silent override). Out-of-domain mini_stress severities are additionally REJECTED here
- * (dropped, base kept) so an adjustment can't weaken a hard-kill stress past its domain.
+ * silent override). An out-of-domain mini_stress severity additionally THROWS here — the
+ * same 400-surfacing rejection as the reason / finite / unknown-threshold guards — so an
+ * adjustment can't weaken a hard-kill stress past its domain (dropping it would leave the
+ * original adjustment recorded in the ledger's overrides while the score never used it).
  */
 export function resolveThresholds(
   config: Gate1Config,
@@ -78,14 +80,17 @@ export function resolveThresholds(
       throw new Error(`Judgment adjustment targets unknown threshold "${adj.key}"`)
     }
     if (stressSeverityOutOfDomain(adj.key, adj.value)) {
-      // REJECT (not clamp): an out-of-domain stress severity is invalid by
+      // THROW (not drop): an out-of-domain stress severity is invalid by
       // definition — it would move a hard-kill threshold in the deal-favorable
       // direction beyond its domain (the same value a SAVED rulebook row is
-      // rejected for). Drop the adjustment and keep the base threshold: base
-      // already sits in existing.effective and existing.adjustment stays unset,
-      // so provenance shows the base with no phantom override. In-domain
-      // adjustments (all non-stress keys included) are untouched.
-      continue
+      // rejected for). Dropping it silently is worse than wrong: gate1.ts stores
+      // the ORIGINAL adjustment in gate_decisions.overrides, so a scored preview
+      // that quietly used the base would still record a phantom override the
+      // ledger claims was applied. Throw exactly like the reason / finite /
+      // unknown-threshold guards above, so preview and decide surface a 400 and
+      // the analyst must correct the value before previewing or recording.
+      // In-domain adjustments (all non-stress keys included) are untouched.
+      throw new Error(`Judgment adjustment for "${adj.key}" is an out-of-domain mini_stress severity (${adj.value}) — a stress severity outside its domain would make the stressed hard-kill case more favorable than baseline`)
     }
     existing.adjustment = adj
     existing.effective = adj.value

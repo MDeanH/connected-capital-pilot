@@ -263,6 +263,15 @@ export function configShapeError(c: any): string | null {
       // two known keys.
       return `threshold row for "${r.key}" has a negative value ${r.value} — a bump-style stress severity must be >= 0, since a negative bump makes the stressed case more favorable than baseline`
     }
+    // fragile_margin_pct has a MEANING the generic finite check can't see:
+    // evaluateGate1 (lib/gate1/engine.ts) labels a passing check fragile when
+    // Math.abs(margin) / scale < fragile_margin_pct. The left side is always
+    // >= 0, so a NEGATIVE threshold can never be exceeded — the comparison is
+    // always false and every passing check silently loses its FRAGILE warning.
+    // Require it nonnegative (the shipped default and seeded v1 both carry 0.10).
+    if (r.key === 'fragile_margin_pct' && r.value < 0) {
+      return `threshold row for "fragile_margin_pct" has a negative value ${r.value} — the fragility margin is a nonnegative fraction of a kill line's scale (evaluateGate1 in lib/gate1/engine.ts tests Math.abs(margin) / scale < fragile_margin_pct, which no negative threshold can ever satisfy), so a negative value silently strips the FRAGILE warning from every passing check; it must be >= 0`
+    }
   }
   // Row presence keys off the engine's CANONICAL key set (what runCheck's
   // t('...') calls actually dereference), not the declared thresholdKeys —

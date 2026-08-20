@@ -229,6 +229,17 @@ export default function DealIntake() {
   const identity = useIdentity()
   const isAdmin: AdminFlag = identity.authEnabled === true ? identity.role === 'admin' : 'auth-off'
 
+  // If admin access disappears while the USERS step is open — the admin signs
+  // out, or reloads after a server-side demotion — the USERS chip is already
+  // gone (toolSteps) but the step state would strand the view on the admin-only
+  // panel. Move off it so UsersPanel unmounts and its cached roster + email
+  // addresses drop (the render is ALSO gated on isAdmin === true below). A live
+  // admin (isAdmin === true) is never touched, so normal admin usage is
+  // unchanged; anything else — analyst, signed-out, or auth-off — resets.
+  useEffect(() => {
+    if (isAdmin !== true) setStep(s => (s === 'users' ? 'intake' : s))
+  }, [isAdmin])
+
   // --- Owner-gated hydration of the persisted working state ----------------
   // hydratedRef: true once the owner-checked restore has run (immediately on
   // auth-off builds, where the initializers restored synchronously). The save
@@ -864,9 +875,13 @@ export default function DealIntake() {
       {/* DEALS — the append-only history of recorded decisions */}
       {step === 'deals' && <DealHistory isAdmin={isAdmin} />}
 
-      {/* USERS — admin-only account management (the panel itself shows an
-          honest 401/403 if reached without the role) */}
-      {step === 'users' && <UsersPanel />}
+      {/* USERS — admin-only account management. Gated on isAdmin === true (same
+          condition as its nav chip) so the panel — and the roster + emails it
+          caches — unmounts the instant admin access is lost (a sign-out, or a
+          reload after demotion), not merely when navigated away from. The
+          isAdmin effect above then moves the stranded step off 'users'. The
+          panel still shows an honest 401/403 if the server rejects a mutation. */}
+      {step === 'users' && isAdmin === true && <UsersPanel />}
     </div>
   )
 }

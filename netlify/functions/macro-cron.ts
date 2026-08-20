@@ -15,28 +15,37 @@ import { serviceClient } from './lib/supabase.ts'
 const MAX_SNAPSHOT_AGE_DAYS = 14
 
 export default async (req: Request): Promise<Response> => {
-  // Scheduler-only guard. This run persists the week's macro posture, and the
-  // same-week duplicate guard below means the FIRST run of a week wins: an early
-  // manual hit by any pilot-cookie holder (an analyst, when REQUIRE_ACCOUNTS is
-  // on) would stamp that week's posture and make the legitimate 13:00-UTC Monday
-  // run skip as a duplicate. So only Netlify's SCHEDULED invocation may run this.
+  // Defense-in-depth scheduled-shape check — NOT authentication.
   //
-  // Netlify v2 scheduled-invocation contract (confirmed against the Netlify
-  // serverless coding-context docs — the @netlify/functions types describe the
-  // schedule config but NOT the request shape): a scheduled invocation carries a
-  // JSON-encoded body with a `next_run` property, the ISO-8601 timestamp of the
-  // next scheduled run (the documented `const { next_run } = await req.json()`
-  // pattern). Ordinary HTTP callers — a browser navigation, a crafted fetch from
-  // a cookie holder — do not carry it. Accept only that signal; reject anything
-  // lacking it with 403. Rejecting on a missing/unparseable body is safe because
-  // `next_run` is a confirmed part of every genuine scheduled call, so the guard
-  // cannot reject a real weekly run.
+  // PRIMARY protection is at the edge: netlify/edge-functions/gate.ts hard-blocks
+  // this function's public HTTP path (/.netlify/functions/macro-cron) with 403
+  // for EVERY external request, ahead of any auth or exemption. The genuine
+  // weekly run is driven by Netlify's platform scheduler, which invokes this
+  // function INTERNALLY and does not traverse the edge — so the edge block stops
+  // every external caller while leaving the 13:00-UTC Monday run intact.
+  //
+  // Why this run must never be externally triggerable: it persists the week's
+  // macro posture, and the same-week duplicate guard below means the FIRST run of
+  // a week wins — an early manual hit by any pilot-cookie holder (an analyst,
+  // when REQUIRE_ACCOUNTS is on) would stamp that week's posture and make the
+  // legitimate Monday run skip as a duplicate.
+  //
+  // The check below is a SECOND layer, should a request ever reach this handler
+  // (edge misconfiguration, an internal replay, a future routing change). It
+  // verifies only the scheduled-invocation SHAPE: a Netlify v2 scheduled call
+  // carries a JSON body with a `next_run` ISO-8601 string (the documented
+  // `const { next_run } = await req.json()` pattern) that an ordinary browser
+  // navigation lacks. It is NOT proof of authenticity — `next_run` is a plain
+  // body field any caller can forge — so it is kept only as a cheap sanity gate
+  // behind the edge block, never relied on as the security boundary. Rejecting on
+  // a missing/unparseable body is safe because `next_run` is part of every
+  // genuine scheduled call, so this cannot reject a real weekly run.
   let scheduled = false
   try {
     const body = await req.json()
     scheduled = body != null && typeof body.next_run === 'string' && body.next_run.length > 0
   } catch {
-    // No body, or one that is not JSON — not a scheduled invocation.
+    // No body, or one that is not JSON — not a scheduled-shaped invocation.
     scheduled = false
   }
   if (!scheduled) {

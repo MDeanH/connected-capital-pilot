@@ -414,8 +414,92 @@ def stage_report() -> None:
           report_fp[:12] if report_fp else "MISSING (base.json unstamped)")
 
 
+def stage_backfill_fingerprints() -> None:
+    """Idempotently stamp integrity provenance onto the ALREADY-COMMITTED
+    housing_results artifacts WITHOUT re-running any forecast.
+
+    The committed baselines.json / tsfm.json predate the integrity fingerprint
+    (they carry no `fingerprint`, and report.meta.json was never committed), so on
+    a clean checkout _require_matching_artifacts() and _require_matching_report()
+    both abort and bake_market_path.py can never regenerate the prior. This stage
+    recomputes the canonical fingerprint from the committed series offline, PROVES
+    the committed artifacts actually derive from that series (fail closed
+    otherwise -- never stamp a linkage that isn't real), then writes that same
+    fingerprint into baselines.json (fingerprint), tsfm.json (fingerprint +
+    origins), and a matching report.meta.json sidecar.
+
+    Only the fingerprint / origins provenance keys are added -- every MAE / DM /
+    forecast / actual value is left byte-identical (verified: a json load->dump
+    round-trip of both artifacts reproduces them byte-for-byte, and the new keys
+    append in the same order stage_baselines / stage_tsfm would write them).
+    """
+    base_path = os.path.join(OUT_DIR, "baselines.json")
+    tsfm_path = os.path.join(OUT_DIR, "tsfm.json")
+    with open(base_path) as f:
+        base = json.load(f)
+    with open(tsfm_path) as f:
+        tsfm = json.load(f)
+
+    series = load_series()
+    fingerprint, origins = compute_fingerprint(series)
+
+    # Honesty gate: refuse to stamp unless the committed artifacts genuinely
+    # reproduce from this series. The fingerprint hashes each task's origin dates
+    # and its (quantised) contexts + actuals; confirm the dates and actuals baked
+    # into baselines.json match, and that DriftRW (= context mean) reproduces --
+    # which pins the contexts the fingerprint hashed. Anything else means the
+    # committed data has drifted from the committed results and a stamp here would
+    # misrepresent provenance.
+    def _quant(arr):
+        return np.round(np.asarray(arr, dtype=np.float64) * 1e10).astype(np.int64)
+
+    for task, entry in base["tasks"].items():
+        ctxs, acts, dates = make_windows(series[task])
+        if dates != entry["origin_dates"]:
+            raise SystemExit(
+                f"ABORT: origin dates for {task!r} do not reproduce from the "
+                "committed series; refusing to stamp a fingerprint that would "
+                "misrepresent provenance. Re-run --stage baselines/tsfm/report.")
+        for a_new, a_old in zip(acts, entry["actuals"]):
+            if not np.array_equal(_quant(a_new), _quant(a_old)):
+                raise SystemExit(
+                    f"ABORT: committed actuals for {task!r} do not reproduce from "
+                    "the committed series; refusing to stamp.")
+        for c_new, drift_old in zip(ctxs, entry["models"]["DriftRW"]):
+            if not np.array_equal(_quant(forecast_drift_rw(c_new, H)), _quant(drift_old)):
+                raise SystemExit(
+                    f"ABORT: committed DriftRW forecasts for {task!r} do not "
+                    "reproduce from the committed series; refusing to stamp.")
+    tsfm_tasks = {t[0] for t in tsfm["index"]}
+    if tsfm_tasks != set(base["tasks"]) or set(origins) != set(base["tasks"]):
+        raise SystemExit(
+            "ABORT: tsfm.json / computed-fingerprint task set does not match "
+            "baselines.json; refusing to stamp.")
+
+    base["fingerprint"] = fingerprint
+    tsfm["fingerprint"] = fingerprint
+    tsfm["origins"] = origins
+    with open(base_path, "w") as f:
+        json.dump(base, f)
+    with open(tsfm_path, "w") as f:
+        json.dump(tsfm, f)
+
+    artifacts = ["summary.csv", "dm_tests.csv"]
+    if os.path.exists(os.path.join(OUT_DIR, "coverage.csv")):
+        artifacts.append("coverage.csv")
+    with open(os.path.join(OUT_DIR, REPORT_META), "w") as f:
+        json.dump({"fingerprint": fingerprint, "artifacts": artifacts}, f)
+
+    print("backfilled fingerprint", fingerprint[:12],
+          "into baselines.json, tsfm.json,", REPORT_META,
+          "(provenance only; no forecast re-run)")
+
+
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("--stage", choices=["baselines", "tsfm", "report"], required=True)
+    ap.add_argument("--stage",
+                    choices=["baselines", "tsfm", "report", "backfill-fingerprints"],
+                    required=True)
     args = ap.parse_args()
-    {"baselines": stage_baselines, "tsfm": stage_tsfm, "report": stage_report}[args.stage]()
+    {"baselines": stage_baselines, "tsfm": stage_tsfm, "report": stage_report,
+     "backfill-fingerprints": stage_backfill_fingerprints}[args.stage]()

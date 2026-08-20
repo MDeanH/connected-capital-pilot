@@ -325,13 +325,36 @@ function isPrivilegedPath(pathname: string): boolean {
   return pathname.startsWith("/api/") || pathname.startsWith("/.netlify/functions/");
 }
 
+// The SCHEDULED (Netlify cron) functions: macro-cron (weekly) and
+// extractions-reaper (daily). The platform scheduler invokes these INTERNALLY
+// and does NOT traverse this edge — proof: both already run on this cookie-gated
+// site with no cc_gate cookie, and an edge-applied gate would 401 them into
+// never running. So their only externally reachable surface is the internal
+// /.netlify/functions/<name> namespace (neither declares a config.path or an
+// /api alias), and NO external HTTP caller has a legitimate reason to hit it.
+// A caller-forgeable body field (e.g. macro-cron's next_run) cannot authenticate
+// a scheduled run, so the robust protection is to refuse EVERY external HTTP
+// request to these paths at the edge — the block below does exactly that, and
+// the real cron runs are untouched because the scheduler bypasses the edge.
+// Subpaths are matched too: Netlify routes /.netlify/functions/<name>/<extra>
+// to the same function.
+function isScheduledFunctionPath(pathname: string): boolean {
+  return (
+    pathname === "/.netlify/functions/macro-cron" ||
+    pathname.startsWith("/.netlify/functions/macro-cron/") ||
+    pathname === "/.netlify/functions/extractions-reaper" ||
+    pathname.startsWith("/.netlify/functions/extractions-reaper/")
+  );
+}
+
 // The paid-extraction surface, in BOTH namespaces. Public routes and the
 // internal function paths they map to:
 //   /api/extract       <- extract-submit
 //   /api/extract-run   <- extract-run-background
 //   /api/extractions/* <- extractions
 // (extractions-reaper is a Supabase-only cron with no Anthropic spend; it needs
-// no Anthropic fail-closed and is already covered by isPrivilegedPath.)
+// no Anthropic fail-closed and is already covered by isPrivilegedPath — and, as
+// a scheduled function, is hard-blocked at the edge by isScheduledFunctionPath.)
 function isExtractionPath(pathname: string): boolean {
   return (
     pathname === "/api/extract" ||
@@ -347,6 +370,21 @@ function isExtractionPath(pathname: string): boolean {
 export default async (request: Request, context: Context) => {
   const password = Netlify.env.get("PILOT_PASSWORD") || "";
   const { pathname } = new URL(request.url);
+
+  // FIRST, unconditionally: the scheduled functions are driven only by the
+  // Netlify platform scheduler, which invokes them internally and never
+  // traverses this edge. No external HTTP request to their public path is ever
+  // legitimate, and a body field like next_run is caller-forgeable — so refuse
+  // every such request with 403, ahead of auth, the exempt-public set, and the
+  // no-password fail-closed matrix below. This is the PRIMARY protection for the
+  // cron endpoints; the handlers' own next_run check is only defense-in-depth.
+  // The real weekly/daily runs are unaffected: the scheduler bypasses the edge.
+  if (isScheduledFunctionPath(pathname)) {
+    return new Response(
+      JSON.stringify({ error: "Forbidden: scheduled function; invoked only by the Netlify scheduler" }),
+      { status: 403, headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } },
+    );
+  }
 
   if (!password) {
     // Fail closed on the privileged state only: Supabase credentials without a
