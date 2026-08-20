@@ -32,6 +32,7 @@ Stages (so baselines can run without torch):
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import sys
@@ -61,6 +62,42 @@ N_WINDOWS = 10
 M = 12           # seasonal period
 EVAL_START = "2015-01-01"
 N_METROS = 10
+
+PROTOCOL = {"L": L, "H": H, "n_windows": N_WINDOWS, "m": M, "eval_start": EVAL_START}
+
+
+# ---------------------------------------------------------------------------
+# Integrity fingerprint
+# ---------------------------------------------------------------------------
+# The baseline stage and the TSFM stage each derive their windows from the same
+# series via make_windows(). stage_report() then aligns TSFM forecasts to the
+# baseline actuals by (task, window number) ONLY. So if one stage is re-run
+# after the housing data, evaluation dates, or protocol params change but the
+# other is not, stale TSFM forecasts get matched to fresh actuals and the report
+# (and bake_market_path.py, which reads both artifacts) can publish invalid
+# MAE/DM acceptance results. To make that impossible, stamp BOTH artifacts with
+# a shared fingerprint over everything both stages depend on, and refuse the
+# merge in stage_report() when they disagree or when either is unstamped.
+def compute_fingerprint(series: dict[str, pd.Series]) -> tuple[str, dict[str, list[str]]]:
+    """Return (sha256 hex, {task: origin_dates}) over the shared window inputs.
+
+    Deterministic for identical inputs, so both stages compute the same digest;
+    any change to the protocol params, the series data, or the resulting windows
+    changes it. Float returns are quantised to 1e-10 before hashing so the digest
+    is stable against representation noise but sensitive to real data revisions.
+    """
+    h = hashlib.sha256()
+    h.update(json.dumps(PROTOCOL, sort_keys=True).encode())
+    origins: dict[str, list[str]] = {}
+    for task in series:  # insertion order is identical in both stages
+        ctxs, acts, dates = make_windows(series[task])
+        origins[task] = dates
+        h.update(task.encode())
+        h.update("|".join(dates).encode())
+        for arr in (*ctxs, *acts):
+            q = np.round(np.asarray(arr, dtype=np.float64) * 1e10).astype(np.int64)
+            h.update(q.tobytes())
+    return h.hexdigest(), origins
 
 
 # ---------------------------------------------------------------------------
@@ -128,8 +165,7 @@ BASELINES = {
 
 def stage_baselines() -> None:
     series = load_series()
-    payload = {"tasks": {}, "protocol": {
-        "L": L, "H": H, "n_windows": N_WINDOWS, "m": M, "eval_start": EVAL_START}}
+    payload = {"tasks": {}, "protocol": dict(PROTOCOL)}
     for task, levels in series.items():
         ctxs, acts, dates = make_windows(levels)
         entry = {"origin_dates": dates,
@@ -141,10 +177,12 @@ def stage_baselines() -> None:
             entry["models"][name] = [fn(c).tolist() for c in ctxs]
         payload["tasks"][task] = entry
         print(f"[baselines] {task}: n={len(levels)} windows at {dates[0]}..{dates[-1]}")
+    payload["fingerprint"], _ = compute_fingerprint(series)
     os.makedirs(OUT_DIR, exist_ok=True)
     with open(os.path.join(OUT_DIR, "baselines.json"), "w") as f:
         json.dump(payload, f)
-    print("wrote", os.path.join(OUT_DIR, "baselines.json"))
+    print("wrote", os.path.join(OUT_DIR, "baselines.json"),
+          "fingerprint", payload["fingerprint"][:12])
 
 
 # ---------------------------------------------------------------------------
@@ -196,15 +234,46 @@ def stage_tsfm() -> None:
                           "q90": q[:, :, 9].tolist()}
     print("[tsfm] TimesFM-2.5 done")
 
+    fingerprint, origins = compute_fingerprint(series)
     os.makedirs(OUT_DIR, exist_ok=True)
     with open(os.path.join(OUT_DIR, "tsfm.json"), "w") as f:
-        json.dump({"index": [list(t) for t in tasks], "models": out}, f)
-    print("wrote", os.path.join(OUT_DIR, "tsfm.json"))
+        json.dump({"index": [list(t) for t in tasks], "models": out,
+                   "fingerprint": fingerprint, "origins": origins}, f)
+    print("wrote", os.path.join(OUT_DIR, "tsfm.json"), "fingerprint", fingerprint[:12])
 
 
 # ---------------------------------------------------------------------------
 # Report
 # ---------------------------------------------------------------------------
+def _require_matching_artifacts(base: dict, tsfm: dict) -> None:
+    """Fail closed unless tsfm.json was produced from the same inputs as
+    baselines.json. A stale TSFM artifact (baseline stage re-run after the data,
+    dates, or protocol changed, TSFM stage not) would otherwise be silently
+    aligned to fresh actuals by (task, window) and publish invalid MAE/DM."""
+    base_fp = base.get("fingerprint")
+    tsfm_fp = tsfm.get("fingerprint")
+    if not base_fp or not tsfm_fp:
+        raise SystemExit(
+            "ABORT: baselines.json and/or tsfm.json is missing an integrity "
+            "fingerprint (produced by an older code revision). Cannot confirm the "
+            "TSFM forecasts match the current actuals. Re-run BOTH stages "
+            "(--stage baselines then --stage tsfm) before --stage report.")
+    if base_fp != tsfm_fp:
+        raise SystemExit(
+            "ABORT (STALE ARTIFACT): tsfm.json fingerprint does not match "
+            f"baselines.json (baselines={base_fp[:12]}..., tsfm={tsfm_fp[:12]}...). "
+            "The TSFM forecasts were computed from different data / evaluation "
+            "dates / protocol than the current actuals. Re-run --stage tsfm "
+            "before --stage report.")
+    # Belt-and-braces: per-task origin dates must line up too.
+    tsfm_origins = tsfm.get("origins", {})
+    for task, entry in base["tasks"].items():
+        if task in tsfm_origins and tsfm_origins[task] != entry.get("origin_dates"):
+            raise SystemExit(
+                f"ABORT (STALE ARTIFACT): origin dates for task {task!r} differ "
+                "between baselines.json and tsfm.json. Re-run --stage tsfm.")
+
+
 def stage_report() -> None:
     with open(os.path.join(OUT_DIR, "baselines.json")) as f:
         base = json.load(f)
@@ -213,6 +282,7 @@ def stage_report() -> None:
     if os.path.exists(tsfm_path):
         with open(tsfm_path) as f:
             tsfm = json.load(f)
+        _require_matching_artifacts(base, tsfm)
 
     # reshape tsfm: {task: {model: {med/q10/q90: [windows][H]}}}
     tsfm_by_task: dict = {}

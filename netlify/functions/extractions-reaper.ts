@@ -129,17 +129,21 @@ export default async (): Promise<Response> => {
           // (nothing will ever consume this payload) or the record was reaped
           // while the payload delete failed. Undatable either way — so stamp a
           // dated terminal record and let the NEXT run delete the payload
-          // under the normal bound, instead of deleting blind. onlyIfNew makes
-          // the stamp lose every race: an in-flight submit (or worker) writing
-          // the real record is never clobbered — including the case where the
+          // under the normal bound, instead of deleting blind. The stamp must
+          // lose every race: an in-flight submit (or worker) writing the real
+          // record must never be clobbered — including the case where the
           // record exists but its read failed above, and a budget-truncated
-          // record pass (records is then incomplete; the stamp is a no-op).
-          await store.setJSON(
+          // record pass (records is then incomplete). It goes through set() +
+          // onlyIfNew, NOT setJSON(): @netlify/blobs 10.7.9 silently drops the
+          // conditional flag on setJSON(), making the write unconditional and
+          // able to overwrite a concurrent running/done record with this error,
+          // stranding a paid result. Count it only when the stamp actually won.
+          const stamp = await store.set(
             id,
-            { status: 'error', error: 'Extraction never started — resubmit', retainedSince: new Date().toISOString() },
+            JSON.stringify({ status: 'error', error: 'Extraction never started — resubmit', retainedSince: new Date().toISOString() }),
             { onlyIfNew: true },
           )
-          stamped++
+          if (stamp.modified) stamped++
         }
       } catch {
         failures++

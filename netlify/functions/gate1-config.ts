@@ -421,21 +421,32 @@ export function configShapeError(c: any): string | null {
   // computeMacroSnapshot (lib/gate1/macro.ts) hard-codes three signal ROLES by
   // exact id — they are engine-consumed, not free-form config:
   //   'sahm'     → the hard recession override compares its VALUE as a level
-  //                against the published 0.5 Sahm trigger (transform 'level');
+  //                against the published 0.5 Sahm trigger (transform 'level',
+  //                direction 'high_is_bad': a rising Sahm reading marks a
+  //                recession start);
   //   'gdp'      → the quadrant reads its value as yoy real-GDP growth, and
   //                its raw series drives the technical-recession override
-  //                (transform 'yoy');
+  //                (transform 'yoy', direction 'high_is_good': faster growth
+  //                is the benign vote);
   //   'core_pce' → the quadrant reads its value as yoy inflation
-  //                (transform 'yoy').
+  //                (transform 'yoy', direction 'high_is_bad': hotter inflation
+  //                is the adverse vote).
   // Renaming one of these ids silently DISABLES the override / blanks the
   // quadrant to 'unknown' (find() by id just misses), and flipping a transform
   // feeds the wrong units into those hard-coded comparisons — e.g. sahm-as-yoy
-  // breaks the 0.5pp trigger, gdp-as-level misclassifies the quadrant. So the
-  // three roles are pinned here.
+  // breaks the 0.5pp trigger, gdp-as-level misclassifies the quadrant. Flipping
+  // a DIRECTION is the same class of silent break one layer on: computeVote
+  // (lib/gate1/macro.ts) reads direction to turn a value into a posture vote,
+  // and that vote feeds the weighted regime score. A config that sets gdp to
+  // 'high_is_bad' while ordering its bands for the new direction validates every
+  // other rule here, yet makes strong growth vote red and weak growth vote green
+  // — inverting the regime score and every fund-wide posture derived from it,
+  // exactly the axis the transform pin above does NOT cover. So each canonical
+  // signal's direction is pinned to its meaning here alongside its transform.
   const ENGINE_SIGNAL_ROLES = [
-    { id: 'sahm', transform: 'level', role: 'the Sahm-rule hard recession override compares its value, as a level, against the published 0.5 trigger' },
-    { id: 'gdp', transform: 'yoy', role: 'the quadrant reads its value as yoy real-GDP growth (and its raw series drives the technical-recession override)' },
-    { id: 'core_pce', transform: 'yoy', role: 'the quadrant reads its value as yoy inflation' },
+    { id: 'sahm', transform: 'level', direction: 'high_is_bad', role: 'the Sahm-rule hard recession override compares its value, as a level, against the published 0.5 trigger' },
+    { id: 'gdp', transform: 'yoy', direction: 'high_is_good', role: 'the quadrant reads its value as yoy real-GDP growth (and its raw series drives the technical-recession override)' },
+    { id: 'core_pce', transform: 'yoy', direction: 'high_is_bad', role: 'the quadrant reads its value as yoy inflation' },
   ] as const
   for (const need of ENGINE_SIGNAL_ROLES) {
     const s = m.signals.find((x: any) => x && x.id === need.id)
@@ -444,6 +455,9 @@ export function configShapeError(c: any): string | null {
     }
     if (s.transform !== need.transform) {
       return `macro signal "${need.id}" must have transform "${need.transform}" (got ${JSON.stringify(s.transform)}) — the macro engine consumes it by role: ${need.role}, so any other transform feeds the wrong units into that hard-coded comparison`
+    }
+    if (s.direction !== need.direction) {
+      return `macro signal "${need.id}" must have direction "${need.direction}" (got ${JSON.stringify(s.direction)}) — the macro engine consumes it by role: ${need.role}, so this signal's tightening direction is fixed by its meaning; a flipped direction (even with bands reordered to match) inverts its vote in the weighted regime score`
     }
   }
   for (const [id, w] of Object.entries(m.signalWeights)) {

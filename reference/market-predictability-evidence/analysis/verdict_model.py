@@ -21,8 +21,12 @@ from itertools import combinations
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-FAMILIES = HERE / "financial-market-predictability-families.json"
-EVIDENCE = HERE / "financial-market-predictability-evidence.csv"
+# The ledger files live one directory above this script (the evidence root),
+# not alongside it in analysis/. Resolve them relative to __file__ so the
+# documented `python3 verdict_model.py` invocation works from any cwd.
+DATA = HERE.parent
+FAMILIES = DATA / "financial-market-predictability-families.json"
+EVIDENCE = DATA / "financial-market-predictability-evidence.csv"
 
 DIMS = ("p", "e", "r", "i", "t", "b")
 SUPPORTED = "Supported pre-live"

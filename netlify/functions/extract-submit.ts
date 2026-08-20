@@ -13,6 +13,18 @@ import type { ExtractRequest } from './lib/gate1/extract-core.ts'
 
 const MAX_BODY_BYTES = 4_500_000
 
+// Server-enforced bounds on the pro-forma sheets — twins of the browser's
+// src/excel.ts workbookToCsvText caps (the client caps are UX only). A custom
+// client can send any body, so a truthy `sheets` with a `.length` is not
+// enough: without these, sheet text could smuggle ~4.4MB past the per-sheet
+// browser cap and the adjacent omText ceiling straight to the paid model.
+const MAX_SHEETS = 50
+// Mirrors excel.ts MAX_SHEET_CHARS (60_000) with slack for the '…[truncated]'
+// marker the client appends to a capped sheet.
+const MAX_SHEET_CHARS = 64_000
+// Aggregate sheet text shares the omText 200,000-char ceiling below.
+const MAX_SHEETS_TOTAL_CHARS = 200_000
+
 const json = (status: number, obj: unknown) =>
   new Response(JSON.stringify(obj), { status, headers: { 'Content-Type': 'application/json' } })
 
@@ -92,6 +104,32 @@ export default async (req: Request): Promise<Response> => {
   }
   if (body.omText && body.omText.length > 200_000) {
     return json(413, { error: 'OM text too large — 200,000 characters max' })
+  }
+  // Validate the pro-forma sheets — twin of excel.ts's per-sheet and aggregate
+  // caps. A truthy `sheets.length` is not enough: reject non-arrays and
+  // malformed entries, cap the count, cap each csv, and cap the aggregate, so a
+  // custom client can't pack near the whole 4.5MB body into sheet text bound
+  // for the paid model.
+  if (body.sheets !== undefined) {
+    if (!Array.isArray(body.sheets)) {
+      return json(400, { error: 'sheets must be an array of { name, csv } objects' })
+    }
+    if (body.sheets.length > MAX_SHEETS) {
+      return json(413, { error: `Too many pro forma sheets — ${MAX_SHEETS} max` })
+    }
+    let sheetsTotal = 0
+    for (const sheet of body.sheets) {
+      if (!sheet || typeof sheet !== 'object' || typeof sheet.name !== 'string' || typeof sheet.csv !== 'string') {
+        return json(400, { error: 'Each pro forma sheet must be a { name: string, csv: string } object' })
+      }
+      if (sheet.csv.length > MAX_SHEET_CHARS) {
+        return json(413, { error: `A pro forma sheet is too large — ${MAX_SHEET_CHARS} characters max per sheet` })
+      }
+      sheetsTotal += sheet.csv.length
+    }
+    if (sheetsTotal > MAX_SHEETS_TOTAL_CHARS) {
+      return json(413, { error: `Pro forma sheets too large — ${MAX_SHEETS_TOTAL_CHARS} characters max total` })
+    }
   }
   if (!body.pdfBase64 && !body.omText && !(body.sheets && body.sheets.length)) {
     return json(400, { error: 'Provide an offering memorandum (PDF, Word or text) and/or pro forma sheets' })

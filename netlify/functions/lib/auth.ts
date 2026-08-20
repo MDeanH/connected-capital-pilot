@@ -27,30 +27,47 @@ const json = (status: number, obj: unknown) =>
   new Response(JSON.stringify(obj), { status, headers: { 'Content-Type': 'application/json' } })
 
 /**
- * The verified identity behind the request's Bearer JWT, or null — null covers
- * auth not configured, a missing/non-Bearer Authorization header, an invalid
- * or expired token, a disabled profile, and a missing profile. The one
- * self-healing case: a verified user with no profile whose email matches
+ * Three-state resolution of the request's Bearer JWT — the shape the require*
+ * gates need to tell a transient failure apart from a genuine absence:
+ *
+ *  - { identity }        a verified, enabled identity (incl. the bootstrapped
+ *                        first admin).
+ *  - { identity: null }  genuinely anonymous / no enforcement: auth not
+ *                        configured, a missing/non-Bearer header, an invalid or
+ *                        expired token, a disabled profile, or a genuinely
+ *                        absent profile (no row).
+ *  - { indeterminate }   a TRANSIENT backend failure: the profiles read errored
+ *                        while the JWT itself is valid. The caller must answer
+ *                        5xx (503) so the client's bounded retry re-attempts —
+ *                        answering 401 here would flash a valid admin as "no
+ *                        access", because probeRoleOnce (src/auth.ts) treats any
+ *                        <500 status as a DEFINITIVE verdict and does not retry.
+ *
+ * The one self-healing case: a verified user with no profile whose email matches
  * BOOTSTRAP_ADMIN_EMAIL becomes the first admin. Never throws on bad input.
  */
-export async function identityFromRequest(req: Request): Promise<Identity | null> {
+type ResolvedIdentity =
+  | { identity: Identity | null; indeterminate?: never }
+  | { indeterminate: true; identity?: never }
+
+async function resolveIdentity(req: Request): Promise<ResolvedIdentity> {
   const db = serviceClient()
-  if (!db) return null
+  if (!db) return { identity: null }
   const header = req.headers.get('authorization') ?? ''
-  if (!header.startsWith('Bearer ')) return null
+  if (!header.startsWith('Bearer ')) return { identity: null }
   const token = header.slice('Bearer '.length).trim()
-  if (!token) return null
+  if (!token) return { identity: null }
 
   let userId: string
   let email: string
   try {
     const { data, error } = await db.auth.getUser(token)
     // A verified user without an email can never match a profile — treat as anonymous.
-    if (error || !data.user?.email) return null
+    if (error || !data.user?.email) return { identity: null }
     userId = data.user.id
     email = data.user.email
   } catch {
-    return null
+    return { identity: null }
   }
 
   const { data: profile, error: profileError } = await db
@@ -58,14 +75,20 @@ export async function identityFromRequest(req: Request): Promise<Identity | null
     .select('id, email, role, disabled')
     .eq('id', userId)
     .maybeSingle()
-  if (profileError) return null
+  // TRANSIENT failure, not a verdict: the JWT is valid but the profiles read
+  // errored (PostgREST resolves { data, error } — it never throws). Surface it
+  // as indeterminate so the gate answers 503 and the client retries, instead of
+  // flattening a DB hiccup into a false 401 that locks a valid admin out until
+  // reload. A genuinely absent profile is { data: null, error: null } and falls
+  // through to the bootstrap check below.
+  if (profileError) return { indeterminate: true }
   if (profile) {
-    if (profile.disabled) return null
-    return { id: profile.id, email: profile.email, role: profile.role }
+    if (profile.disabled) return { identity: null }
+    return { identity: { id: profile.id, email: profile.email, role: profile.role } }
   }
 
   const bootstrap = process.env.BOOTSTRAP_ADMIN_EMAIL
-  if (!bootstrap || bootstrap.trim().toLowerCase() !== email.toLowerCase()) return null
+  if (!bootstrap || bootstrap.trim().toLowerCase() !== email.toLowerCase()) return { identity: null }
   const { data: created, error: insertError } = await db
     .from('profiles')
     .insert({ id: userId, email, role: 'admin' })
@@ -79,18 +102,37 @@ export async function identityFromRequest(req: Request): Promise<Identity | null
       .select('id, email, role, disabled')
       .eq('id', userId)
       .maybeSingle()
-    if (!raced || raced.disabled) return null
-    return { id: raced.id, email: raced.email, role: raced.role }
+    if (!raced || raced.disabled) return { identity: null }
+    return { identity: { id: raced.id, email: raced.email, role: raced.role } }
   }
-  return { id: created.id, email: created.email, role: created.role }
+  return { identity: { id: created.id, email: created.email, role: created.role } }
+}
+
+/**
+ * The verified identity behind the request's Bearer JWT, or null. This is the
+ * attribution-only view (stamping who decided/authored a row): a transient
+ * profiles-query failure is flattened to null here, exactly as before — a failed
+ * read just yields an unattributed row, never a blocked write. The require*
+ * GATES call resolveIdentity directly instead, so they can answer 503 (retry)
+ * rather than 401 (sign in) on that transient case. Never throws on bad input.
+ */
+export async function identityFromRequest(req: Request): Promise<Identity | null> {
+  const resolved = await resolveIdentity(req)
+  return resolved.indeterminate ? null : resolved.identity
 }
 
 /** Sign-in gate. With auth unconfigured it waves everything through as { identity: null }. */
 export async function requireIdentity(req: Request): Promise<AuthGate> {
   if (!authConfigured()) return { identity: null }
-  const identity = await identityFromRequest(req)
-  if (!identity) return { response: json(401, { error: 'Sign in required' }) }
-  return { identity }
+  const resolved = await resolveIdentity(req)
+  // A transient backend failure is answered 503 (indeterminate → the client's
+  // bounded retry re-attempts); a genuine absence of identity is 401. Both are
+  // distinct from the auth-unconfigured no-op handled above.
+  if (resolved.indeterminate) {
+    return { response: json(503, { error: 'Sign-in check temporarily unavailable' }) }
+  }
+  if (!resolved.identity) return { response: json(401, { error: 'Sign in required' }) }
+  return { identity: resolved.identity }
 }
 
 /** Admin gate — requireIdentity plus role === 'admin' (or auth unconfigured). */

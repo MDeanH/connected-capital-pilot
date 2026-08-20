@@ -52,6 +52,10 @@ def main():
     res = hb.OUT_DIR
     base = json.load(open(os.path.join(res, "baselines.json")))
     tsfm = json.load(open(os.path.join(res, "tsfm.json")))
+    # Fail closed on a stale TSFM artifact before baking it into the shipped
+    # prior: same guard stage_report() uses, since this consumer aligns the two
+    # by (task, window) with no freshness check of its own.
+    hb._require_matching_artifacts(base, tsfm)
     idx = [tuple(t) for t in tsfm["index"]]
     tf = tsfm["models"][MODEL]
 
