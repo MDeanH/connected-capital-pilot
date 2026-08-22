@@ -127,8 +127,6 @@ const CSS = `
 .ev-detail dd { margin: 0.15rem 0 0; }
 .ev-map td:first-child { font-weight: 600; width: 26%; }
 .ev-verdicts { display: flex; flex-wrap: wrap; gap: 4px; }
-.ev-links { display: flex; gap: 0.75rem; flex-wrap: wrap; }
-.ev-links a { font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; font-weight: 500; color: var(--accent); text-decoration: none; border: 1px solid var(--border); border-radius: 6px; padding: 6px 12px; }
 `
 
 export default function EvidencePanel() {
@@ -179,9 +177,6 @@ export default function EvidencePanel() {
           <div className="ev-stat"><b>{studyCount}</b><span>studies cited (198-study ledger)</span></div>
           <div className="ev-stat"><b>{FAMILIES.filter(f => f.verdict === 'Supported pre-live').length}</b><span>supported pre-live</span></div>
           <div className="ev-stat"><b>2026-07-14</b><span>evidence cutoff (v1.1)</span></div>
-        </div>
-        <div className="ev-links" style={{ marginTop: '0.75rem' }}>
-          <a href="/evidence-network.html" target="_blank" rel="noreferrer">Open interactive evidence map ↗</a>
         </div>
       </div>
 
