@@ -326,27 +326,44 @@ function isPrivilegedPath(pathname: string): boolean {
 }
 
 // The SCHEDULED functions: macro-cron (weekly) and extractions-reaper (daily).
-// The Netlify platform scheduler — which would invoke these internally,
-// without traversing this edge — has never actually fired on the API-deployed
-// sites (macro_snapshots: zero rows ever, no scheduled-slot traffic; verified
-// 2026-08-24 — an earlier revision of this comment claimed the opposite
-// without evidence). The runs that DO happen come from an external scheduler
-// (Supabase pg_cron → net.http_post) hitting these public paths with the
-// shared CRON_TRIGGER_SECRET in an x-cron-key header.
+// Two facts, both verified 2026-08-24, shape the rules here:
 //
-// So the rule at the edge is: admit a POST to these paths ONLY when it
-// presents the correct x-cron-key (constant-time compare; fail-closed to an
-// unconditional 403 when the secret is unset) and refuse everything else. A
-// caller-forgeable body field (e.g. macro-cron's next_run) still cannot
-// authenticate anything, and each function re-verifies the same secret itself
-// (defense in depth). Subpaths are matched too: Netlify routes
-// /.netlify/functions/<name>/<extra> to the same function.
+//  1. The Netlify platform scheduler — which would invoke these internally,
+//     without traversing this edge — has never actually fired on the
+//     API-deployed sites (macro_snapshots: zero rows ever, no scheduled-slot
+//     traffic; an earlier revision of this comment claimed the opposite
+//     without evidence).
+//  2. Netlify's function router refuses ALL external HTTP to a function that
+//     declares a schedule (empty-bodied 403, fwd-status=403), so these paths
+//     could not serve an external trigger even if we admitted one.
+//
+// The real runs therefore come from an external scheduler (Supabase pg_cron →
+// net.http_post) calling the cron-trigger DISPATCHER (/api/cron-run/:fn) with
+// the shared CRON_TRIGGER_SECRET in an x-cron-key header. The rules at the
+// edge: the scheduled functions' own paths stay unconditionally 403 (nothing
+// external ever has a reason to reach them), and the dispatcher path admits
+// exactly one shape — a POST presenting the correct key (constant-time
+// compare; fail-closed to 403 when the secret is unset). The dispatcher and
+// each target handler re-verify the same secret (defense in depth). Subpaths
+// are matched too: Netlify routes /.netlify/functions/<name>/<extra> to the
+// same function.
 function isScheduledFunctionPath(pathname: string): boolean {
   return (
     pathname === "/.netlify/functions/macro-cron" ||
     pathname.startsWith("/.netlify/functions/macro-cron/") ||
     pathname === "/.netlify/functions/extractions-reaper" ||
     pathname.startsWith("/.netlify/functions/extractions-reaper/")
+  );
+}
+
+// The dispatcher's both namespaces: its declared /api/cron-run/:fn route and
+// the internal /.netlify/functions/cron-trigger path Netlify also exposes.
+function isCronTriggerPath(pathname: string): boolean {
+  return (
+    pathname.startsWith("/api/cron-run/") ||
+    pathname === "/api/cron-run" ||
+    pathname === "/.netlify/functions/cron-trigger" ||
+    pathname.startsWith("/.netlify/functions/cron-trigger/")
   );
 }
 
@@ -375,15 +392,27 @@ export default async (request: Request, context: Context) => {
   const { pathname } = new URL(request.url);
 
   // FIRST, ahead of auth, the exempt-public set, and the no-password
-  // fail-closed matrix below: the scheduled-function paths. The ONLY external
-  // caller with a legitimate reason to hit them is the pg_cron trigger, which
-  // authenticates with the shared CRON_TRIGGER_SECRET (see the comment on
-  // isScheduledFunctionPath). Everything else — including a scheduled-shaped
-  // body, which is caller-forgeable — is refused with 403. This edge check is
-  // the PRIMARY protection; each handler re-verifies the same secret as
-  // defense-in-depth. A genuine platform-scheduler run (should one ever fire)
+  // fail-closed matrix below: the cron surfaces (see the comment on
+  // isScheduledFunctionPath for the two verified facts these rules rest on).
+  //
+  // The scheduled functions' own paths: unconditionally 403. No external HTTP
+  // request to them is ever legitimate — the platform router refuses HTTP to
+  // scheduled functions anyway, and the external trigger goes through the
+  // dispatcher below. A genuine platform-scheduler run (should one ever fire)
   // is invoked internally and never reaches this code.
   if (isScheduledFunctionPath(pathname)) {
+    return new Response(
+      JSON.stringify({ error: "Forbidden: scheduled function; runs only on a schedule" }),
+      { status: 403, headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } },
+    );
+  }
+
+  // The cron-trigger dispatcher: exactly one admissible shape — a POST
+  // presenting the correct CRON_TRIGGER_SECRET in x-cron-key. Fail-closed:
+  // secret unset, header absent, wrong method, or a mismatch (constant-time)
+  // all 403 here. This edge check is the PRIMARY protection; the dispatcher
+  // and each target handler re-verify the same secret as defense-in-depth.
+  if (isCronTriggerPath(pathname)) {
     const cronKey = Netlify.env.get("CRON_TRIGGER_SECRET") || "";
     const presented = request.headers.get("x-cron-key") || "";
     if (
@@ -395,7 +424,7 @@ export default async (request: Request, context: Context) => {
       return context.next();
     }
     return new Response(
-      JSON.stringify({ error: "Forbidden: scheduled function; runs only on a schedule" }),
+      JSON.stringify({ error: "Forbidden: cron trigger requires the shared key" }),
       { status: 403, headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } },
     );
   }
