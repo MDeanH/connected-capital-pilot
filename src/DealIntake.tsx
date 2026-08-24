@@ -18,6 +18,9 @@ import EvidencePanel from './EvidencePanel'
 import DealHistory from './DealHistory'
 import MarketPathCard from './MarketPathCard'
 import McProbabilityCard from './McProbabilityCard'
+import LocationIntelCard from './LocationIntelCard'
+import { buildCrossChecks } from './marketCrossChecks'
+import { useMarketContext } from './useMarketContext'
 import LoginCard from './LoginCard'
 import UsersPanel from './UsersPanel'
 import { authFetch, supabase, useIdentity, INTAKE_STATE_KEY, CONFIG_DRAFT_KEY, type AdminFlag } from './auth'
@@ -469,6 +472,22 @@ export default function DealIntake() {
   }, [fields, adjustments, step, extraction, dealId])
 
   const coerced = useMemo(() => coerceFields(fields), [fields])
+  // Independent market context for the Review step (Items 2–3): one neutral
+  // /api/score call per location value, shared by the cross-check annotations
+  // and the LocationIntelCard. Only fetched once a deal is in flight (the
+  // review step is reachable), never on the tool tabs.
+  const marketCtx = useMarketContext(
+    step === 'review' || step === 'results'
+      ? (typeof coerced.location === 'string' ? coerced.location : '')
+      : null,
+  )
+  // Annotations are suppressed while market data loads or fails (belt and
+  // braces with the hook's per-cycle reset): a stale metro's figures must
+  // never sit under another location's fields as "independent context".
+  const crossChecks = useMemo(
+    () => (marketCtx.loading || marketCtx.err ? {} : buildCrossChecks(marketCtx.data, coerced)),
+    [marketCtx.loading, marketCtx.err, marketCtx.data, coerced],
+  )
   // Membership, not truthiness: an asset class outside the registry must never
   // reach the engine, where it would silently score under '*' fallback thresholds.
   const canScore = typeof coerced.asset_class === 'string' && ASSET_CLASSES.includes(coerced.asset_class)
@@ -761,6 +780,11 @@ export default function DealIntake() {
             missingKeys={missingKeys}
             meta={extraction?.fields}
             provenance={extraction?.provenance}
+            crossChecks={crossChecks}
+          />
+          <LocationIntelCard
+            location={typeof coerced.location === 'string' ? coerced.location : null}
+            context={marketCtx}
           />
           <div className="di-stickybar">
             <span className="di-muted">{filledCount} of {ALL_FIELDS.length} fields confirmed</span>
