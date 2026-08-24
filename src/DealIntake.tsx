@@ -17,6 +17,7 @@ import Backtest from './Backtest'
 import EvidencePanel from './EvidencePanel'
 import DealHistory from './DealHistory'
 import MarketPathCard from './MarketPathCard'
+import McProbabilityCard from './McProbabilityCard'
 import LoginCard from './LoginCard'
 import UsersPanel from './UsersPanel'
 import { authFetch, supabase, useIdentity, INTAKE_STATE_KEY, CONFIG_DRAFT_KEY, type AdminFlag } from './auth'
@@ -796,6 +797,15 @@ export default function DealIntake() {
                   <KpiScorecard fields={coerced} response={lastResponse} benchmarks={displayBenchmarks ?? undefined} />
                   <MarketComparison fields={coerced} market={macro?.market ?? null} benchmarks={displayBenchmarks} />
                   <MarketPathCard location={typeof coerced.location === 'string' ? coerced.location : null} />
+                  {/* Monte Carlo probabilities from /api/score — keyed off the
+                      deal's location (resolved server-side, national fallback
+                      labeled) and the ACTIVE rulebook's par IRR, same source
+                      as the Backtest par. Degrades to a note on API failure. */}
+                  <McProbabilityCard
+                    location={typeof coerced.location === 'string' ? coerced.location : null}
+                    parIrr={activeParIrr}
+                    dealName={typeof coerced.deal_name === 'string' && coerced.deal_name.trim() ? coerced.deal_name.trim() : undefined}
+                  />
                   <div ref={judgmentRef}>
                     <JudgmentPanel
                       adjustments={adjustments}
