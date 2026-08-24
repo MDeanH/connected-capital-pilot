@@ -7,6 +7,7 @@ import { fetchSeriesMap } from './lib/gate1/fred.ts'
 import { buildMarketContext, computeMacroSnapshot, MARKET_SERIES, utcWeekStart } from './lib/gate1/macro.ts'
 import { DEFAULT_CONFIG } from './lib/gate1/preview.ts'
 import type { Gate1Config, MacroSnapshot } from './lib/gate1/types.ts'
+import { cronKeyAuthenticated } from './lib/cron-auth.ts'
 import { serviceClient } from './lib/supabase.ts'
 
 // Two missed weekly cron runs. Keep in sync with MAX_SNAPSHOT_AGE_DAYS in
@@ -15,41 +16,43 @@ import { serviceClient } from './lib/supabase.ts'
 const MAX_SNAPSHOT_AGE_DAYS = 14
 
 export default async (req: Request): Promise<Response> => {
-  // Defense-in-depth scheduled-shape check — NOT authentication.
+  // Two legitimate invokers, checked in order:
   //
-  // PRIMARY protection is at the edge: netlify/edge-functions/gate.ts hard-blocks
-  // this function's public HTTP path (/.netlify/functions/macro-cron) with 403
-  // for EVERY external request, ahead of any auth or exemption. The genuine
-  // weekly run is driven by Netlify's platform scheduler, which invokes this
-  // function INTERNALLY and does not traverse the edge — so the edge block stops
-  // every external caller while leaving the 13:00-UTC Monday run intact.
+  // 1. The EXTERNAL scheduler (Supabase pg_cron → net.http_post) presenting the
+  //    shared CRON_TRIGGER_SECRET in x-cron-key. This is the path that actually
+  //    fires in production: the Netlify platform scheduler has never invoked
+  //    this function on the API-deployed sites (see lib/cron-auth.ts for the
+  //    evidence). The edge gate (gate.ts) admits a keyed POST to this path;
+  //    cronKeyAuthenticated() is the function-side re-verification of the same
+  //    secret — defense in depth, constant-time, fail-closed.
   //
-  // Why this run must never be externally triggerable: it persists the week's
-  // macro posture, and the same-week duplicate guard below means the FIRST run of
-  // a week wins — an early manual hit by any pilot-cookie holder (an analyst,
+  // 2. The Netlify platform scheduler, kept as a bonus should it ever fire: a
+  //    v2 scheduled call carries a JSON body with a `next_run` ISO-8601 string
+  //    (the documented `const { next_run } = await req.json()` pattern) and is
+  //    invoked internally, without traversing the edge. next_run is a
+  //    caller-forgeable body field, NOT authentication — any external caller
+  //    shaped like this is still stopped at the edge, which 403s every
+  //    un-keyed external request to this path.
+  //
+  // Why this run must not be openly triggerable: it persists the week's macro
+  // posture, and the same-week duplicate guard below means the FIRST run of a
+  // week wins — an early manual hit by any pilot-cookie holder (an analyst,
   // when REQUIRE_ACCOUNTS is on) would stamp that week's posture and make the
-  // legitimate Monday run skip as a duplicate.
-  //
-  // The check below is a SECOND layer, should a request ever reach this handler
-  // (edge misconfiguration, an internal replay, a future routing change). It
-  // verifies only the scheduled-invocation SHAPE: a Netlify v2 scheduled call
-  // carries a JSON body with a `next_run` ISO-8601 string (the documented
-  // `const { next_run } = await req.json()` pattern) that an ordinary browser
-  // navigation lacks. It is NOT proof of authenticity — `next_run` is a plain
-  // body field any caller can forge — so it is kept only as a cheap sanity gate
-  // behind the edge block, never relied on as the security boundary. Rejecting on
-  // a missing/unparseable body is safe because `next_run` is part of every
-  // genuine scheduled call, so this cannot reject a real weekly run.
-  let scheduled = false
-  try {
-    const body = await req.json()
-    scheduled = body != null && typeof body.next_run === 'string' && body.next_run.length > 0
-  } catch {
-    // No body, or one that is not JSON — not a scheduled-shaped invocation.
-    scheduled = false
+  // legitimate scheduled run skip as a duplicate. That guard is also what
+  // makes the dual-scheduler arrangement safe: whichever scheduler fires
+  // second in a week is a clean no-op skip.
+  let scheduled = cronKeyAuthenticated(req)
+  if (!scheduled) {
+    try {
+      const body = await req.json()
+      scheduled = body != null && typeof body.next_run === 'string' && body.next_run.length > 0
+    } catch {
+      // No body, or one that is not JSON — not a scheduled-shaped invocation.
+      scheduled = false
+    }
   }
   if (!scheduled) {
-    return new Response('Forbidden: macro-cron runs only on the Netlify schedule', { status: 403 })
+    return new Response('Forbidden: macro-cron runs only on a schedule', { status: 403 })
   }
 
   const db = serviceClient()

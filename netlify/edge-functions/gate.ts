@@ -325,19 +325,22 @@ function isPrivilegedPath(pathname: string): boolean {
   return pathname.startsWith("/api/") || pathname.startsWith("/.netlify/functions/");
 }
 
-// The SCHEDULED (Netlify cron) functions: macro-cron (weekly) and
-// extractions-reaper (daily). The platform scheduler invokes these INTERNALLY
-// and does NOT traverse this edge — proof: both already run on this cookie-gated
-// site with no cc_gate cookie, and an edge-applied gate would 401 them into
-// never running. So their only externally reachable surface is the internal
-// /.netlify/functions/<name> namespace (neither declares a config.path or an
-// /api alias), and NO external HTTP caller has a legitimate reason to hit it.
-// A caller-forgeable body field (e.g. macro-cron's next_run) cannot authenticate
-// a scheduled run, so the robust protection is to refuse EVERY external HTTP
-// request to these paths at the edge — the block below does exactly that, and
-// the real cron runs are untouched because the scheduler bypasses the edge.
-// Subpaths are matched too: Netlify routes /.netlify/functions/<name>/<extra>
-// to the same function.
+// The SCHEDULED functions: macro-cron (weekly) and extractions-reaper (daily).
+// The Netlify platform scheduler — which would invoke these internally,
+// without traversing this edge — has never actually fired on the API-deployed
+// sites (macro_snapshots: zero rows ever, no scheduled-slot traffic; verified
+// 2026-08-24 — an earlier revision of this comment claimed the opposite
+// without evidence). The runs that DO happen come from an external scheduler
+// (Supabase pg_cron → net.http_post) hitting these public paths with the
+// shared CRON_TRIGGER_SECRET in an x-cron-key header.
+//
+// So the rule at the edge is: admit a POST to these paths ONLY when it
+// presents the correct x-cron-key (constant-time compare; fail-closed to an
+// unconditional 403 when the secret is unset) and refuse everything else. A
+// caller-forgeable body field (e.g. macro-cron's next_run) still cannot
+// authenticate anything, and each function re-verifies the same secret itself
+// (defense in depth). Subpaths are matched too: Netlify routes
+// /.netlify/functions/<name>/<extra> to the same function.
 function isScheduledFunctionPath(pathname: string): boolean {
   return (
     pathname === "/.netlify/functions/macro-cron" ||
@@ -371,17 +374,28 @@ export default async (request: Request, context: Context) => {
   const password = Netlify.env.get("PILOT_PASSWORD") || "";
   const { pathname } = new URL(request.url);
 
-  // FIRST, unconditionally: the scheduled functions are driven only by the
-  // Netlify platform scheduler, which invokes them internally and never
-  // traverses this edge. No external HTTP request to their public path is ever
-  // legitimate, and a body field like next_run is caller-forgeable — so refuse
-  // every such request with 403, ahead of auth, the exempt-public set, and the
-  // no-password fail-closed matrix below. This is the PRIMARY protection for the
-  // cron endpoints; the handlers' own next_run check is only defense-in-depth.
-  // The real weekly/daily runs are unaffected: the scheduler bypasses the edge.
+  // FIRST, ahead of auth, the exempt-public set, and the no-password
+  // fail-closed matrix below: the scheduled-function paths. The ONLY external
+  // caller with a legitimate reason to hit them is the pg_cron trigger, which
+  // authenticates with the shared CRON_TRIGGER_SECRET (see the comment on
+  // isScheduledFunctionPath). Everything else — including a scheduled-shaped
+  // body, which is caller-forgeable — is refused with 403. This edge check is
+  // the PRIMARY protection; each handler re-verifies the same secret as
+  // defense-in-depth. A genuine platform-scheduler run (should one ever fire)
+  // is invoked internally and never reaches this code.
   if (isScheduledFunctionPath(pathname)) {
+    const cronKey = Netlify.env.get("CRON_TRIGGER_SECRET") || "";
+    const presented = request.headers.get("x-cron-key") || "";
+    if (
+      cronKey &&
+      presented &&
+      request.method === "POST" &&
+      constantTimeEqual(presented, cronKey)
+    ) {
+      return context.next();
+    }
     return new Response(
-      JSON.stringify({ error: "Forbidden: scheduled function; invoked only by the Netlify scheduler" }),
+      JSON.stringify({ error: "Forbidden: scheduled function; runs only on a schedule" }),
       { status: 403, headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } },
     );
   }
