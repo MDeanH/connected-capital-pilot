@@ -189,4 +189,15 @@ export const GLOSSARY: Record<string, GlossaryEntry> = {
     short: 'The deal\u2019s projected return against what the public market returned over comparable windows.',
     long: 'Private deals lock money up and add complexity \u2014 they must clear the liquid alternative by a real margin, not just match it.',
   },
+  p_loss: {
+    term: 'P(loss)',
+    short: 'The share of simulated outcomes where the annualized return over the hold comes out negative.',
+    long: 'From 20,000 Monte Carlo paths drawn from the de-smoothed market return distribution plus a deal idiosyncratic layer.',
+  },
+  de_smoothing: {
+    term: 'De-smoothing',
+    short: 'Appraisal-based indices lag and smooth true prices, so their volatility reads too low.',
+    long: 'Geltner de-smoothing reverses the lag before simulating \u2014 risk is measured from the recovered series, never the flattering smoothed one.',
+    formula: 'r*_t = (r_t \u2212 \u03c6\u00b7r_{t\u22121}) / (1 \u2212 \u03c6)',
+  },
 }

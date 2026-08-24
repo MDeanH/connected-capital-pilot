@@ -18,6 +18,23 @@ const BASELINES: Record<string, Baseline> = {
   ...(baselines as unknown as Record<string, Baseline>),
 };
 const DEFAULT_BASELINE = 'Miami, FL' in BASELINES ? 'Miami, FL' : 're_value_add';
+// Fallback for deal-location resolution (below): the broadest real baseline
+// shipped — callers must label it as the national distribution, never as the
+// deal's own market.
+const NATIONAL_BASELINE = 'United States' in BASELINES ? 'United States' : DEFAULT_BASELINE;
+
+// Deal-flow location resolution: exact normalized "City, ST" match only (the
+// MarketPathCard philosophy — a fuzzy guess could score a deal against another
+// market's distribution). No match -> the national baseline, exact:false.
+export function resolveBaseline(location: string): { key: string; exact: boolean } {
+  const norm = location.trim().toLowerCase().replace(/\s+/g, ' ');
+  if (norm) {
+    for (const k of Object.keys(BASELINES)) {
+      if (norm === k.toLowerCase()) return { key: k, exact: true };
+    }
+  }
+  return { key: NATIONAL_BASELINE, exact: false };
+}
 
 const num = (x: any, d: number) => { const v = Number(x); return Number.isFinite(v) ? v : d; };
 const clamp = (x: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, x));
@@ -27,8 +44,15 @@ export const BASELINE_OPTIONS = Object.entries(BASELINES).map(([key, v]) => ({ k
 export const DDQ_FIELDS = SCORECARD.map((f) => ({ key: f.key, question: f.question, options: f.options.map((o) => ({ key: o.key, label: o.label })) }));
 
 export function computeScore(body: any) {
-  const bl = (typeof body.baseline === 'string' && Object.hasOwn(BASELINES, body.baseline))
-    ? BASELINES[body.baseline] : BASELINES[DEFAULT_BASELINE];
+  // An explicit valid baseline key wins; otherwise a deal `location` string
+  // resolves server-side (exact match or national fallback — the response's
+  // resolvedLocation block reports which) so the 14MB metro table never has
+  // to ship to the browser.
+  const requestedKey = (typeof body.baseline === 'string' && Object.hasOwn(BASELINES, body.baseline))
+    ? body.baseline : null;
+  const resolved = requestedKey === null && typeof body.location === 'string'
+    ? resolveBaseline(body.location) : null;
+  const bl = BASELINES[requestedKey ?? resolved?.key ?? DEFAULT_BASELINE];
   // All numeric inputs are clamped to sane ranges: they drive Monte Carlo loop
   // sizes, so an unbounded value (e.g. holding=500000) is a CPU-exhaustion lever.
   const target = clamp(num(body.target, 0.2), 0, 1);
@@ -119,6 +143,11 @@ export function computeScore(body: any) {
           backtest: mpInfo.backtest,
         }
       : null,
+    // Present only when the caller sent a location instead of a baseline key:
+    // what was asked for, what it resolved to, and whether it was an exact
+    // match (exact:false = national fallback — label it, never pass it off
+    // as the deal's own market).
+    resolvedLocation: resolved ? { requested: body.location, key: resolved.key, exact: resolved.exact } : null,
     honest, naive: { pLoss: naive.pLoss, varLoss: naive.varLoss },
     macro: MACRO,
   };
