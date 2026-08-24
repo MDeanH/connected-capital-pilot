@@ -26,10 +26,16 @@ const NATIONAL_BASELINE = 'United States' in BASELINES ? 'United States' : DEFAU
 // Deal-flow location resolution: exact normalized "City, ST" match only (the
 // MarketPathCard philosophy — a fuzzy guess could score a deal against another
 // market's distribution). No match -> the national baseline, exact:false.
+// Matches METRO history keys only, never the legacy baselines.json composites:
+// their bare-word keys ('phoenix', 'austin', 're_value_add') would exact-match
+// a state-less city string and silently swap the series' units and provenance
+// (monthly composites with a synthetic income overlay / Case-Shiller) under
+// copy that describes quarterly Zillow metro history. Explicit `baseline` keys
+// keep reaching the composites unchanged.
 export function resolveBaseline(location: string): { key: string; exact: boolean } {
   const norm = location.trim().toLowerCase().replace(/\s+/g, ' ');
   if (norm) {
-    for (const k of Object.keys(BASELINES)) {
+    for (const k of Object.keys(metros)) {
       if (norm === k.toLowerCase()) return { key: k, exact: true };
     }
   }

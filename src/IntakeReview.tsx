@@ -4,6 +4,7 @@
 // field drops the model's provenance: "analyst-edited" replaces the confidence
 // chip and the citation is suppressed (it supports the original value only).
 // Pure controlled form: state lives in DealIntake, raw values in, raw values out.
+import type { ReactNode } from 'react'
 import { Term } from './GlossaryTip'
 import { ConfidenceTag, SourceCite } from './cc-ui'
 import { fmtByKind } from './format'
@@ -17,6 +18,12 @@ interface Props {
   missingKeys: string[]
   /** Per-field extraction metadata (confidence + source citation), when an extraction ran. */
   meta?: Record<string, ExtractedField>
+  /**
+   * Independent market cross-check annotations (marketCrossChecks.tsx), keyed
+   * by field — rendered under the matching field's input. Context beside the
+   * sponsor's claim, never a verdict; absent while market data loads or fails.
+   */
+  crossChecks?: Partial<Record<keyof DealFields, ReactNode>>
   /**
    * Audit-persistence outcome of a LIVE extraction. 'failed' means the server
    * could not save this extraction's audit row (model, citations,
@@ -59,15 +66,17 @@ function prettyOption(o: string): string {
   return o === 'rv_specialty' ? 'RV / specialty' : o.replace(/_/g, ' ')
 }
 
-function FieldInput({ f, value, onChange }: {
+function FieldInput({ f, value, onChange, describedBy }: {
   f: FieldDef
   value: string
   onChange: (key: keyof DealFields, rawValue: string) => void
+  /** id of this field's cross-check note, so assistive tech reads it with the input. */
+  describedBy?: string
 }) {
   const id = `ir-${f.key}`
   if (f.kind === 'bool') {
     return (
-      <select id={id} value={value} onChange={e => onChange(f.key, e.target.value)}>
+      <select id={id} aria-describedby={describedBy} value={value} onChange={e => onChange(f.key, e.target.value)}>
         <option value="">—</option>
         <option value="yes">Yes</option>
         <option value="no">No</option>
@@ -76,18 +85,19 @@ function FieldInput({ f, value, onChange }: {
   }
   if (f.options) {
     return (
-      <select id={id} value={value} onChange={e => onChange(f.key, e.target.value)}>
+      <select id={id} aria-describedby={describedBy} value={value} onChange={e => onChange(f.key, e.target.value)}>
         <option value="">Select…</option>
         {f.options.map(o => <option key={o} value={o}>{prettyOption(o)}</option>)}
       </select>
     )
   }
   if (f.kind === 'text') {
-    return <input id={id} type="text" value={value} onChange={e => onChange(f.key, e.target.value)} />
+    return <input id={id} aria-describedby={describedBy} type="text" value={value} onChange={e => onChange(f.key, e.target.value)} />
   }
   return (
     <input
       id={id}
+      aria-describedby={describedBy}
       type="number"
       inputMode="decimal"
       step="any"
@@ -97,7 +107,7 @@ function FieldInput({ f, value, onChange }: {
   )
 }
 
-export default function IntakeReview({ fields, onChange, missingKeys, meta, provenance }: Props) {
+export default function IntakeReview({ fields, onChange, missingKeys, meta, provenance, crossChecks }: Props) {
   const missing = new Set(missingKeys)
   const allDefs = FIELD_GROUPS.flatMap(g => g.fields)
   const missingLabels = allDefs.filter(f => missing.has(f.key)).map(f => f.label)
@@ -169,10 +179,18 @@ export default function IntakeReview({ fields, onChange, missingKeys, meta, prov
                     )}
                   </label>
                   <div className="ir-input">
-                    <FieldInput f={f} value={displayValue(f, fields[f.key])} onChange={onChange} />
+                    <FieldInput
+                      f={f}
+                      value={displayValue(f, fields[f.key])}
+                      onChange={onChange}
+                      describedBy={crossChecks?.[f.key] ? `ir-${f.key}-xcheck` : undefined}
+                    />
                     {f.kind === 'pct' && <span className="ir-suffix">%</span>}
                     {echo !== null && <span className="ir-suffix">{echo}</span>}
                   </div>
+                  {crossChecks?.[f.key] && (
+                    <div className="ir-xcheck" id={`ir-${f.key}-xcheck`} role="note">{crossChecks[f.key]}</div>
+                  )}
                 </div>
               )
             })}
@@ -189,6 +207,7 @@ const CSS = `
 .ir-head h2{font-family:'Roboto',system-ui,sans-serif;font-weight:300;font-size:1.7rem;margin:0 0 .3rem;letter-spacing:-.01em}
 .ir-sub{color:#5c6b67;font-size:.88rem;line-height:1.6;max-width:640px;margin:0}
 .ir-summary{color:#3f7d69;font-size:.82rem;margin:.6rem 0 0;font-variant-numeric:tabular-nums}
+.ir-xcheck{flex:1 1 100%;margin-top:.1rem;padding:.4rem .6rem .4rem .75rem;border-left:2px solid #3f7d69;background:#f4faf8;color:#43524e;font-size:.72rem;line-height:1.5;border-radius:0 8px 8px 0}
 .ir-summary b{font-weight:600}
 .ir-cite{margin-left:.5rem;display:inline-block;vertical-align:middle}
 .ir-attention{background:#fbf3df;border-color:#f0e0b0;color:#5b4a16;font-size:.85rem;padding:1rem 1.25rem;margin-bottom:1.25rem;line-height:1.6}
@@ -196,7 +215,7 @@ const CSS = `
 .ir-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1.5rem;align-items:start}
 .ir-group{padding:1.5rem}
 .ir-group h3{font-size:12px;letter-spacing:.08em;text-transform:uppercase;margin:0 0 .75rem;font-weight:600}
-.ir-row{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:.5rem .5rem;border-radius:8px}
+.ir-row{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:1rem;padding:.5rem .5rem;border-radius:8px}
 .ir-row + .ir-row{margin-top:2px}
 .ir-row.ir-missing{background:rgba(194,56,74,.07)}
 .ir-label{flex:1 1 55%;font-size:.85rem;font-weight:500;min-width:0}
