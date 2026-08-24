@@ -31,28 +31,35 @@ export const supabase: SupabaseClient | null = url && anonKey ? createClient(url
 // stays null and the auth UI stays hidden rather than wrongly settled) without
 // caching, so the next mount probes afresh. A clean 200 saying disabled still
 // resolves false, preserving the auth-unconfigured happy path.
-let serverAuthPromise: Promise<boolean | null> | null = null
+type ServerAuthStatus = { enabled: boolean; accountsRequired: boolean }
+
+let serverAuthPromise: Promise<ServerAuthStatus | null> | null = null
 
 // Up to 3 attempts total — mirrors the role probe's PROBE_RETRY_DELAYS_MS.
 const STATUS_RETRY_DELAYS_MS = [1_000, 4_000]
 
-async function statusProbeOnce(): Promise<{ enabled: boolean | null; definitive: boolean }> {
+async function statusProbeOnce(): Promise<{ status: ServerAuthStatus | null; definitive: boolean }> {
   try {
     const r = await fetch('/api/auth/status')
-    if (!r.ok) return { enabled: null, definitive: false } // transient non-OK — retry
-    const d = (await r.json()) as { enabled?: unknown }
-    return { enabled: d.enabled === true, definitive: true }
+    if (!r.ok) return { status: null, definitive: false } // transient non-OK — retry
+    const d = (await r.json()) as { enabled?: unknown; accountsRequired?: unknown }
+    // A function build predating the wall answers without accountsRequired —
+    // that reads as false (no wall), exactly the pre-wall behavior.
+    return {
+      status: { enabled: d.enabled === true, accountsRequired: d.accountsRequired === true },
+      definitive: true,
+    }
   } catch {
-    return { enabled: null, definitive: false } // network error — transient
+    return { status: null, definitive: false } // network error — transient
   }
 }
 
-function serverAuthEnabled(): Promise<boolean | null> {
+function serverAuthEnabled(): Promise<ServerAuthStatus | null> {
   if (!serverAuthPromise) {
     serverAuthPromise = (async () => {
       for (let attempt = 0; ; attempt++) {
-        const { enabled, definitive } = await statusProbeOnce()
-        if (definitive) return enabled
+        const { status, definitive } = await statusProbeOnce()
+        if (definitive) return status
         if (attempt >= STATUS_RETRY_DELAYS_MS.length) {
           // No definitive answer within the retry budget — do not cache a
           // verdict; drop the memo so the next mount retries from scratch.
@@ -111,6 +118,13 @@ export interface IdentityState {
    * status probe is in flight (hide auth UI until known — never flash it).
    */
   authEnabled: boolean | null
+  /**
+   * Server-declared sign-in wall (REQUIRE_ACCOUNTS=1): when true and authEnabled
+   * is true, the app renders nothing but the sign-in card until a valid identity
+   * exists. Null while the status probe is in flight — never wall (or unwall)
+   * on an unknown; false on the public demo and on pre-wall function builds.
+   */
+  accountsRequired: boolean | null
 }
 
 // One probe per user per page load; only definite verdicts are cached so a
@@ -160,12 +174,15 @@ export function useIdentity(): IdentityState {
   const [probing, setProbing] = useState(false)
   // Without client keys auth can never be active — settle false with no probe.
   const [authEnabled, setAuthEnabled] = useState<boolean | null>(supabase === null ? false : null)
+  const [accountsRequired, setAccountsRequired] = useState<boolean | null>(supabase === null ? false : null)
 
   useEffect(() => {
     if (!supabase) return
     let cancelledStatus = false
-    serverAuthEnabled().then(enabled => {
-      if (!cancelledStatus) setAuthEnabled(enabled)
+    serverAuthEnabled().then(status => {
+      if (cancelledStatus) return
+      setAuthEnabled(status === null ? null : status.enabled)
+      setAccountsRequired(status === null ? null : status.accountsRequired)
     })
     return () => {
       cancelledStatus = true
@@ -231,6 +248,7 @@ export function useIdentity(): IdentityState {
     userId,
     role: userId ? role : null,
     authEnabled,
+    accountsRequired,
   }
 }
 

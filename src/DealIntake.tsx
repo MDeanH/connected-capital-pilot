@@ -681,6 +681,29 @@ export default function DealIntake() {
     ? ['thresholds', 'macro', 'backtest', 'evidence', 'deals', 'users']
     : ['thresholds', 'macro', 'backtest', 'evidence', 'deals']
 
+  // Sign-in wall — on a REQUIRE_ACCOUNTS deployment (server-declared via
+  // /api/auth/status) a signed-out visitor gets the sign-in card and nothing
+  // else. Gated on sessionReady so a reload never flashes the wall at an
+  // already-signed-in user, and on the definitive true/true pair so the public
+  // demo (accountsRequired false) and the probe's in-flight window (null)
+  // render the app exactly as before. Client-side courtesy only — the require*
+  // gates on every data endpoint remain the enforcement boundary.
+  if (identity.authEnabled === true && identity.accountsRequired === true && identity.sessionReady && !identity.email) {
+    return (
+      <div className="cc-theme di-root">
+        <style>{CSS}</style>
+        <LoginCard identity={identity} />
+        <div className="card">
+          <h2 style={{ marginTop: 0 }}>Sign in required</h2>
+          <p style={{ color: 'var(--muted)', maxWidth: '48rem' }}>
+            This pilot workspace is restricted to issued accounts. Sign in above with the
+            credentials your administrator provided — there is no self-signup.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="cc-theme di-root">
       <style>{CSS}</style>
