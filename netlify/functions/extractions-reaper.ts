@@ -26,6 +26,7 @@
 
 import type { Config } from '@netlify/functions'
 import { getStore } from '@netlify/blobs'
+import { cronKeyAuthenticated } from './lib/cron-auth.ts'
 import { RETENTION_MS, STUCK_RUNNING_MS } from './extractions.ts'
 
 // A staged payload is minutes old in any legitimate life (submit → trigger →
@@ -58,7 +59,26 @@ const parseFirstDate = (...candidates: unknown[]): number => {
   return NaN
 }
 
-export default async (): Promise<Response> => {
+export default async (req: Request): Promise<Response> => {
+  // Same dual invoker contract as macro-cron (see the comment there and
+  // lib/cron-auth.ts): the external pg_cron trigger authenticates with
+  // x-cron-key; a genuine Netlify scheduled call carries a next_run body and
+  // never traverses the edge. Everything else is refused — the sweep deletes
+  // data, so an unauthenticated hit must stay a no-op even if the edge block
+  // were ever misconfigured.
+  let scheduled = cronKeyAuthenticated(req)
+  if (!scheduled) {
+    try {
+      const body = await req.json()
+      scheduled = body != null && typeof body.next_run === 'string' && body.next_run.length > 0
+    } catch {
+      scheduled = false
+    }
+  }
+  if (!scheduled) {
+    return new Response('Forbidden: extractions-reaper runs only on a schedule', { status: 403 })
+  }
+
   const started = Date.now()
   const store = getStore('extractions')
 
