@@ -264,8 +264,7 @@ function isSameOriginApi(input: RequestInfo | URL): boolean {
 
 /**
  * fetch that carries the signed-in session's Bearer token on same-origin /api/
- * requests — the edge gate ignores non-Basic Authorization values, so the JWT
- * passes through cleanly. Signed out (or auth unconfigured) it is plain fetch,
+ * requests. Signed out (or auth unconfigured) it is plain fetch,
  * byte-for-byte the request the app sent before auth existed.
  */
 export async function authFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
