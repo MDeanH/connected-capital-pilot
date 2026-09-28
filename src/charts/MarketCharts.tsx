@@ -12,14 +12,12 @@
 // only status, threshold and margin, and only while its result matches those
 // fields (the view can hold an older response while a re-score is pending or
 // has failed). A missing input renders "… not in the documents", never a number.
-import {
-  useLayoutEffect, useState,
-  type FocusEvent as RFocusEvent, type PointerEvent as RPointerEvent, type ReactNode,
-} from 'react'
+import { useLayoutEffect, useState, type ReactNode } from 'react'
 import {
   CK, ChartCard, Legend, Plot, PostureDot, niceTicks, scaleLinear, useTooltip,
   type LegendItem, type TableSpec, type TipLine,
 } from './ChartKit'
+import { Term } from '../GlossaryTip'
 import { fmtMargin, fmtVal } from '../GateResults'
 import type { CheckResult, DealFields, Gate1Response, Posture } from '../deal-types'
 
@@ -43,6 +41,19 @@ const has = (n: number | null | undefined): n is number => typeof n === 'number'
 const num = (n: number | null | undefined) => (has(n) ? n : null)
 const money = (n: number) => `${n < 0 ? '−' : ''}$${Math.round(Math.abs(n)).toLocaleString('en-US')}`
 const perMo = (n: number) => `${money(n)}/mo`
+/**
+ * A watch price keeps its cents ($950 × 1.05 = $997.50, not $998) and rounds
+ * down, never up onto the line, so a whole-dollar rent past it never reads the
+ * same. The 1e-6 absorbs float noise (100 × 1.15 = 114.99999999999999 → $115).
+ */
+const priceText = (n: number) => {
+  const c = Math.floor(n * 100 + 1e-6) / 100
+  return Number.isInteger(c) ? money(c)
+    : `${c < 0 ? '−' : ''}$${Math.abs(c).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+}
+/** $ axis tick: K from $10K, M from $1M so a huge rent's ticks stay short (two decimals keep "$1.25M" exact). */
+const moneyTick = (v: number) => (v >= 1e6 ? `$${(v / 1e6).toLocaleString('en-US', { maximumFractionDigits: 2 })}M`
+  : v >= 10000 ? `$${(v / 1000).toLocaleString('en-US')}K` : `$${v.toLocaleString('en-US')}`)
 const mo = (n: number) => { const a = Math.abs(n); return `${n < 0 ? '−' : ''}${Number.isInteger(a) ? a : a.toFixed(1)} mo` }
 const signedMo = (m: number) => `${m >= 0 ? '+' : '−'}${mo(Math.abs(m))}`
 const signedPct = (x: number) => `${x >= 0 ? '+' : '−'}${Math.abs(x * 100).toFixed(1)}%`
@@ -52,24 +63,25 @@ const pts = (n: number) => `${n} flag pt${n === 1 ? '' : 's'}`
 const postureList = (ps: Posture[]) => (ps.length === POSTURES.length ? 'all postures' : ps.join(' · '))
 /** Rough rendered width of an SVG label (no DOM measuring in render). */
 const textW = (s: string, px = 11.5) => s.length * px * 0.58
-/** Rough width of a ChartKit tooltip (.74rem, one row per line). */
-const tipW = (lines: TipLine[]) => 24 + Math.max(...lines.map(l => (l.color ? 19 : 0) + 7 + (l.value.length + l.label.length) * 6.6))
 const clamp = (v: number, lo: number, hi: number) => Math.min(Math.max(v, lo), Math.max(lo, hi))
 
 function findCheck(response: Gate1Response, id: string): CheckResult | undefined {
   return response.result.checks.find(c => c.id === id)
 }
 
-/** Per-posture status/margin/threshold for one check (today's row falls back to result). */
+/**
+ * Per-posture status/margin/threshold/flag points for one check (today's row
+ * falls back to result). flagPoints is absent from older builds' scenarios.
+ */
 function postureRows(response: Gate1Response, id: string) {
   const sc = response.scenarios
   const ck = findCheck(response, id)
   if (!sc) {
-    return ck ? [{ posture: response.posture, status: ck.status, margin: ck.margin, threshold: ck.threshold?.effective ?? null }] : []
+    return ck ? [{ posture: response.posture, status: ck.status, margin: ck.margin, threshold: ck.threshold?.effective ?? null, flagPoints: ck.flagPoints }] : []
   }
   return POSTURES.flatMap(p => {
     const c = sc[p]?.checks.find(x => x.id === id)
-    return c ? [{ posture: p, status: c.status, margin: c.margin, threshold: c.threshold }] : []
+    return c ? [{ posture: p, status: c.status, margin: c.margin, threshold: c.threshold, flagPoints: c.flagPoints }] : []
   })
 }
 
@@ -88,28 +100,6 @@ function useWidth(fallback = 480) {
     return () => ro.disconnect()
   }, [el])
   return { setEl, W: Math.max(240, w) }
-}
-
-/** ChartKit's tooltip with its anchor clamped so the centered box stays on screen. */
-function useTip() {
-  const tip = useTooltip()
-  const bind = (lines: TipLine[]) => {
-    const b = tip.bind(lines)
-    const half = tipW(lines) / 2
-    const at = (x: number, y: number) => {
-      const vw = document.documentElement.clientWidth || window.innerWidth
-      b.onPointerMove({ clientX: clamp(x, half + 6, vw - half - 6), clientY: y } as RPointerEvent)
-    }
-    return {
-      ...b,
-      onPointerMove: (e: RPointerEvent) => at(e.clientX, e.clientY),
-      onFocus: (e: RFocusEvent) => {
-        const r = (e.currentTarget as Element).getBoundingClientRect()
-        at(r.left + r.width / 2, r.top)
-      },
-    }
-  }
-  return { ...tip, bind }
 }
 
 /** Ticks from 0 whose last tick sits closest above the data (fewest ticks on a tie). */
@@ -177,7 +167,7 @@ function TwoBarPlot({ label, rows, refs, span, tick }: {
   span: Span | null
   tick: (v: number, last: boolean) => string
 }) {
-  const tip = useTip()
+  const tip = useTooltip()
   const { setEl, W } = useWidth()
   const maxV = Math.max(1, ...rows.map(r => r.value), ...refs.map(r => r.value))
   const ticks = axisTicks(maxV, W)
@@ -320,7 +310,23 @@ export function RentChart({ fields, response }: Props) {
     else groups.push({ flag: r.threshold, postures: [r.posture] })
   }
   const postureMode = groups.length > 1
-  const title = 'Rent vs market comp'
+  const didNotScore = (ps: Posture[]) => ps.every(p => byPosture.find(r => r.posture === p)?.status === 'missing')
+
+  // Severe line per posture, grouped the same way. The engine returns no severe
+  // value, only a flag's points (doubled past it); today's come from the result.
+  const severeText = (s: Status, fp: number | undefined) =>
+    invalid ? '—'
+      : s === 'flag' ? (!has(fp) ? 'not reported' : fp > baseFp ? 'crossed — flag points doubled' : 'not crossed')
+        : s === 'pass' ? 'no effect — watch line not crossed' : '—'
+  const severeGroups: Array<{ text: string; postures: Posture[] }> = []
+  for (const r of byPosture) {
+    const src = eng && r.posture === response.posture ? eng : r
+    const text = severeText(src.status, src.flagPoints)
+    const g = severeGroups.find(x => x.text === text)
+    if (g) g.postures.push(r.posture)
+    else severeGroups.push({ text, postures: [r.posture] })
+  }
+  const title = <Term k="rents_vs_comps">Rent vs market comp</Term>
   const subtitle = '$ per month · the deal gives one comp rent · watch line = comp × (1 + the rulebook’s premium limit)'
   const note = (
     <>
@@ -344,14 +350,17 @@ export function RentChart({ fields, response }: Props) {
           ? [
             ...groups.map(g => [
               `Watch line · ${postureList(g.postures)}`,
-              `${signedPct(g.flag)}${comp !== null && comp > 0 ? ` → ${perMo(comp * (1 + g.flag))}` : ''}`,
-              `rent_premium_flag${adj ? ' · judgment-adjusted' : ''}${eng.status === 'missing' ? ' · check did not score' : ''}`,
+              `${signedPct(g.flag)}${comp !== null && comp > 0 ? ` → ${priceText(comp * (1 + g.flag))}/mo` : ''}`,
+              `rent_premium_flag${adj ? ' · judgment-adjusted' : ''}${didNotScore(g.postures) ? ' · check did not score' : ''}`,
             ]),
-            ['Severe line',
-              invalid ? '—'
-                : eng.status === 'flag' ? (severe ? 'crossed — flag points doubled' : 'not crossed')
-                  : eng.status === 'pass' ? 'no effect — watch line not crossed' : '—',
-              'rent_premium_severe · value not returned by the engine'],
+            ...(severeGroups.length > 1
+              ? severeGroups.map(g => [
+                `Severe line · ${postureList(g.postures)}`,
+                g.text,
+                g.text === 'not reported' ? 'rent_premium_severe · this engine build returns no per-posture flag points'
+                  : 'rent_premium_severe · value not returned by the engine',
+              ])
+              : [['Severe line', severeText(eng.status, eng.flagPoints), 'rent_premium_severe · value not returned by the engine']]),
             ...byPosture.map(r => [
               `Status · ${r.posture}${r.posture === response.posture ? ' (today)' : ''}`,
               `${STATUS_WORD[r.status]}${has(r.margin) && !invalid ? ` · ${signedMargin(RENT, r.margin)}` : ''}${r.posture === response.posture && eng.status === 'flag' ? ` · ${pts(eng.flagPoints)}` : ''}`,
@@ -406,11 +415,11 @@ export function RentChart({ fields, response }: Props) {
     return {
       value: price,
       color: lineColor,
-      text: postureMode ? null : `watch ${signedPct(g.flag)} · ${money(price)}`,
+      text: postureMode ? null : `watch ${signedPct(g.flag)} · ${priceText(price)}`,
       postures: postureMode ? g.postures : null,
       tip: [
         { value: signedPct(g.flag), label: 'watch line', color: lineColor },
-        { value: perMo(price), label: 'watch price' },
+        { value: `${priceText(price)}/mo`, label: 'watch price' },
         ...(postureMode ? [{ value: postureList(g.postures), label: 'postures' }] : []),
       ],
     }
@@ -451,7 +460,7 @@ export function RentChart({ fields, response }: Props) {
         ]}
         refs={refs}
         span={span}
-        tick={v => (v >= 10000 ? `$${(v / 1000).toLocaleString('en-US')}K` : `$${v.toLocaleString('en-US')}`)}
+        tick={moneyTick}
       />
     </ChartCard>
   )
@@ -472,7 +481,7 @@ export function AbsorptionChart({ fields, response }: Props) {
   const eng = fresh ? ck : undefined
   const invalid = (lease !== null && lease < 0) || (sub !== null && sub < 0)
   const byPosture = eng ? postureRows(response, ABS) : []
-  const title = 'Lease-up vs submarket record'
+  const title = <Term k="absorption">Lease-up vs submarket record</Term>
   const subtitle = 'Months to lease up · the check flags an underwriting that leases up faster than the submarket’s record'
   const sameEverywhere = byPosture.length === POSTURES.length && byPosture.every(r => r.status === byPosture[0].status)
 

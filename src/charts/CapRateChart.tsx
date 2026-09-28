@@ -22,6 +22,7 @@ import {
   type TableSpec,
   type TipLine,
 } from './ChartKit'
+import { Term } from '../GlossaryTip'
 import type { DealFields, Posture, PostureScenario } from '../deal-types'
 
 export interface CapRateChartProps {
@@ -36,6 +37,7 @@ const POSTURES: Posture[] = ['green', 'yellow', 'red']
 const MISSING = 'not in the documents'
 const STALE = 'engine scored other inputs'
 const NO_MULTIPLE = 'inputs missing or equity ≤ 0'
+const OLDER = 'not in this response (older scoring build)' // short enough for the phone lane
 const GAP_STATUS: Partial<Record<Status, { word: string; color: string }>> = {
   pass: { word: 'PASS', color: CK.pass },
   flag: { word: 'WATCH', color: CK.watch },
@@ -93,7 +95,9 @@ function capRateData(fields: DealFields, scenarios: CapRateChartProps['scenarios
     const bumpBps = st && has(st.exitCapBumpBps) ? st.exitCapBumpBps : null
     const miss = (why: string): Stressed => ({ posture: p, bumpBps, value: null, why, ran: false })
     if (!sc) return miss('posture scenarios not in this result')
-    if (!st) return miss('stress test not in the rulebook')
+    // The engine emits stress whenever the rulebook has a mini_stress check, so
+    // the check without it is a pre-stress response, not a missing test.
+    if (!st) return miss(sc.checks.some(c => c.id === 'mini_stress') ? OLDER : 'stress test not in the rulebook')
     if (bumpBps === null) return miss('cap bump not configured')
     if (exit === null) return miss('needs the sponsor exit cap')
     const value = exit + bumpBps / 10000
@@ -351,7 +355,9 @@ function Strip({ d, posture }: { d: CapData; posture: Posture }) {
 
 // -------------------------------------------------------------------- card
 
-const TITLE = 'Cap rates: today, the sponsor’s exit, and the stressed exit'
+// The glossary (i) rides on the last word, held on one line with it, so a
+// phone-width wrap never strands the icon on a line of its own.
+const TITLE = <>Cap rates: today, the sponsor’s exit, and the stressed <span style={{ whiteSpace: 'nowrap' }}><Term k="exit_cap">exit</Term></span></>
 const SUBTITLE = 'The exit should sit at or above today’s market cap · the stress test widens the sponsor’s exit by each posture’s bump'
 
 export default function CapRateChart({ fields, scenarios, posture }: CapRateChartProps) {

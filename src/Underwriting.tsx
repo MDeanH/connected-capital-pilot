@@ -17,12 +17,13 @@ import McProbabilityCard from './McProbabilityCard'
 import MarketPathCard from './MarketPathCard'
 import CushionChart from './charts/CushionChart'
 import StressChart from './charts/StressChart'
-import HurdleChart from './charts/HurdleChart'
+import HurdleChart, { hurdleStackFrom } from './charts/HurdleChart'
 import CapRateChart from './charts/CapRateChart'
 import { AbsorptionChart, RentChart } from './charts/MarketCharts'
 import { FinancingChart, TimelineChart, UsesSourcesCharts } from './charts/CapitalCharts'
 import { fmtMargin, fmtVal } from './GateResults'
 import { annualDebtService, dealCashOnCash, dealDSCR, dealDebtYield, impliedExitValue } from './finance'
+import { fmtMoneyShort, fmtPct1, fmtSignedPts } from './format'
 import type { CheckResult, DealFields, Gate1Response, Posture, PostureScenario } from './deal-types'
 import type { ExtractionResult } from '../netlify/functions/lib/gate1/fields'
 import type { MacroSnapshot } from '../netlify/functions/lib/gate1/types'
@@ -47,15 +48,9 @@ const POSTURES: Posture[] = ['green', 'yellow', 'red']
 const STATUS_WORD: Record<Status, string> = { pass: 'PASS', flag: 'WATCH', fail: 'FAIL', missing: 'MISSING', na: 'N/A' }
 const CMP: Record<string, string> = { '<=': '≤', '>=': '≥' }
 
-const pct1 = (x: number) => `${(x * 100).toFixed(1)}%`
-const pts = (x: number) => `${x >= 0 ? '+' : '−'}${Math.abs(x * 100).toFixed(1)} pts`
-function money(n: number): string {
-  const a = Math.abs(n)
-  if (a >= 1e6) return `$${(n / 1e6).toFixed(2)}M`
-  if (a >= 1e3) return `$${Math.round(n / 1e3).toLocaleString('en-US')}K`
-  return `$${Math.round(n).toLocaleString('en-US')}`
-}
 const has = (n: number | null | undefined): n is number => typeof n === 'number' && Number.isFinite(n)
+/** True minus for the bps / multiple tiles, matching fmtPct1 and fmtMoneyShort on the same grids. */
+const minus = (s: string) => s.replace(/^-/, '−')
 
 // ---------------------------------------------------------------- primitives
 
@@ -300,7 +295,8 @@ function SummaryTab({ fields, response, extraction, macro }: Props) {
   const ltc = has(fields.construction_loan) && has(cost) && cost ? fields.construction_loan / cost : null
   const land = has(fields.land_cost) && has(cost) && cost ? fields.land_cost / cost : null
   const irr = fields.projected_irr ?? null
-  const hurdle = macro?.hurdle?.totalPct ?? null
+  // Same narrowing as HurdleChart: an incomplete stack is no required return, not a partial one.
+  const hurdle = hurdleStackFrom(macro?.hurdle)?.totalPct ?? null
   const stress = response.result.stress
   const st = (id: string) => ck.get(id)?.status
 
@@ -313,34 +309,34 @@ function SummaryTab({ fields, response, extraction, macro }: Props) {
       <Section title="B. Key metrics" note="colored by today’s posture · source shown on each tile">
         <Grid>
           <Tile label={<Term k="irr">Projected IRR</Term>}
-            value={has(irr) ? pct1(irr) : '—'}
+            value={has(irr) ? fmtPct1(irr) : '—'}
             status={has(irr) && has(hurdle) ? (irr >= hurdle ? 'pass' : 'fail') : undefined}
-            caption={has(hurdle) ? (has(irr) ? `${pts(irr - hurdle)} vs ${pct1(hurdle)} required` : `required ${pct1(hurdle)}`) : 'sponsor-reported'}
+            caption={has(hurdle) ? (has(irr) ? `${fmtSignedPts(irr - hurdle)} vs ${fmtPct1(hurdle)} required` : `required ${fmtPct1(hurdle)}`) : 'sponsor-reported'}
             tag={<SrcTag extraction={extraction} keys={['projected_irr']} />} />
-          <Tile label={<Term k="yoc">Yield on cost</Term>} value={yoc !== null ? pct1(yoc) : '—'} status={st('yoc_vs_benchmark')}
-            caption={th('yoc_vs_benchmark') !== null ? `≥ ${pct1(th('yoc_vs_benchmark')!)}` : 'NOI ÷ total cost'}
+          <Tile label={<Term k="yoc">Yield on cost</Term>} value={yoc !== null ? fmtPct1(yoc) : '—'} status={st('yoc_vs_benchmark')}
+            caption={th('yoc_vs_benchmark') !== null ? `≥ ${fmtPct1(th('yoc_vs_benchmark')!)}` : 'NOI ÷ total cost'}
             tag={<SrcTag extraction={extraction} keys={['stabilized_noi_untrended', 'total_project_cost']} />} />
-          <Tile label={<Term k="dev_spread">Development spread</Term>} value={spread !== null ? `${Math.round(spread)} bps` : '—'}
+          <Tile label={<Term k="dev_spread">Development spread</Term>} value={spread !== null ? minus(`${Math.round(spread)} bps`) : '—'}
             status={st('dev_spread_min')}
             caption={th('dev_spread_min') !== null ? `≥ ${Math.round(th('dev_spread_min')!)} bps in ${response.posture}` : 'yield on cost − exit cap'}
             tag={<SrcTag extraction={extraction} keys={['stabilized_noi_untrended', 'total_project_cost', 'exit_cap_rate']} />} />
           <Tile label={<Term k="mini_stress">Stressed equity multiple</Term>}
-            value={has(stress?.stressedEquityMultiple) ? `${stress!.stressedEquityMultiple!.toFixed(2)}x` : '—'}
+            value={has(stress?.stressedEquityMultiple) ? minus(`${stress!.stressedEquityMultiple!.toFixed(2)}x`) : '—'}
             status={st('mini_stress')}
             caption={stress && Number.isFinite(stress.floor) ? `floor ${stress.floor.toFixed(2)}x after +${Math.round(stress.hardCostBumpPct * 100)}% costs, +${Math.round(stress.exitCapBumpBps)} bps cap` : 'mini stress test'} />
-          <Tile label={<Term k="ltc">Loan-to-cost</Term>} value={ltc !== null ? pct1(ltc) : '—'} status={st('ltc_max')}
-            caption={th('ltc_max') !== null ? `≤ ${pct1(th('ltc_max')!)}` : 'loan ÷ total cost'}
+          <Tile label={<Term k="ltc">Loan-to-cost</Term>} value={ltc !== null ? fmtPct1(ltc) : '—'} status={st('ltc_max')}
+            caption={th('ltc_max') !== null ? `≤ ${fmtPct1(th('ltc_max')!)}` : 'loan ÷ total cost'}
             tag={<SrcTag extraction={extraction} keys={['construction_loan', 'total_project_cost']} />} />
           <Tile label={<Term k="contingency">Contingency</Term>}
-            value={has(fields.hard_cost_contingency_pct) ? pct1(fields.hard_cost_contingency_pct) : '—'} status={st('contingency_min')}
-            caption={th('contingency_min') !== null ? `≥ ${pct1(th('contingency_min')!)} of hard costs` : 'share of hard costs'}
+            value={has(fields.hard_cost_contingency_pct) ? fmtPct1(fields.hard_cost_contingency_pct) : '—'} status={st('contingency_min')}
+            caption={th('contingency_min') !== null ? `≥ ${fmtPct1(th('contingency_min')!)} of hard costs` : 'share of hard costs'}
             tag={<SrcTag extraction={extraction} keys={['hard_cost_contingency_pct']} />} />
           <Tile label={<Term k="coinvest">Sponsor co-invest</Term>}
-            value={has(fields.sponsor_coinvest_pct) ? pct1(fields.sponsor_coinvest_pct) : '—'} status={st('coinvest_min')}
-            caption={th('coinvest_min') !== null ? `≥ ${pct1(th('coinvest_min')!)} of equity` : 'sponsor share of equity'}
+            value={has(fields.sponsor_coinvest_pct) ? fmtPct1(fields.sponsor_coinvest_pct) : '—'} status={st('coinvest_min')}
+            caption={th('coinvest_min') !== null ? `≥ ${fmtPct1(th('coinvest_min')!)} of equity` : 'sponsor share of equity'}
             tag={<SrcTag extraction={extraction} keys={['sponsor_coinvest_pct']} />} />
-          <Tile label={<Term k="land_basis">Land basis</Term>} value={land !== null ? pct1(land) : '—'} status={st('land_basis')}
-            caption={th('land_basis') !== null ? `≤ ${pct1(th('land_basis')!)} of cost` : 'land ÷ total cost'}
+          <Tile label={<Term k="land_basis">Land basis</Term>} value={land !== null ? fmtPct1(land) : '—'} status={st('land_basis')}
+            caption={th('land_basis') !== null ? `≤ ${fmtPct1(th('land_basis')!)} of cost` : 'land ÷ total cost'}
             tag={<SrcTag extraction={extraction} keys={['land_cost', 'total_project_cost']} />} />
         </Grid>
       </Section>
@@ -387,23 +383,23 @@ function FinancialsTab({ fields, response, extraction }: Props) {
 
       <Section title="A. Project economics">
         <Grid>
-          <Tile label="Stabilized NOI" value={has(noi) ? money(noi) : '—'} caption="untrended" tag={src(['stabilized_noi_untrended'])} />
-          <Tile label={<Term k="yoc">Yield on cost</Term>} value={yoc !== null ? pct1(yoc) : '—'} caption="NOI ÷ total cost" />
-          <Tile label={<Term k="dev_spread">Development spread</Term>} value={spread !== null ? `${Math.round(spread)} bps` : '—'} caption="yield on cost − exit cap" />
-          <Tile label="Total project cost" value={has(cost) ? money(cost) : '—'} caption="all-in" tag={src(['total_project_cost'])} />
+          <Tile label="Stabilized NOI" value={has(noi) ? fmtMoneyShort(noi) : '—'} caption="untrended" tag={src(['stabilized_noi_untrended'])} />
+          <Tile label={<Term k="yoc">Yield on cost</Term>} value={yoc !== null ? fmtPct1(yoc) : '—'} caption="NOI ÷ total cost" />
+          <Tile label={<Term k="dev_spread">Development spread</Term>} value={spread !== null ? minus(`${Math.round(spread)} bps`) : '—'} caption="yield on cost − exit cap" />
+          <Tile label="Total project cost" value={has(cost) ? fmtMoneyShort(cost) : '—'} caption="all-in" tag={src(['total_project_cost'])} />
         </Grid>
       </Section>
 
       <Section title="B. Capital structure & investor returns">
         <Grid>
-          <Tile label={<Term k="ltc">Loan-to-cost</Term>} value={ltc !== null ? pct1(ltc) : '—'} caption={has(fields.construction_loan) ? `${money(fields.construction_loan)} loan` : 'loan ÷ cost'} />
-          <Tile label={<Term k="dscr">DSCR</Term>} value={dscr !== null ? `${dscr.toFixed(2)}x` : '—'} caption={ds !== null ? `NOI ÷ ${money(ds)} debt service` : 'NOI ÷ debt service'} />
-          <Tile label="Debt yield" value={dy !== null ? pct1(dy) : '—'} caption="NOI ÷ loan" />
-          <Tile label="Implied exit value" value={exitV !== null ? money(exitV) : '—'} caption="NOI ÷ exit cap" />
-          <Tile label={<Term k="irr">Projected IRR</Term>} value={has(irr) ? pct1(irr) : '—'} caption="sponsor-reported" tag={src(['projected_irr'])} />
-          <Tile label={<Term k="equity_multiple">Equity multiple</Term>} value={has(em) ? `${em.toFixed(2)}x` : '—'} caption="sponsor-reported" tag={src(['projected_equity_multiple'])} />
-          <Tile label={<Term k="cash_on_cash">Cash-on-cash</Term>} value={coc !== null ? pct1(coc) : '—'} caption="stabilized, after debt service" />
-          <Tile label="Modeled loan rate" value={has(fields.loan_interest_rate) ? pct1(fields.loan_interest_rate) : '—'} caption="25-yr amortization assumed" tag={src(['loan_interest_rate'])} />
+          <Tile label={<Term k="ltc">Loan-to-cost</Term>} value={ltc !== null ? fmtPct1(ltc) : '—'} caption={has(fields.construction_loan) ? `${fmtMoneyShort(fields.construction_loan)} loan` : 'loan ÷ cost'} />
+          <Tile label={<Term k="dscr">DSCR</Term>} value={dscr !== null ? minus(`${dscr.toFixed(2)}x`) : '—'} caption={ds !== null ? `NOI ÷ ${fmtMoneyShort(ds)} debt service` : 'NOI ÷ debt service'} />
+          <Tile label="Debt yield" value={dy !== null ? fmtPct1(dy) : '—'} caption="NOI ÷ loan" />
+          <Tile label="Implied exit value" value={exitV !== null ? fmtMoneyShort(exitV) : '—'} caption="NOI ÷ exit cap" />
+          <Tile label={<Term k="irr">Projected IRR</Term>} value={has(irr) ? fmtPct1(irr) : '—'} caption="sponsor-reported" tag={src(['projected_irr'])} />
+          <Tile label={<Term k="equity_multiple">Equity multiple</Term>} value={has(em) ? minus(`${em.toFixed(2)}x`) : '—'} caption="sponsor-reported" tag={src(['projected_equity_multiple'])} />
+          <Tile label={<Term k="cash_on_cash">Cash-on-cash</Term>} value={coc !== null ? fmtPct1(coc) : '—'} caption="stabilized, after debt service" />
+          <Tile label="Modeled loan rate" value={has(fields.loan_interest_rate) ? fmtPct1(fields.loan_interest_rate) : '—'} caption="25-yr amortization assumed" tag={src(['loan_interest_rate'])} />
         </Grid>
       </Section>
 
@@ -418,7 +414,8 @@ function FinancialsTab({ fields, response, extraction }: Props) {
 function MarketTab({ fields, response, macro, benchmarks, parIrr }: Props) {
   const irr = fields.projected_irr ?? null
   const h = macro?.hurdle
-  const hurdle = h?.totalPct ?? null
+  // Narrowed like HurdleChart's own check, so the tiles never PASS against a stack the chart rejects.
+  const hurdle = hurdleStackFrom(h)?.totalPct ?? null
   const FEE = 0.02
   const m = macro?.market ?? null
   const sp5 = m?.sp500.ret5y ?? null
@@ -428,11 +425,12 @@ function MarketTab({ fields, response, macro, benchmarks, parIrr }: Props) {
       <Section title="A. Return vs required return"
         note="required return from the rulebook’s hurdle stack · provisional until the client’s hurdle formula arrives">
         <Grid>
-          <Tile label="Projected IRR" value={has(irr) ? pct1(irr) : '—'} caption="sponsor-reported" />
-          <Tile label="Required return" value={has(hurdle) ? pct1(hurdle) : '—'} caption={macro ? `${macro.regime.replace('_', ' ')} regime` : undefined} />
-          <Tile label="Delta vs required" value={has(irr) && has(hurdle) ? pts(irr - hurdle) : '—'}
+          <Tile label="Projected IRR" value={has(irr) ? fmtPct1(irr) : '—'} caption="sponsor-reported" />
+          <Tile label="Required return" value={has(hurdle) ? fmtPct1(hurdle) : '—'}
+            caption={!macro ? undefined : has(hurdle) ? `${macro.regime.replace('_', ' ')} regime` : h ? 'hurdle stack incomplete' : 'no hurdle stack in the snapshot'} />
+          <Tile label="Delta vs required" value={has(irr) && has(hurdle) ? fmtSignedPts(irr - hurdle) : '—'}
             status={has(irr) && has(hurdle) ? (irr >= hurdle ? 'pass' : 'fail') : undefined} caption="gross, before fees" />
-          <Tile label="After a 2% fee" value={has(irr) && has(hurdle) ? pts(irr - FEE - hurdle) : '—'}
+          <Tile label="After a 2% fee" value={has(irr) && has(hurdle) ? fmtSignedPts(irr - FEE - hurdle) : '—'}
             status={has(irr) && has(hurdle) ? (irr - FEE >= hurdle ? 'pass' : 'fail') : undefined}
             caption="approx. · 2% is the baseline fee from the 9/9 session, negotiable per deal" />
         </Grid>
@@ -442,10 +440,10 @@ function MarketTab({ fields, response, macro, benchmarks, parIrr }: Props) {
       <Section title={<Term k="sp500_comparison">B. Against the public-market alternative</Term>}
         note={m?.asof ? `market data as of ${m.asof}` : 'market snapshot unavailable'}>
         <Grid>
-          <Tile label="S&P 500 · 1 yr" value={has(m?.sp500.ret1y) ? pct1(m!.sp500.ret1y!) : '—'} />
-          <Tile label="S&P 500 · 3 yr ann." value={has(m?.sp500.ret3y) ? pct1(m!.sp500.ret3y!) : '—'} />
-          <Tile label="S&P 500 · 5 yr ann." value={has(sp5) ? pct1(sp5) : '—'} />
-          <Tile label="IRR premium over S&P 5 yr" value={has(irr) && has(sp5) ? pts(irr - sp5) : '—'}
+          <Tile label="S&P 500 · 1 yr" value={has(m?.sp500.ret1y) ? fmtPct1(m!.sp500.ret1y!) : '—'} />
+          <Tile label="S&P 500 · 3 yr ann." value={has(m?.sp500.ret3y) ? fmtPct1(m!.sp500.ret3y!) : '—'} />
+          <Tile label="S&P 500 · 5 yr ann." value={has(sp5) ? fmtPct1(sp5) : '—'} />
+          <Tile label="IRR premium over S&P 5 yr" value={has(irr) && has(sp5) ? fmtSignedPts(irr - sp5) : '—'}
             status={has(irr) && has(sp5) ? (irr > sp5 ? 'pass' : 'flag') : undefined} caption="what the illiquidity buys" />
         </Grid>
       </Section>
@@ -465,7 +463,7 @@ function MarketTab({ fields, response, macro, benchmarks, parIrr }: Props) {
           <p>
             These two cards describe the <b>local market</b>, not this deal, and neither changes the Gate 1 result.
             <b> Return distribution</b> is a Monte Carlo simulation of how investments in this metro have tended to
-            turn out: the chance of beating your {pct1(parIrr)} benchmark and the chance of losing money.
+            turn out: the chance of beating your {fmtPct1(parIrr)} benchmark and the chance of losing money.
             <b> Market path</b> is a 12-month outlook for the metro’s typical home values: the line is the most
             likely path and the shaded band is the range that covers 8 in 10 outcomes.
           </p>
@@ -485,7 +483,7 @@ const SPONSOR_CHECKS = ['sponsor_integrity', 'track_record', 'coinvest_min', 'co
 function sponsorCaption(c: CheckResult): string {
   const t = c.threshold?.effective ?? null
   const kind = c.kind === 'kill' ? 'hard kill' : 'watch flag'
-  if (c.id === 'completion_guarantee' && t !== null) return `${kind} · guarantor net worth ≥ ${pct1(t)} of cost`
+  if (c.id === 'completion_guarantee' && t !== null) return `${kind} · guarantor net worth ≥ ${fmtPct1(t)} of cost`
   if (c.id === 'gmp_required' && t !== null) return `${kind} · required on projects over ${fmtVal(c.id, t)}`
   if (c.id === 'track_record' && t !== null) return `${kind} · ≥ ${t} completed comparable project${t === 1 ? '' : 's'}`
   if (t !== null) return `${kind} · ${thresholdText(c.id, c.comparator, t)}`

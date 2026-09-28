@@ -8,6 +8,8 @@
 // accent, a reference line at the required return, signed deltas at bar ends.
 import { useCallback, useRef, useState } from 'react'
 import { CK, ChartCard, Plot, niceTicks, scaleLinear, useTooltip, type LegendItem, type TableSpec, type TipLine } from './ChartKit'
+// The tiles above this chart use the same two formatters, so a delta reads identically in both.
+import { fmtPct1, fmtSignedPts } from '../format'
 
 export interface HurdleStack {
   anchorPct: number
@@ -35,13 +37,8 @@ const DEAL = CK.accent
 const HALO = { paintOrder: 'stroke', stroke: CK.surface, strokeWidth: 3, strokeLinejoin: 'round' } as const
 
 const fin = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n)
-const pct1 = (x: number) => `${(x * 100).toFixed(1)}%`.replace(/^-/, '−')
 const bps = (b: number) => `${b >= 0 ? '+' : '−'}${Math.abs(Math.round(b))} bps`
 const tickPct = (v: number) => `${Number((v * 100).toFixed(1))}%`.replace(/^-/, '−')
-function pts(x: number): string {
-  const r = Math.round(x * 1000) / 10
-  return `${r >= 0 ? '+' : '−'}${Math.abs(r).toFixed(1)} pts`
-}
 /** Fee in points at the label's precision (up to 2 dp, at least 1): 2.0, 1.5, 1.25. */
 function feeNum(f: number): string {
   const v = Number((f * 100).toFixed(2))
@@ -138,7 +135,7 @@ export default function HurdleChart({ irr, hurdle, regime, feePct = DEFAULT_FEE 
       columns: ['Line', 'Value'],
       rows: [
         ['Required return', hurdle ? 'hurdle stack incomplete' : 'not available — no macro snapshot'],
-        ['Projected IRR (sponsor-reported)', hasIrr ? pct1(irr) : 'not in the documents'],
+        ['Projected IRR (sponsor-reported)', hasIrr ? fmtPct1(irr) : 'not in the documents'],
       ],
     }
     return (
@@ -146,7 +143,7 @@ export default function HurdleChart({ irr, hurdle, regime, feePct = DEFAULT_FEE 
         note="Provisional — the required return comes from the weekly macro snapshot until the client’s own hurdle formula arrives.">
         <div style={{ marginTop: '.8rem', fontSize: '.85rem', color: CK.ink2, lineHeight: 1.5 }}>
           {why}, so there is nothing to measure the IRR against.
-          {hasIrr ? ` Projected IRR (sponsor-reported): ${pct1(irr)}.` : ' The projected IRR is not in the documents either.'}
+          {hasIrr ? ` Projected IRR (sponsor-reported): ${fmtPct1(irr)}.` : ' The projected IRR is not in the documents either.'}
         </div>
       </ChartCard>
     )
@@ -166,10 +163,10 @@ export default function HurdleChart({ irr, hurdle, regime, feePct = DEFAULT_FEE 
   const rows: Row[] = [{
     key: 'anchor', label: 'Base anchor', group: 'stack',
     bar: { from: 0, to: h.anchorPct, fill: STEP },
-    value: pct1(h.anchorPct),
-    tip: [{ value: pct1(h.anchorPct), label: 'base anchor', color: STEP }],
+    value: fmtPct1(h.anchorPct),
+    tip: [{ value: fmtPct1(h.anchorPct), label: 'base anchor', color: STEP }],
   }]
-  const tableRows: string[][] = [['Base anchor', pct1(h.anchorPct), pct1(h.anchorPct), '']]
+  const tableRows: string[][] = [['Base anchor', fmtPct1(h.anchorPct), fmtPct1(h.anchorPct), '']]
   const skipped: string[] = []
   let running = h.anchorPct
   for (const s of steps) {
@@ -178,7 +175,7 @@ export default function HurdleChart({ irr, hurdle, regime, feePct = DEFAULT_FEE 
     const label = `${sign} ${s.name}`
     if (s.b === 0) {
       skipped.push(s.full)
-      tableRows.push([`${sign} ${s.full}`, bps(0), pct1(next), 'zero in this snapshot — not drawn'])
+      tableRows.push([`${sign} ${s.full}`, bps(0), fmtPct1(next), 'zero in this snapshot — not drawn'])
     } else {
       rows.push({
         key: s.key, label, group: 'stack', linkAt: running,
@@ -186,53 +183,53 @@ export default function HurdleChart({ irr, hurdle, regime, feePct = DEFAULT_FEE 
         value: bps(s.b),
         tip: [
           { value: bps(s.b), label: s.short, color: STEP },
-          { value: pct1(next), label: 'running total' },
+          { value: fmtPct1(next), label: 'running total' },
         ],
       })
-      tableRows.push([`${sign} ${s.full}`, bps(s.b), pct1(next), ''])
+      tableRows.push([`${sign} ${s.full}`, bps(s.b), fmtPct1(next), ''])
     }
     running = next
   }
   rows.push({
     key: 'required', label: 'Required return', group: 'stack', strong: true, linkAt: sum,
     bar: { from: 0, to: total, fill: REQ },
-    value: pct1(total),
+    value: fmtPct1(total),
     tip: [
-      { value: pct1(total), label: 'required (provisional)', color: REQ },
-      ...(mismatch ? [{ value: pct1(sum), label: 'components sum' }] : []),
+      { value: fmtPct1(total), label: 'required (provisional)', color: REQ },
+      ...(mismatch ? [{ value: fmtPct1(sum), label: 'components sum' }] : []),
     ],
   })
-  tableRows.push(['Required return', pct1(total), '—',
-    mismatch ? `components sum to ${pct1(sum)}; the snapshot’s total is shown` : 'provisional until the client’s hurdle formula arrives'])
+  tableRows.push(['Required return', fmtPct1(total), '—',
+    mismatch ? `components sum to ${fmtPct1(sum)}; the snapshot’s total is shown` : 'provisional until the client’s hurdle formula arrives'])
 
   const showNet = hasIrr && feeOk && fee > 0
   if (hasIrr) {
     rows.push({
       key: 'irr', label: 'Projected IRR (sponsor-reported)', group: 'deal', strong: true,
       bar: { from: 0, to: irr, fill: DEAL },
-      value: pct1(irr), delta: pts(irr - total),
+      value: fmtPct1(irr), delta: fmtSignedPts(irr - total),
       tip: [
-        { value: pct1(irr), label: 'projected IRR (sponsor)', color: DEAL },
-        { value: pts(irr - total), label: 'vs required' },
+        { value: fmtPct1(irr), label: 'projected IRR (sponsor)', color: DEAL },
+        { value: fmtSignedPts(irr - total), label: 'vs required' },
       ],
     })
-    tableRows.push(['Projected IRR (sponsor-reported)', pct1(irr), '—', `${pts(irr - total)} vs required`])
+    tableRows.push(['Projected IRR (sponsor-reported)', fmtPct1(irr), '—', `${fmtSignedPts(irr - total)} vs required`])
     if (showNet) {
       const net = irr - fee
       const label = `IRR after ${feeText} fee`
       rows.push({
         key: 'net', label, group: 'deal', strong: true,
         bar: { from: 0, to: net, fill: DEAL },
-        value: pct1(net), delta: pts(net - total),
+        value: fmtPct1(net), delta: fmtSignedPts(net - total),
         tip: [
-          { value: pct1(net), label: `after ${feeText} fee (approx.)`, color: DEAL },
-          { value: pts(net - total), label: 'vs required' },
+          { value: fmtPct1(net), label: `after ${feeText} fee (approx.)`, color: DEAL },
+          { value: fmtSignedPts(net - total), label: 'vs required' },
           { value: `−${feePts}`, label: 'fee' },
         ],
       })
       tableRows.push(['Fee deducted (approximation)', feePts, '—',
         `${baselineFee ? 'client’s stated baseline fee' : 'per-deal fee input'}, subtracted flat`])
-      tableRows.push([label, pct1(net), '—', `${pts(net - total)} vs required · approximation`])
+      tableRows.push([label, fmtPct1(net), '—', `${fmtSignedPts(net - total)} vs required · approximation`])
     } else if (!feeOk) {
       rows.push({ key: 'net', label: 'IRR after fee', group: 'deal', strong: true, missing: 'fee not available' })
       tableRows.push(['IRR after fee', 'not shown — the fee input is not a valid rate', '—', ''])
@@ -307,10 +304,10 @@ export default function HurdleChart({ irr, hurdle, regime, feePct = DEFAULT_FEE 
       : '',
     hasIrr && !feeOk ? 'The fee input is not a usable rate, so no after-fee bar is drawn.' : '',
     skipped.length ? `${skipped.join(' and ')} ${skipped.length === 1 ? 'is' : 'are'} 0 bps in this snapshot — not drawn.` : '',
-    mismatch ? `The components sum to ${pct1(sum)} but the snapshot reports ${pct1(total)}; the total bar shows the snapshot’s figure.` : '',
+    mismatch ? `The components sum to ${fmtPct1(sum)} but the snapshot reports ${fmtPct1(total)}; the total bar shows the snapshot’s figure.` : '',
   ].filter(Boolean).join(' ')
 
-  const aria = `Required return ${pct1(total)}${hasIrr ? `; projected IRR ${pct1(irr)}, ${pts(irr - total)}` : '; projected IRR not in the documents'}`
+  const aria = `Required return ${fmtPct1(total)}${hasIrr ? `; projected IRR ${fmtPct1(irr)}, ${fmtSignedPts(irr - total)}` : '; projected IRR not in the documents'}`
 
   return (
     <ChartCard title={title} subtitle={subtitle} legend={legend} table={{ columns: ['Line', 'Value', 'Running total', 'Note'], rows: tableRows }} note={note}>

@@ -16,7 +16,9 @@ export function Info({ children, width = 250, below = false }: { children: React
   ensureStyle()
   return (
     <span className="infotip" tabIndex={0} role="note">
-      <span className="infotip-i">i</span>
+      {/* Decorative: the popover text is the note's content (and an "i" would
+          leak into any label or description that references this element). */}
+      <span className="infotip-i" aria-hidden="true">i</span>
       <span className={`infotip-pop ${below ? 'below' : ''}`} style={{ width }}>{children}</span>
     </span>
   )

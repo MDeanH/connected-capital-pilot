@@ -26,6 +26,8 @@ interface Props {
 interface Row {
   p: Posture
   hasStress: boolean
+  /** The mini_stress check is in this posture's checks (with or without a stress result). */
+  hasCheck: boolean
   em: number | null
   floor: number | null
   hardCost: number | null
@@ -64,11 +66,19 @@ const bumpBps = (b: number) => `${b >= 0 ? '+' : '−'}${Math.abs(Math.round(b))
 const tickLabel = (v: number) => `${v < 0 ? '−' : ''}${Number(Math.abs(v).toFixed(2))}x`
 const fieldLabel = (k: keyof DealFields) => ALL_FIELDS.find(d => d.key === k)?.label ?? k
 
+// The engine emits stress whenever the rulebook has the check, so the check
+// without it is a pre-stress response: that posture's settings and multiple are
+// missing from the response, not unset in the rulebook.
+const unsent = (r: Row) => r.hasCheck && !r.hasStress
+const NOT_SENT = 'not in this response'
+
 const costText = (r: Row, short = false) =>
   r.hardCost !== null ? `${bumpPct(r.hardCost)} hard costs` : short ? 'overrun not set' : 'hard-cost overrun not set'
 const capText = (r: Row, short = false) =>
   r.capBps !== null ? `${bumpBps(r.capBps)} exit cap` : short ? 'cap bump not set' : 'exit-cap widening not set'
-const stressText = (r: Row, short = false) => `${costText(r, short)} · ${capText(r, short)}`
+const stressText = (r: Row, short = false) =>
+  unsent(r) ? `stress result ${NOT_SENT}` : `${costText(r, short)} · ${capText(r, short)}`
+const emText = (r: Row) => (r.em !== null ? xm(r.em) : unsent(r) ? NOT_SENT : 'not computed')
 const statusWord = (r: Row) => `${WORD[r.status]}${r.fragile ? ' · thin' : ''}`
 const resultText = (r: Row) => `${statusWord(r)}${r.margin !== null ? ` ${signed(r.margin)}` : ''}`
 const barColor = (r: Row) => (r.fragile ? CK.watch : BAR[r.status])
@@ -87,6 +97,7 @@ function rowsOf(sc: Record<Posture, PostureScenario>): Row[] {
     return {
       p,
       hasStress: !!st,
+      hasCheck: !!ck,
       em: fin(rawEm) ? rawEm : null,
       floor: fin(rawFloor) ? rawFloor : null,
       hardCost: fin(rawCost) ? rawCost : null,
@@ -108,6 +119,7 @@ const NO_FIELDS =
 
 /** Why one posture's stressed multiple is absent — each cause is checked before it is named. */
 function causeOf(r: Row, f: DealFields | null | undefined): string {
+  if (unsent(r)) return 'The stress result isn’t in this response (older scoring build) — rescore the deal to see it.'
   if (!r.hasStress) return 'The active rulebook has no mini-stress check.'
   const unset = [
     r.floor === null ? 'stress floor' : '',
@@ -157,8 +169,9 @@ function takeaway(rows: Row[]): string {
   const clears = done.filter(r => r.status === 'pass').map(name)
   const below = done.filter(r => r.status !== 'pass').map(name)
   const thin = done.filter(r => r.fragile).map(name)
-  const skipped = rows.filter(r => !done.includes(r)).map(name)
-  const tail = `${thin.length ? ` Thin margin in ${listText(thin)}.` : ''}${skipped.length ? ` Not computed in ${listText(skipped)}.` : ''}`
+  const skipped = rows.filter(r => !done.includes(r) && !unsent(r)).map(name)
+  const lost = rows.filter(unsent).map(name)
+  const tail = `${thin.length ? ` Thin margin in ${listText(thin)}.` : ''}${skipped.length ? ` Not computed in ${listText(skipped)}.` : ''}${lost.length ? ` Not in this response for ${listText(lost)}.` : ''}`
   if (!below.length && clears.length === 3) return `Clears the floor in all three postures — even red, the harshest.${tail}`
   if (!clears.length) return `Falls below the floor in ${below.length === 3 ? 'every posture' : listText(below)}.${tail}`
   if (!below.length) return `Clears the floor in ${listText(clears)}.${tail}`
@@ -170,9 +183,9 @@ function tableOf(rows: Row[], today: Posture): TableSpec {
     columns: ['Posture', 'Hard-cost overrun', 'Exit-cap widening', 'Stressed equity multiple', 'Floor', 'Result', 'Margin vs floor'],
     rows: rows.map(r => [
       `${NAME[r.p]}${r.p === today ? ' (today)' : ''}`,
-      r.hardCost !== null ? bumpPct(r.hardCost) : 'not set',
-      r.capBps !== null ? bumpBps(r.capBps) : 'not set',
-      r.em !== null ? xm(r.em) : 'not computed',
+      r.hardCost !== null ? bumpPct(r.hardCost) : unsent(r) ? NOT_SENT : 'not set',
+      r.capBps !== null ? bumpBps(r.capBps) : unsent(r) ? NOT_SENT : 'not set',
+      emText(r),
       r.floor !== null ? xm(r.floor) : 'not set',
       statusWord(r),
       r.margin !== null ? signed(r.margin) : '—',
@@ -218,6 +231,16 @@ function Empty({ children }: { children: ReactNode }) {
   )
 }
 
+/** A response from a scoring build that predates per-posture stress results. */
+function OlderBuild() {
+  return (
+    <ChartCard title={TITLE}
+      table={{ columns: ['Posture', 'Stressed equity multiple'], rows: POSTURES.map(p => [NAME[p], NOT_SENT]) }}>
+      <Empty>Per-posture stress results aren’t in this response (older scoring build), so there is nothing to plot. Rescore the deal to see them.</Empty>
+    </ChartCard>
+  )
+}
+
 const METHOD = 'Bar: the equity multiple left after that posture’s hard-cost overrun (paid with equity) and exit-cap widening, on untrended NOI after selling costs, interim cash flow ignored. Tick: that posture’s floor. + = room above the floor.'
 
 const STATUS_KEYS: Array<{ key: string; item: LegendItem }> = [
@@ -230,19 +253,13 @@ export default function StressChart({ scenarios, posture, fields }: Props) {
   const tip = useTooltip()
   const [measureRef, W] = useWidth(560)
 
-  if (!scenarios) {
-    return (
-      <ChartCard title={TITLE}
-        table={{ columns: ['Posture', 'Stressed equity multiple'], rows: POSTURES.map(p => [NAME[p], 'not in this response']) }}>
-        <Empty>Per-posture stress results aren’t in this response (older scoring build), so there is nothing to plot. Rescore the deal to see them.</Empty>
-      </ChartCard>
-    )
-  }
+  if (!scenarios) return <OlderBuild />
 
   const rows = rowsOf(scenarios)
   const table = tableOf(rows, posture)
 
   if (!rows.some(r => r.hasStress)) {
+    if (rows.some(unsent)) return <OlderBuild />
     return (
       <ChartCard title={TITLE} table={table}>
         <Empty>The active rulebook has no mini-stress check, so there is no stress result to plot.</Empty>
@@ -308,7 +325,7 @@ export default function StressChart({ scenarios, posture, fields }: Props) {
               const fx = r.floor !== null ? xs(r.floor) : null
               const color = barColor(r)
               const lines: TipLine[] = [
-                { value: r.em !== null ? xm(r.em) : 'not computed', label: `${NAME[r.p]}${isToday ? ' (today)' : ''} stressed multiple`, color: r.em !== null ? color : undefined },
+                { value: emText(r), label: `${NAME[r.p]}${isToday ? ' (today)' : ''} stressed multiple`, color: r.em !== null ? color : undefined },
                 { value: r.floor !== null ? xm(r.floor) : 'not set', label: 'floor', color: '#fff' },
                 { value: resultText(r), label: 'vs floor' },
                 { value: `${r.hardCost !== null ? bumpPct(r.hardCost) : '—'} · ${r.capBps !== null ? bumpBps(r.capBps) : '—'}`, label: 'costs · exit cap' },
@@ -359,7 +376,7 @@ export default function StressChart({ scenarios, posture, fields }: Props) {
                     </>
                   ) : (
                     <text className="ck-label" x={plotL} y={barY + BAR_H / 2} dy="0.35em" style={{ fill: CK.ink2 }}>
-                      not computed — see note
+                      {unsent(r) ? 'older scoring build' : 'not computed'} — see note
                     </text>
                   )}
                   {fx !== null && r.em !== null && (
