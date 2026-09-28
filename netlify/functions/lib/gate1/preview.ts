@@ -78,6 +78,7 @@ function toScenario(posture: Posture, r: GateResult): PostureScenario {
       margin: c.margin,
       fragile: c.fragile,
       threshold: c.threshold?.effective ?? null,
+      flagPoints: c.flagPoints,
     })),
   }
 }

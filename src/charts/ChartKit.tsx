@@ -16,7 +16,7 @@
 //
 // The app is light-only (cc-theme defines no dark scheme), so charts are too.
 // Status colors mean pass/watch/fail or a macro posture — never series identity.
-import { useCallback, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import type { Posture } from '../deal-types'
 
 export const CK = {
@@ -35,6 +35,9 @@ export const CK = {
   muted: '#8a9793',
   passWash: 'rgba(63,125,105,0.08)',
   failWash: 'rgba(194,56,74,0.07)',
+  /** The washes composited on the white surface — for label halos over a wash. */
+  passWashSolid: '#f0f5f3',
+  failWashSolid: '#fbf1f2',
 }
 
 export const POSTURE_LETTER: Record<Posture, string> = { green: 'G', yellow: 'Y', red: 'R' }
@@ -50,21 +53,28 @@ export function scaleLinear(d0: number, d1: number, r0: number, r1: number) {
 /** Clean tick values (1/2/5 × 10^k steps) covering [min, max]. */
 export function niceTicks(min: number, max: number, count = 5): number[] {
   if (!Number.isFinite(min) || !Number.isFinite(max)) return []
-  if (min === max) { const pad = Math.abs(min) || 1; min -= pad / 2; max += pad / 2 }
+  if (max < min) [min, max] = [max, min]
+  // A span below float resolution is treated as a single value and padded, so
+  // the step never falls under half an ulp (where v += step would not move).
+  if (max - min <= Math.abs(max) * 1e-9) { const pad = Math.abs(min) || 1; min -= pad / 2; max += pad / 2 }
   const raw = (max - min) / Math.max(1, count)
   const pow = Math.pow(10, Math.floor(Math.log10(raw)))
   const step = [1, 2, 2.5, 5, 10].map(m => m * pow).find(s => s >= raw) ?? 10 * pow
   const start = Math.floor(min / step) * step
+  // Built by index, not by accumulation: bounded, and no drift at the ends.
+  const n = Math.min(1000, Math.ceil((max - start) / step - 1e-9))
   const out: number[] = []
-  for (let v = start; v <= max + step * 1e-9; v += step) out.push(Number(v.toFixed(10)))
-  if (out[out.length - 1] < max) out.push(Number((out[out.length - 1] + step).toFixed(10)))
+  for (let i = 0; i <= n; i++) {
+    const v = Number((start + i * step).toFixed(10))
+    if (out[out.length - 1] !== v) out.push(v)
+  }
   return out
 }
 
 // ----------------------------------------------------------------- tooltip
 
-/** Pointer distance from a plot edge (px) inside which the tooltip anchors to that edge. */
-const TIP_EDGE = 120
+/** Gap (px) between the tooltip and the point it describes. */
+const TIP_GAP = 10
 
 export interface TipLine { value: string; label: string; color?: string }
 
@@ -75,32 +85,48 @@ export interface TipLine { value: string; label: string; color?: string }
  */
 export function useTooltip() {
   const ref = useRef<HTMLDivElement>(null)
-  const [tip, setTip] = useState<{ x: number; y: number; w: number; lines: TipLine[] } | null>(null)
+  const tipRef = useRef<HTMLDivElement>(null)
+  // x, y: the anchor point above which the tip sits; yBelow: where it goes
+  // instead when above would leave the viewport (plot-relative px).
+  const [tip, setTip] = useState<{ x: number; y: number; yBelow: number; w: number; lines: TipLine[] } | null>(null)
 
-  const place = useCallback((clientX: number, clientY: number, lines: TipLine[]) => {
+  const place = useCallback((clientX: number, clientY: number, clientYBelow: number, lines: TipLine[]) => {
     const box = ref.current?.getBoundingClientRect()
     if (!box) return
-    setTip({ x: clientX - box.left, y: clientY - box.top, w: box.width, lines })
+    setTip({ x: clientX - box.left, y: clientY - box.top, yBelow: clientYBelow - box.top, w: box.width, lines })
   }, [])
+
+  // Measured placement, before paint: centre on the anchor, then clamp the
+  // tip's real width inside the plot, so it never spills past the card on a
+  // phone whatever its content. (.ck-tip is border-box with max-width 100%,
+  // so the clamp always has room.)
+  useLayoutEffect(() => {
+    const el = tipRef.current
+    const plot = ref.current
+    if (!tip || !el || !plot) return
+    const tw = el.offsetWidth
+    const th = el.offsetHeight
+    el.style.left = `${Math.max(0, Math.min(tip.x - tw / 2, tip.w - tw))}px`
+    const fitsAbove = plot.getBoundingClientRect().top + tip.y - th - TIP_GAP >= 0
+    el.style.top = `${fitsAbove ? tip.y - th - TIP_GAP : tip.yBelow + TIP_GAP}px`
+  }, [tip])
 
   const bind = useCallback((lines: TipLine[]) => ({
     tabIndex: 0,
     role: 'img' as const,
     'aria-label': lines.map(l => `${l.label}: ${l.value}`).join('; '),
-    onPointerMove: (e: React.PointerEvent) => place(e.clientX, e.clientY, lines),
+    onPointerMove: (e: React.PointerEvent) => place(e.clientX, e.clientY, e.clientY + 14, lines),
     onPointerLeave: () => setTip(null),
     onFocus: (e: React.FocusEvent) => {
       const r = (e.currentTarget as Element).getBoundingClientRect()
-      place(r.left + r.width / 2, r.top, lines)
+      place(r.left + r.width / 2, r.top, r.bottom, lines)
     },
     onBlur: () => setTip(null),
   }), [place])
 
   const layer = tip ? (
-    // Anchored inside the plot: near an edge the tip grows inward instead of
-    // centring on the pointer, so it never spills past the card on a phone.
-    <div className={`ck-tip ck-tip-${tip.x < TIP_EDGE ? 'l' : tip.x > tip.w - TIP_EDGE ? 'r' : 'c'}`}
-      style={{ left: Math.max(0, Math.min(tip.w, tip.x)), top: tip.y }} role="status">
+    // left/top are set by the layout effect above, from the measured size.
+    <div className="ck-tip" ref={tipRef} role="status">
       {tip.lines.map((l, i) => (
         <div className="ck-tip-row" key={i}>
           {l.color && <span className="ck-tip-key" style={{ background: l.color }} aria-hidden="true" />}
@@ -169,14 +195,18 @@ export function ChartCard({ title, subtitle, legend, table, note, children }: {
 }) {
   ensureStyle()
   const [asTable, setAsTable] = useState(false)
+  const titleId = useId()
   return (
     <div className="ck-card">
       <div className="ck-head">
         <div className="ck-titles">
-          <div className="ck-title">{title}</div>
+          <div className="ck-title" id={titleId}>{title}</div>
           {subtitle && <div className="ck-sub">{subtitle}</div>}
         </div>
-        <button type="button" className="ck-toggle" aria-pressed={asTable} onClick={() => setAsTable(v => !v)}>
+        {/* The label names the view it switches TO, so no aria-pressed (a
+            changing label plus a pressed state contradict each other);
+            aria-describedby ties each card's button to its chart. */}
+        <button type="button" className="ck-toggle" aria-describedby={titleId} onClick={() => setAsTable(v => !v)}>
           {asTable ? 'Chart' : 'Table'}
         </button>
       </div>
@@ -234,11 +264,8 @@ const CSS = `
 .ck-plot svg{display:block;width:100%;height:auto;overflow:visible}
 .ck-plot [tabindex]{outline:none}
 .ck-plot [tabindex]:focus-visible{outline:2px solid ${CK.accent};outline-offset:2px}
-.ck-tip{position:absolute;z-index:5;pointer-events:none;background:#123028;color:#fff;border-radius:6px;width:max-content;max-width:min(280px,100%);
-  padding:.4rem .6rem;font-size:.74rem;line-height:1.45;box-shadow:0 4px 14px rgba(0,0,0,.18)}
-.ck-tip-c{transform:translate(-50%,calc(-100% - 10px))}
-.ck-tip-l{transform:translate(-8px,calc(-100% - 10px))}
-.ck-tip-r{transform:translate(calc(-100% + 8px),calc(-100% - 10px))}
+.ck-tip{position:absolute;left:0;top:0;z-index:5;pointer-events:none;background:#123028;color:#fff;border-radius:6px;box-sizing:border-box;
+  width:max-content;max-width:min(280px,100%);padding:.4rem .6rem;font-size:.74rem;line-height:1.45;box-shadow:0 4px 14px rgba(0,0,0,.18)}
 .ck-tip-row{display:flex;align-items:center;gap:.45rem}
 .ck-tip-key{width:12px;height:2px;border-radius:1px;flex-shrink:0}
 .ck-tip-val{font-weight:600;font-variant-numeric:tabular-nums}
