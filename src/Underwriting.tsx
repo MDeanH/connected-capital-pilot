@@ -15,6 +15,12 @@ import { PostureChip, VerdictBadge } from './cc-ui'
 import ConsistencyPanel from './ConsistencyPanel'
 import McProbabilityCard from './McProbabilityCard'
 import MarketPathCard from './MarketPathCard'
+import CushionChart from './charts/CushionChart'
+import StressChart from './charts/StressChart'
+import HurdleChart from './charts/HurdleChart'
+import CapRateChart from './charts/CapRateChart'
+import { AbsorptionChart, RentChart } from './charts/MarketCharts'
+import { FinancingChart, TimelineChart, UsesSourcesCharts } from './charts/CapitalCharts'
 import { fmtMargin, fmtVal } from './GateResults'
 import { annualDebtService, dealCashOnCash, dealDSCR, dealDebtYield, impliedExitValue } from './finance'
 import type { CheckResult, DealFields, Gate1Response, Posture, PostureScenario } from './deal-types'
@@ -40,18 +46,15 @@ interface Props {
 const POSTURES: Posture[] = ['green', 'yellow', 'red']
 const STATUS_WORD: Record<Status, string> = { pass: 'PASS', flag: 'WATCH', fail: 'FAIL', missing: 'MISSING', na: 'N/A' }
 const CMP: Record<string, string> = { '<=': '≤', '>=': '≥' }
-const MISSING = 'not in the documents'
 
 const pct1 = (x: number) => `${(x * 100).toFixed(1)}%`
 const pts = (x: number) => `${x >= 0 ? '+' : '−'}${Math.abs(x * 100).toFixed(1)} pts`
-const bps = (x: number) => `${x >= 0 ? '+' : '−'}${Math.abs(Math.round(x))} bps`
 function money(n: number): string {
   const a = Math.abs(n)
   if (a >= 1e6) return `$${(n / 1e6).toFixed(2)}M`
   if (a >= 1e3) return `$${Math.round(n / 1e3).toLocaleString('en-US')}K`
   return `$${Math.round(n).toLocaleString('en-US')}`
 }
-const dollars = (n: number) => `$${Math.round(n).toLocaleString('en-US')}`
 const has = (n: number | null | undefined): n is number => typeof n === 'number' && Number.isFinite(n)
 
 // ---------------------------------------------------------------- primitives
@@ -66,6 +69,11 @@ function Section({ title, note, children }: { title: ReactNode; note?: ReactNode
       {children}
     </section>
   )
+}
+
+/** A chart that carries its own title (ChartCard) — spacing only, no second heading. */
+function ChartSection({ children }: { children: ReactNode }) {
+  return <section className="uw-sec">{children}</section>
 }
 
 function Pill({ status, word }: { status: Status; word?: string }) {
@@ -337,6 +345,9 @@ function SummaryTab({ fields, response, extraction, macro }: Props) {
         </Grid>
       </Section>
 
+      <ChartSection><CushionChart response={response} /></ChartSection>
+      <ChartSection><StressChart scenarios={response.scenarios} posture={response.posture} fields={fields} /></ChartSection>
+
       <Section title="C. Every check, every posture"
         note="PASS / WATCH / FAIL under each posture, with the threshold and the margin (+ = room to spare)">
         <CheckMatrix response={response} />
@@ -353,111 +364,9 @@ function SummaryTab({ fields, response, extraction, macro }: Props) {
 
 // =============================================================== FINANCIALS
 
-const PALETTE = ['#3f7d69', '#63cda9', '#b8860b', '#9c9c9c']
-
-function Donut({ parts }: { parts: Array<{ label: string; value: number }> }) {
-  const total = parts.reduce((s, p) => s + p.value, 0)
-  const r = 42
-  const C = 2 * Math.PI * r
-  let off = 0
-  return (
-    <svg viewBox="0 0 120 120" className="uw-donut" role="img"
-      aria-label={parts.map(p => `${p.label} ${Math.round((p.value / total) * 100)}%`).join(', ')}>
-      <circle cx={60} cy={60} r={r} fill="none" stroke="var(--surface-2,#f5fbfa)" strokeWidth={16} />
-      {parts.map((p, i) => {
-        const len = (p.value / total) * C
-        const el = (
-          <circle key={p.label} cx={60} cy={60} r={r} fill="none" stroke={PALETTE[i % PALETTE.length]} strokeWidth={16}
-            strokeDasharray={`${len} ${C - len}`} strokeDashoffset={-off} transform="rotate(-90 60 60)" />
-        )
-        off += len
-        return el
-      })}
-    </svg>
-  )
-}
-
-function CapitalCard({ title, parts, note }: { title: string; parts: Array<{ label: string; value: number }>; note?: ReactNode }) {
-  const shown = parts.filter(p => p.value > 0)
-  const total = shown.reduce((s, p) => s + p.value, 0)
-  return (
-    <div className="uw-card uw-cap">
-      <div className="uw-card-title">{title}</div>
-      {total > 0 ? (
-        <div className="uw-cap-body">
-          <Donut parts={shown} />
-          <div className="uw-legend">
-            {shown.map((p, i) => (
-              <div className="uw-leg-row" key={p.label}>
-                <span className="uw-leg-dot" style={{ background: PALETTE[i % PALETTE.length] }} aria-hidden="true" />
-                <span className="uw-leg-label">{p.label}</span>
-                <span className="uw-leg-pct">{Math.round((p.value / total) * 100)}%</span>
-                <span className="uw-leg-val">{money(p.value)}</span>
-              </div>
-            ))}
-            <div className="uw-leg-row uw-leg-total">
-              <span className="uw-leg-dot" aria-hidden="true" />
-              <span className="uw-leg-label">Total</span>
-              <span className="uw-leg-pct" />
-              <span className="uw-leg-val">{money(total)}</span>
-            </div>
-          </div>
-        </div>
-      ) : (
-        <div className="uw-muted">Inputs {MISSING}.</div>
-      )}
-      {note && <div className="uw-cap-note">{note}</div>}
-    </div>
-  )
-}
-
-function Timeline({ fields }: { fields: DealFields }) {
-  const build = fields.construction_duration_months
-  const lease = fields.lease_up_months_assumed
-  const market = fields.submarket_leaseup_months
-  const reserve = fields.interest_reserve_months
-  if (!has(build)) return <div className="uw-card uw-muted">Construction duration {MISSING} — no timeline to draw.</div>
-  const bars: Array<{ label: string; from: number; to: number; cls: string }> = [
-    { label: 'Construction', from: 0, to: build, cls: 'uw-bar-build' },
-    ...(has(lease) ? [{ label: 'Lease-up (underwritten)', from: build, to: build + lease, cls: 'uw-bar-lease' }] : []),
-    ...(has(market) ? [{ label: 'Lease-up (submarket record)', from: build, to: build + market, cls: 'uw-bar-ref' }] : []),
-    ...(has(reserve) ? [{ label: 'Interest reserve covers', from: 0, to: reserve, cls: 'uw-bar-reserve' }] : []),
-  ]
-  const max = Math.max(...bars.map(b => b.to)) * 1.05
-  const ticks = [0, 0.25, 0.5, 0.75, 1].map(f => Math.round(max * f))
-  return (
-    <div className="uw-card uw-tl">
-      {bars.map(b => (
-        <div className="uw-tl-row" key={b.label}>
-          <span className="uw-tl-label">{b.label}</span>
-          <span className="uw-tl-track">
-            <span className={`uw-tl-bar ${b.cls}`} style={{ left: `${(b.from / max) * 100}%`, width: `${((b.to - b.from) / max) * 100}%` }} />
-          </span>
-          <span className="uw-tl-range">{Math.round(b.from)}–{Math.round(b.to)} mo</span>
-        </div>
-      ))}
-      <div className="uw-tl-row uw-tl-axis">
-        <span className="uw-tl-label" />
-        <span className="uw-tl-track uw-tl-ticks">{ticks.map(t => <span key={t}>{t} mo</span>)}</span>
-        <span className="uw-tl-range" />
-      </div>
-    </div>
-  )
-}
-
-function FinancialsTab({ fields, extraction }: Props) {
+function FinancialsTab({ fields, response, extraction }: Props) {
+  const ck = new Map(response.result.checks.map(c => [c.id, c]))
   const cost = fields.total_project_cost
-  const land = fields.land_cost ?? 0
-  const hard = fields.hard_costs ?? 0
-  const other = has(cost) ? cost - land - hard : 0
-  const loan = fields.construction_loan ?? 0
-  const equity = fields.total_equity ?? (has(cost) && has(fields.construction_loan) ? cost - fields.construction_loan : null)
-  const sponsorEq = has(equity) && has(fields.sponsor_coinvest_pct) ? equity * fields.sponsor_coinvest_pct : 0
-  const lpEq = has(equity) ? equity - sponsorEq : 0
-  const sources = loan + (equity ?? 0)
-  const gap = has(cost) && sources > 0 ? sources - cost : 0
-  const contingencyUsd = has(fields.hard_cost_contingency_pct) && hard ? hard * fields.hard_cost_contingency_pct : null
-
   const noi = fields.stabilized_noi_untrended
   const yoc = has(noi) && has(cost) && cost ? noi / cost : null
   const spread = yoc !== null && has(fields.exit_cap_rate) ? (yoc - fields.exit_cap_rate) * 10000 : null
@@ -474,20 +383,9 @@ function FinancialsTab({ fields, extraction }: Props) {
 
   return (
     <>
-      <Section title="A. Uses & sources of capital">
-        <div className="uw-two">
-          <CapitalCard title="Uses of capital"
-            parts={[{ label: 'Land', value: land }, { label: 'Hard costs', value: hard }, { label: 'Soft costs & other', value: Math.max(other, 0) }]}
-            note={contingencyUsd !== null ? `Contingency ${pct1(fields.hard_cost_contingency_pct!)} of hard costs ≈ ${money(contingencyUsd)}. “Soft costs & other” is total cost less land and hard costs.` : undefined} />
-          <CapitalCard title="Sources of capital"
-            parts={[{ label: 'Construction loan', value: loan }, { label: 'LP equity', value: Math.max(lpEq, 0) }, { label: 'Sponsor co-invest', value: sponsorEq }]}
-            note={Math.abs(gap) > 1 && has(cost) && Math.abs(gap) / cost > 0.005
-              ? `Sources ${money(sources)} vs uses ${money(cost)} — a ${money(Math.abs(gap))} ${gap > 0 ? 'surplus' : 'gap'} to ask the sponsor about.`
-              : fields.total_equity == null ? 'Equity derived as total cost less the loan.' : undefined} />
-        </div>
-      </Section>
+      <ChartSection><UsesSourcesCharts fields={fields} /></ChartSection>
 
-      <Section title="B. Project economics">
+      <Section title="A. Project economics">
         <Grid>
           <Tile label="Stabilized NOI" value={has(noi) ? money(noi) : '—'} caption="untrended" tag={src(['stabilized_noi_untrended'])} />
           <Tile label={<Term k="yoc">Yield on cost</Term>} value={yoc !== null ? pct1(yoc) : '—'} caption="NOI ÷ total cost" />
@@ -496,7 +394,7 @@ function FinancialsTab({ fields, extraction }: Props) {
         </Grid>
       </Section>
 
-      <Section title="C. Capital structure & investor returns">
+      <Section title="B. Capital structure & investor returns">
         <Grid>
           <Tile label={<Term k="ltc">Loan-to-cost</Term>} value={ltc !== null ? pct1(ltc) : '—'} caption={has(fields.construction_loan) ? `${money(fields.construction_loan)} loan` : 'loan ÷ cost'} />
           <Tile label={<Term k="dscr">DSCR</Term>} value={dscr !== null ? `${dscr.toFixed(2)}x` : '—'} caption={ds !== null ? `NOI ÷ ${money(ds)} debt service` : 'NOI ÷ debt service'} />
@@ -509,70 +407,26 @@ function FinancialsTab({ fields, extraction }: Props) {
         </Grid>
       </Section>
 
-      <Section title="D. Development timeline" note="from the documents’ durations · year-by-year pro forma isn’t extracted yet">
-        <Timeline fields={fields} />
-      </Section>
+      <ChartSection><TimelineChart fields={fields} reserveCheck={ck.get('interest_reserve') ?? null} /></ChartSection>
+      <div className="uw-foot">Year-by-year NOI and the pro forma table aren’t extracted from the documents yet, so they aren’t charted.</div>
     </>
   )
 }
 
 // =================================================================== MARKET
 
-function BarRows({ rows }: { rows: Array<{ label: string; value: number | null; cls?: string }> }) {
-  const vals = rows.map(r => r.value).filter(has)
-  const max = vals.length ? Math.max(...vals) * 1.15 : 1
-  return (
-    <div className="uw-card uw-bars">
-      {rows.map(r => (
-        <div className="uw-bar-row" key={r.label}>
-          <span className="uw-bar-label">{r.label}</span>
-          <span className="uw-bar-track">
-            {has(r.value) && <span className={`uw-bar-fill ${r.cls ?? ''}`} style={{ width: `${(r.value / max) * 100}%` }} />}
-          </span>
-          <span className="uw-bar-val">{has(r.value) ? pct1(r.value) : 'n/a'}</span>
-        </div>
-      ))}
-    </div>
-  )
-}
-
 function MarketTab({ fields, response, macro, benchmarks, parIrr }: Props) {
-  const ck = new Map(response.result.checks.map(c => [c.id, c]))
   const irr = fields.projected_irr ?? null
   const h = macro?.hurdle
   const hurdle = h?.totalPct ?? null
   const FEE = 0.02
   const m = macro?.market ?? null
-  const fred = (x: number | null | undefined) => (has(x) ? x / 100 : null) // FRED series arrive as percent points
-  const sofr = fred(m?.sofr)
-  const spreadBps = benchmarks?.financingSpreadTypicalBps ?? null
-  const prevailing = sofr !== null && spreadBps !== null ? sofr + spreadBps / 10000 : null
-  const modeled = fields.loan_interest_rate ?? null
   const sp5 = m?.sp500.ret5y ?? null
-  const exitCk = ck.get('exit_cap_vs_market')
-  const rentCk = ck.get('rents_vs_comps')
-  const absCk = ck.get('absorption')
-  const premium = has(fields.assumed_rent_monthly) && has(fields.market_comp_rent_monthly) && fields.market_comp_rent_monthly
-    ? fields.assumed_rent_monthly / fields.market_comp_rent_monthly - 1 : null
-  const flagAt = rentCk?.threshold?.effective ?? null
-  const lease = fields.lease_up_months_assumed
-  const sub = fields.submarket_leaseup_months
-
-  let finWord: { status: Status; text: string } | null = null
-  if (fields.construction_loan === 0) finWord = { status: 'na', text: 'All-equity — no financing exposure' }
-  else if (has(modeled) && prevailing !== null) {
-    const d = (modeled - prevailing) * 100
-    finWord = d < -0.5
-      ? { status: 'flag', text: `Optimistic — modeled ${pct1(modeled)} is ${Math.abs(d).toFixed(1)} pts under today’s ≈${pct1(prevailing)}` }
-      : d <= 0.5
-        ? { status: 'pass', text: `In line with today’s ≈${pct1(prevailing)} (SOFR + ${spreadBps} bps)` }
-        : { status: 'na', text: `Conservative — modeled ${d.toFixed(1)} pts above today’s ≈${pct1(prevailing)}` }
-  }
 
   return (
     <>
       <Section title="A. Return vs required return"
-        note={h ? `required = ${pct1(h.anchorPct)} base + ${h.illiquidityBps} illiquidity + ${h.complexityBps} development + ${h.regimeBps} regime bps · provisional until the client’s hurdle formula arrives` : 'macro snapshot unavailable'}>
+        note="required return from the rulebook’s hurdle stack · provisional until the client’s hurdle formula arrives">
         <Grid>
           <Tile label="Projected IRR" value={has(irr) ? pct1(irr) : '—'} caption="sponsor-reported" />
           <Tile label="Required return" value={has(hurdle) ? pct1(hurdle) : '—'} caption={macro ? `${macro.regime.replace('_', ' ')} regime` : undefined} />
@@ -582,6 +436,7 @@ function MarketTab({ fields, response, macro, benchmarks, parIrr }: Props) {
             status={has(irr) && has(hurdle) ? (irr - FEE >= hurdle ? 'pass' : 'fail') : undefined}
             caption="approx. · 2% is the baseline fee from the 9/9 session, negotiable per deal" />
         </Grid>
+        <div className="uw-chart-gap"><HurdleChart irr={irr} hurdle={h ?? null} regime={macro?.regime} feePct={FEE} /></div>
       </Section>
 
       <Section title={<Term k="sp500_comparison">B. Against the public-market alternative</Term>}
@@ -595,44 +450,14 @@ function MarketTab({ fields, response, macro, benchmarks, parIrr }: Props) {
         </Grid>
       </Section>
 
-      <Section title={<Term k="financing">C. Financing context</Term>}
-        note={finWord ? <><Pill status={finWord.status} word={finWord.status === 'pass' ? 'IN LINE' : finWord.status === 'flag' ? 'CHECK' : 'NOTE'} /> {finWord.text}</> : undefined}>
-        <BarRows rows={[
-          { label: 'Deal’s modeled loan rate', value: modeled, cls: 'uw-fill-deal' },
-          { label: `Prevailing (SOFR + ${spreadBps ?? '—'} bps)`, value: prevailing },
-          { label: 'SOFR', value: sofr },
-          { label: '10-yr Treasury', value: fred(m?.treasury10y) },
-          { label: '30-yr mortgage', value: fred(m?.mortgage30y) },
-        ]} />
-      </Section>
-
-      <Section title={<Term k="exit_cap">D. Cap-rate analysis</Term>}>
-        <Grid>
-          <Tile label="Market cap rate today" value={has(fields.market_cap_rate_today) ? pct1(fields.market_cap_rate_today) : '—'} />
-          <Tile label="Sponsor exit cap" value={has(fields.exit_cap_rate) ? pct1(fields.exit_cap_rate) : '—'} />
-          <Tile label="Exit vs today" value={has(exitCk?.margin) ? bps(exitCk!.margin!) : '—'} status={exitCk?.status}
-            caption="exit should be at or above today’s cap" />
-          <Tile label="Implied exit value" value={impliedExitValue(fields) !== null ? money(impliedExitValue(fields)!) : '—'} caption="NOI ÷ exit cap" />
-        </Grid>
-      </Section>
-
-      <Section title={<Term k="rents_vs_comps">E. Rents vs comparables</Term>}>
-        <Grid cols={3}>
-          <Tile label="Underwritten rent" value={has(fields.assumed_rent_monthly) ? `${dollars(fields.assumed_rent_monthly)}/mo` : '—'} />
-          <Tile label="Market comp rent" value={has(fields.market_comp_rent_monthly) ? `${dollars(fields.market_comp_rent_monthly)}/mo` : '—'} />
-          <Tile label="Premium over comps" value={premium !== null ? `${premium >= 0 ? '+' : '−'}${Math.abs(premium * 100).toFixed(1)}%` : '—'}
-            status={rentCk?.status} caption={flagAt !== null ? `watch above ${pct1(flagAt)}` : undefined} />
-        </Grid>
-      </Section>
-
-      <Section title={<Term k="absorption">F. Absorption</Term>}>
-        <Grid cols={3}>
-          <Tile label="Underwritten lease-up" value={has(lease) ? `${lease} mo` : '—'} />
-          <Tile label="Submarket record" value={has(sub) ? `${sub} mo` : '—'} />
-          <Tile label="Faster than market by" value={has(lease) && has(sub) ? `${Math.round(sub - lease)} mo` : '—'} status={absCk?.status}
-            caption="a much faster lease-up than the market has managed is a watch item" />
-        </Grid>
-      </Section>
+      <ChartSection>
+        <FinancingChart fields={fields} market={m} financingSpreadTypicalBps={benchmarks?.financingSpreadTypicalBps ?? null} />
+      </ChartSection>
+      <ChartSection><CapRateChart fields={fields} scenarios={response.scenarios} posture={response.posture} /></ChartSection>
+      <div className="uw-two uw-sec">
+        <RentChart fields={fields} response={response} />
+        <AbsorptionChart fields={fields} response={response} />
+      </div>
 
       <details className="uw-adv">
         <summary>Market risk context — statistical, not part of the verdict</summary>
@@ -793,6 +618,7 @@ const CSS = `
 .uw-sec-title{font-size:12px!important;letter-spacing:.1em;text-transform:uppercase;font-weight:600!important;margin:0;color:var(--text,#090e11)}
 .uw-sec-note{font-size:.78rem;color:var(--muted,#5c6b67);display:inline-flex;align-items:center;gap:.4rem;flex-wrap:wrap}
 .uw-muted{color:var(--muted,#5c6b67);font-size:.85rem}
+.uw-chart-gap{margin-top:1rem}
 .uw-foot{font-size:.76rem;color:var(--muted,#5c6b67);margin-top:.7rem;line-height:1.5}
 .uw-card{background:var(--surface,#fff);border:1px solid var(--border,#dcebe7);border-radius:10px;padding:1.25rem 1.5rem}
 .uw-card-title{font-size:.85rem;font-weight:500;margin-bottom:.9rem}
@@ -875,33 +701,8 @@ td.uw-mx-today{box-shadow:inset 2px 0 0 var(--cc-deep,#3f7d69),inset -2px 0 0 va
 .cc-theme button.uw-adjust,button.uw-adjust{font-size:10px;letter-spacing:.06em;padding:.2rem .5rem;background:transparent;color:#3f7d69;border:none;
   text-decoration:underline;box-shadow:none}
 
-/* Capital cards */
+/* Two charts side by side (stack on phones) */
 .uw-two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem}
-.uw-cap{display:flex;flex-direction:column}
-.uw-cap-body{display:flex;align-items:center;gap:1.25rem}
-.uw-donut{width:120px;height:120px;flex-shrink:0}
-.uw-legend{flex:1;min-width:0;font-size:.82rem}
-.uw-leg-row{display:grid;grid-template-columns:12px minmax(0,1fr) 3rem auto;gap:.5rem;align-items:center;padding:.28rem 0;font-variant-numeric:tabular-nums}
-.uw-leg-dot{width:10px;height:10px;border-radius:2px}
-.uw-leg-pct{color:var(--muted,#5c6b67);text-align:right}
-.uw-leg-val{text-align:right}
-.uw-leg-total{border-top:1px solid var(--border,#dcebe7);margin-top:.2rem;padding-top:.45rem;font-weight:500}
-.uw-cap-note{font-size:.72rem;color:var(--muted,#5c6b67);margin-top:auto;padding-top:.8rem}
-
-/* Timeline + bar rows */
-.uw-tl-row,.uw-bar-row{display:grid;grid-template-columns:minmax(0,13rem) minmax(0,1fr) 5.5rem;gap:1rem;align-items:center;padding:.35rem 0;font-size:.82rem}
-.uw-tl-label,.uw-bar-label{color:var(--muted,#5c6b67);text-align:right}
-.uw-tl-track,.uw-bar-track{position:relative;height:14px;background:var(--surface-2,#f5fbfa);border-radius:4px}
-.uw-tl-bar{position:absolute;top:0;bottom:0;border-radius:4px}
-.uw-bar-build{background:#63cda9}
-.uw-bar-lease{background:#3f7d69}
-.uw-bar-ref{background:repeating-linear-gradient(45deg,#c2c8d2 0 4px,#e3e7ec 4px 8px)}
-.uw-bar-reserve{background:#b8860b;opacity:.7}
-.uw-tl-range,.uw-bar-val{font-variant-numeric:tabular-nums;text-align:right}
-.uw-tl-axis{padding-top:0}
-.uw-tl-ticks{background:transparent;display:flex;justify-content:space-between;font-size:.7rem;color:var(--muted,#5c6b67);height:auto}
-.uw-bar-fill{position:absolute;left:0;top:0;bottom:0;border-radius:4px;background:#9cb8ae}
-.uw-fill-deal{background:#b8860b}
 
 /* Issues */
 .uw-issues{display:flex;flex-direction:column;gap:.75rem;padding:1rem 1.5rem}
@@ -923,10 +724,6 @@ td.uw-mx-today{box-shadow:inset 2px 0 0 var(--cc-deep,#3f7d69),inset -2px 0 0 va
 @media(max-width:720px){
   .uw-scen,.uw-g3,.uw-two{grid-template-columns:minmax(0,1fr)}
   .uw-scen-card{min-height:0}
-  .uw-cap-body{flex-direction:column;align-items:stretch}
-  .uw-donut{align-self:center}
-  .uw-tl-row,.uw-bar-row{grid-template-columns:minmax(0,1fr) 4.5rem;gap:.3rem .75rem}
-  .uw-tl-label,.uw-bar-label{grid-column:1 / -1;text-align:left}
 }
 @media(max-width:480px){.uw-g4{grid-template-columns:minmax(0,1fr)}}
 `

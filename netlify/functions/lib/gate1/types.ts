@@ -157,9 +157,13 @@ export interface PostureScenario {
   verdict: GateVerdict
   kills: string[]
   flagPoints: number
+  /** The mini-stress result under this posture's severities (absent when it couldn't run). */
+  stress?: GateResult['stress']
   checks: Array<{
     id: string
     status: CheckStatus
+    /** The deal's computed value (posture-invariant except mini_stress: stressed EM). */
+    value: number | null
     /** Signed margin in the check's own units (+ = safe side), as in CheckResult. */
     margin: number | null
     fragile?: boolean
