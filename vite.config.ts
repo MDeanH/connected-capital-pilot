@@ -1,4 +1,4 @@
-import { defineConfig, type Plugin, type ViteDevServer } from 'vite'
+import { defineConfig, type Plugin, type ResolvedConfig, type ViteDevServer } from 'vite'
 import react from '@vitejs/plugin-react'
 
 // Local-dev bridge: serve POST /api/score by running the SAME engine the Netlify
@@ -181,9 +181,49 @@ function devConfigApi(): Plugin {
   }
 }
 
+// Dev only: plugin-react inlines its React Refresh preamble as a <script>, which
+// the strict /app CSP (script-src 'self', netlify.toml) blocks under `netlify
+// dev`, so App.tsx throws before anything mounts and /app is blank. Serve the
+// same text as an external module instead. Both the served text and the tag we
+// swap out come from plugin-react's exported preambleCode, so an upgrade that
+// changes it warns in the terminal rather than drifting silently. Builds have
+// no preamble.
+function externalReactPreamble(): Plugin {
+  let config: ResolvedConfig
+  let code: string | undefined
+  let src = ''
+  return {
+    name: 'external-react-preamble',
+    apply: 'serve',
+    configResolved(resolved) {
+      config = resolved
+      // the same substitution plugin-react makes before it inlines the tag
+      code = react.preambleCode?.replace('__BASE__', resolved.base)
+      src = `${resolved.base}@react-preamble.js`
+    },
+    configureServer(server: ViteDevServer) {
+      server.middlewares.use(src, (_req, res) => {
+        res.setHeader('Content-Type', 'text/javascript')
+        res.end(code)
+      })
+    },
+    transformIndexHtml: {
+      order: 'post',
+      handler(html: string) {
+        const inline = `<script type="module">${code}</script>`
+        if (code && html.includes(inline)) return html.replace(inline, () => `<script type="module" src="${src}"></script>`)
+        if (html.includes('@react-refresh')) {
+          config.logger.warnOnce('[external-react-preamble] React Refresh preamble is still inline (plugin-react changed it?) — the /app CSP will block it under netlify dev')
+        }
+        return html
+      },
+    },
+  }
+}
+
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [react(), devScoreApi(), devGate1Api(), devExtractApi(), devMacroApi(), devConfigApi()],
+  plugins: [react(), externalReactPreamble(), devScoreApi(), devGate1Api(), devExtractApi(), devMacroApi(), devConfigApi()],
   server: { port: 5173 },
   build: { outDir: 'dist' },
 })
