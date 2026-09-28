@@ -25,6 +25,7 @@ interface PostureCheck {
   margin: number | null
   fragile?: boolean
   threshold: number | null
+  flagPoints?: number
 }
 
 interface Dot { key: Posture | 'all'; margin: number; fragile: boolean; lines: TipLine[] }
@@ -46,6 +47,12 @@ interface Row {
   status: string
   /** Today's flag counts double (severe rent premium). */
   doubled: boolean
+  /** Postures whose flag is known to count double (each scenario's own points). */
+  doubledIn: Posture[]
+  /** Postures with no margin while others have one (drawn without that dot). */
+  unmeasured: Posture[]
+  /** The row is scaled to the market figure (thresholdless checks only). */
+  byMarket: boolean
 }
 
 /** A check's bar under one posture: tooltip value + label, and the table's wording. */
@@ -221,6 +228,8 @@ function dealLines(c: CheckResult, p: Posture, pc: PostureCheck | undefined, tod
       ...(how ? [{ value: how.cost, label: 'hard-cost overrun' }, { value: how.cap, label: 'exit-cap shock' }] : []),
     ]
   }
+  // The stressed multiple moves with posture; today's valueDisplay would be another posture's.
+  if (c.id === 'mini_stress' && p !== today) return [{ value: 'not reported', label: 'stressed multiple' }]
   if (c.id === 'exit_cap_vs_market' && has(v)) return [{ value: pct1(v), label: 'underwritten exit cap' }]
   if (c.id === 'absorption' && has(v)) return [{ value: fmtVal(c.id, v), label: 'assumed lease-up' }]
   // valueDisplay's "N mo needed" uses today's buffer; other postures get the bare reserve.
@@ -240,16 +249,25 @@ function buildRows(response: Gate1Response): Row[] {
     for (const p of avail) {
       const s: PostureCheck | undefined = sc
         ? sc[p]?.checks.find(x => x.id === c.id)
-        : { status: c.status, value: c.value, margin: c.margin, fragile: c.fragile, threshold: c.threshold?.effective ?? null }
-      if (s) per[p] = s
+        : { status: c.status, value: c.value, margin: c.margin, fragile: c.fragile, threshold: c.threshold?.effective ?? null, flagPoints: c.flagPoints }
+      // Older builds send no per-posture value. Only mini_stress's moves with
+      // posture, and today's scenario is the result, so take the rest from it.
+      if (s) per[p] = s.value === undefined ? { ...s, value: c.id === 'mini_stress' && p !== today ? null : c.value } : s
     }
     const label = c.label || meta.get(c.id)?.label || c.id
     const kind = meta.get(c.id)?.kind ?? c.kind
     const unit = unitOf(c.id)
     // A severe rent premium doubles the flag's points (engine: flagPoints × 2).
-    const doubled = c.status === 'flag' && c.flagPoints > (meta.get(c.id)?.flagPoints ?? 1)
+    const basePts = meta.get(c.id)?.flagPoints ?? 1
+    const doubled = c.status === 'flag' && c.flagPoints > basePts
+    // Each posture by its own points; builds without them only tell us today's.
+    const doubledIn = avail.filter(p => {
+      const pc = per[p]
+      return pc?.status === 'flag' && (has(pc.flagPoints) ? pc.flagPoints > basePts : p === today && doubled)
+    })
+    const ptsOf = (p: Posture) => per[p]?.flagPoints ?? c.flagPoints
     const status = `${statusText(c)}${doubled ? ' · double points' : ''}`
-    const base = { id: c.id, label, kind, unit, today: c, per, status, doubled }
+    const base = { id: c.id, label, kind, unit, today: c, per, status, doubled, doubledIn }
 
     const measured: Array<{ p: Posture; pc: PostureCheck; m: number }> = []
     for (const p of avail) {
@@ -258,15 +276,22 @@ function buildRows(response: Gate1Response): Row[] {
     }
     if (!measured.length) {
       const text = c.status === 'missing' ? 'input missing — can’t measure' : `${c.valueDisplay} — no margin to measure`
-      return { ...base, mode: NUMERIC.has(c.id) ? 'text' : 'yesno', dots: [], invariant: false, span: 1, text }
+      return { ...base, mode: NUMERIC.has(c.id) ? 'text' : 'yesno', dots: [], invariant: false, span: 1, text, unmeasured: [], byMarket: false }
     }
+    const unmeasured = avail.filter(p => !measured.some(d => d.p === p))
 
     const ms = measured.map(d => d.m)
     const invariant = measured.length === POSTURES.length && ms.every(m => near(m, ms[0]))
     const head: TipLine = { value: label, label: kind === 'kill' ? 'hard kill' : 'watch flag' }
     const bars = avail.map(p => barOf(c, per[p]?.threshold ?? null, per[p]))
     const sameBar = bars.every(b => b.value === bars[0].value)
-    const severe: TipLine[] = doubled ? [{ value: `${c.flagPoints} flag points`, label: 'counts double' }] : []
+    const severe = (p: Posture): TipLine[] =>
+      doubledIn.includes(p) ? [{ value: `${ptsOf(p)} flag points`, label: 'counts double' }] : []
+    // One dot for every posture: name the postures unless it doubles in all of them.
+    const severeAll: TipLine[] = !doubledIn.length ? [] : [{
+      value: `${ptsOf(doubledIn[0])} flag points`,
+      label: doubledIn.length === avail.length ? 'counts double' : `counts double · ${doubledIn.map(p => NAME[p]).join(', ')}`,
+    }]
 
     const dots: Dot[] = invariant
       ? [{
@@ -280,7 +305,7 @@ function buildRows(response: Gate1Response): Row[] {
               ? { value: bars[0].value, label: bars[0].label }
               : { value: avail.map((p, i) => `${POSTURE_LETTER[p]} ${bars[i].value}`).join(' · '), label: bars[0].label },
             ...dealLines(c, today, per[today], today, stressOf(today)),
-            ...severe,
+            ...severeAll,
           ],
         }]
       : measured.map(({ p, pc, m }) => {
@@ -294,7 +319,7 @@ function buildRows(response: Gate1Response): Row[] {
               { value: signed(c.id, m), label: `${NAME[p]}${p === today ? ' (today)' : ''} · ${statusText(pc)}`, color: CK.posture[p] },
               { value: b.value, label: b.label },
               ...dealLines(c, p, pc, today, stressOf(p)),
-              ...(p === today ? severe : []),
+              ...severe(p),
             ],
           }
         })
@@ -308,7 +333,7 @@ function buildRows(response: Gate1Response): Row[] {
     const want = Math.max(...ms.map(Math.abs), ref, UNIT_FLOOR[unit])
     const ticks = niceTicks(0, want, 5)
     const span = Math.max(ticks[ticks.length - 1] ?? want, want)
-    return { ...base, mode: 'dots', dots, invariant, span, text: '' }
+    return { ...base, mode: 'dots', dots, invariant, span, text: '', unmeasured, byMarket: !thr.length && mk !== null }
   })
 }
 
@@ -323,12 +348,24 @@ function lanes(xs: number[]): { off: number[]; count: number } {
   return { off: xs.map((_, i) => (i - mid) * LANE), count: xs.length }
 }
 
-function clip(text: string, px: number, charPx: number): string {
-  const max = Math.floor(px / charPx)
-  return text.length <= max ? text : `${text.slice(0, Math.max(1, max - 1))}…`
+/** Cut text whose width (textPx, measured or estimated) overflows px, at its average character width. */
+function clip(text: string, px: number, textPx: number): string {
+  if (textPx <= px) return text
+  const max = Math.floor(px / (textPx / text.length))
+  return `${text.slice(0, Math.max(1, max - 1))}…`
 }
 
-const caption = (r: Row) => `${UNIT_CAPTION[r.unit]}${r.invariant ? ' · same in every posture' : ''}`
+const caption = (r: Row) =>
+  `${UNIT_CAPTION[r.unit]}${r.invariant ? ' · same in every posture' : ''}` +
+  (r.unmeasured.length ? ` · ${r.unmeasured.map(p => POSTURE_LETTER[p]).join(', ')} not measurable` : '')
+
+// The <text> faces below that clip() measures (family, and weight when unset, are the page's own).
+type Face = 'ink' | 'small' | 'value'
+const FACE: Record<Face, { size: number; weight?: number; tabular?: boolean }> = {
+  ink: { size: 12, weight: 500 },
+  small: { size: 10.5 },
+  value: { size: 12, weight: 600, tabular: true },
+}
 
 // Within each group: rows that move with posture first, then posture-invariant, then unmeasurable.
 const rank = (r: Row) => (r.mode !== 'dots' ? 2 : r.invariant || r.dots.length < 2 ? 1 : 0)
@@ -353,6 +390,42 @@ function CushionPlot({ rows, today }: { rows: Row[]; today: Posture }) {
   }, [])
 
   const valueOf = (r: Row) => (has(r.today.margin) ? signed(r.id, r.today.margin) : '—')
+
+  // Real text widths, so a stacked row cuts its label or caption only when it
+  // truly overflows; the per-character estimates stand in until measured, and
+  // it re-measures once the web font arrives.
+  const svg = useRef<SVGSVGElement>(null)
+  const [tw, setTw] = useState<Record<string, number>>({})
+  const texts = JSON.stringify(rows.flatMap((r): Array<[Face, string]> =>
+    [['ink', r.label], ['small', caption(r)], ['small', r.status], ['value', valueOf(r)]]))
+  useLayoutEffect(() => {
+    const el = svg.current
+    if (!el) return
+    const measure = () => {
+      const t = document.createElementNS('http://www.w3.org/2000/svg', 'text')
+      t.setAttribute('visibility', 'hidden')
+      el.appendChild(t)
+      const out: Record<string, number> = {}
+      for (const [f, s] of JSON.parse(texts) as Array<[Face, string]>) {
+        const { size, weight, tabular } = FACE[f]
+        t.setAttribute('font-size', String(size))
+        if (weight) t.setAttribute('font-weight', String(weight))
+        else t.removeAttribute('font-weight')
+        t.style.fontVariantNumeric = tabular ? 'tabular-nums' : ''
+        t.textContent = s
+        const n = t.getComputedTextLength()
+        if (n > 0) out[`${f}|${s}`] = n // 0 = not laid out (hidden); keep the estimate
+      }
+      el.removeChild(t)
+      setTw(out)
+    }
+    measure()
+    const fonts = document.fonts
+    fonts?.addEventListener('loadingdone', measure)
+    return () => fonts?.removeEventListener('loadingdone', measure)
+  }, [texts])
+  const width = (f: Face, s: string, charPx: number) => tw[`${f}|${s}`] ?? s.length * charPx
+
   const need = Math.max(...rows.map(r => Math.max(r.label.length * 6.6, caption(r).length * 5.7))) + 16
   const valueW = Math.max(96, ...rows.map(r => Math.max(valueOf(r).length * 7.4, r.status.length * 5.8) + 16))
   const wide = w >= 560 && need <= w * 0.4 && valueW <= w * 0.25
@@ -403,20 +476,24 @@ function CushionPlot({ rows, today }: { rows: Row[]; today: Posture }) {
       const valueY = wide ? cy - 1 : y + 12
       const statusY = wide ? cy + 12 : y + 26
       // Stacked rows share their line with the value/status text on the right.
-      const labelPx = wide ? x0 - 12 : w - valueText.length * 7.4 - 14
-      const capPx = wide ? x0 - 12 : w - r.status.length * 5.8 - 14
-      const shownLabel = clip(r.label, labelPx, 6.6)
+      const labelPx = wide ? x0 - 12 : w - width('value', valueText, 7.4) - 14
+      const capPx = wide ? x0 - 12 : w - width('small', r.status, 5.8) - 14
+      const shownLabel = clip(r.label, labelPx, width('ink', r.label, 6.6))
+      const cap = caption(r)
+      const shownCap = clip(cap, capPx, width('small', cap, 5.7))
 
       // "thin" direct label beside each fragile dot: right if clear, else left, else leave it to the tooltip.
+      // Its halo breaks the line joining the dots, so it must not sit on the zero line too.
       const thin = r.dots.map((d, i) => {
         if (!d.fragile) return null
         const p = pts[i]
-        const clear = (a: number, b: number) => a >= x0 && b <= x1 &&
+        const clear = (a: number, b: number) => a >= x0 && b <= x1 && (b < zx - 1 || a > zx + 1) &&
           pts.every((q, j) => j === i || q.y !== p.y || q.x + R + 2 < a || q.x - R - 2 > b)
+        const halo = (a: number) => (a + THIN_W / 2 < zx ? CK.failWashSolid : CK.passWashSolid)
         const ra = p.x + R + 4
-        if (clear(ra, ra + THIN_W)) return { x: ra, anchor: 'start' as const, y: p.y }
+        if (clear(ra, ra + THIN_W)) return { x: ra, anchor: 'start' as const, y: p.y, halo: halo(ra) }
         const la = p.x - R - 4
-        if (clear(la - THIN_W, la)) return { x: la, anchor: 'end' as const, y: p.y }
+        if (clear(la - THIN_W, la)) return { x: la, anchor: 'end' as const, y: p.y, halo: halo(la - THIN_W) }
         return null
       })
 
@@ -426,12 +503,15 @@ function CushionPlot({ rows, today }: { rows: Row[]; today: Posture }) {
             {shownLabel}
             {shownLabel !== r.label && <title>{r.label}</title>}
           </text>
-          <text x={0} y={capY} {...small}>{clip(caption(r), capPx, 5.7)}</text>
+          <text x={0} y={capY} {...small}>
+            {shownCap}
+            {shownCap !== cap && <title>{cap}</title>}
+          </text>
           <text x={w} y={valueY} textAnchor="end" fontSize={12} fontWeight={600} fill={CK.ink} style={num}>{valueText}</text>
           <text x={w} y={statusY} textAnchor="end" {...small}>{r.status}</text>
 
           {r.mode === 'text' ? (
-            <text x={x0 + PAD} y={cy + 4} fontSize={11} fill={CK.ink2}>{clip(r.text, x1 - x0 - PAD, 5.9)}</text>
+            <text x={x0 + PAD} y={cy + 4} fontSize={11} fill={CK.ink2}>{clip(r.text, x1 - x0 - PAD, r.text.length * 5.9)}</text>
           ) : (
             <>
               <rect x={x0} y={top} width={Math.max(0, zx - 1 - x0)} height={th} rx={3} fill={CK.failWash} />
@@ -458,7 +538,8 @@ function CushionPlot({ rows, today }: { rows: Row[]; today: Posture }) {
               ))}
               {thin.map((t, i) => t && (
                 <text key={`thin-${i}`} x={t.x} y={t.y} dy="0.35em" textAnchor={t.anchor} fontSize={10}
-                  fontWeight={600} fill={CK.ink2} aria-hidden="true">thin</text>
+                  fontWeight={600} fill={CK.ink2} stroke={t.halo} strokeWidth={3} strokeLinejoin="round"
+                  paintOrder="stroke" aria-hidden="true">thin</text>
               ))}
               <g aria-hidden="true">
                 <line x1={s(-r.span)} x2={s(-r.span)} y1={top + th} y2={top + th + 3} stroke={CK.axis} strokeWidth={1} />
@@ -478,7 +559,7 @@ function CushionPlot({ rows, today }: { rows: Row[]; today: Posture }) {
   return (
     <Plot tip={tip}>
       <div ref={box}>
-        <svg viewBox={`0 0 ${w} ${Math.ceil(y)}`} role="group"
+        <svg ref={svg} viewBox={`0 0 ${w} ${Math.ceil(y)}`} role="group"
           aria-label="Room before each Gate 1 check fails, under green, yellow and red postures">
           {nodes}
         </svg>
@@ -487,7 +568,7 @@ function CushionPlot({ rows, today }: { rows: Row[]; today: Posture }) {
   )
 }
 
-function cellText(r: Row, p: Posture, isToday: boolean, stress: Stress): string {
+function cellText(r: Row, p: Posture, stress: Stress): string {
   const d = r.per[p]
   if (!d) return '—'
   if (!has(d.margin)) return d.status === 'missing' ? 'input missing' : STATUS_WORD[d.status]
@@ -496,7 +577,7 @@ function cellText(r: Row, p: Posture, isToday: boolean, stress: Stress): string 
     const how = stressHow(stress)
     em = ` (stressed ${d.value.toFixed(2)}x${how ? ` after ${how.cost} hard costs, ${how.cap} exit cap` : ''})`
   }
-  const dbl = isToday && r.doubled ? ' · double points' : ''
+  const dbl = r.doubledIn.includes(p) ? ' · double points' : ''
   return `${signed(r.id, d.margin)} · ${statusText(d)}${dbl}${em}`
 }
 
@@ -536,13 +617,14 @@ export default function CushionChart({ response }: { response: Gate1Response }) 
     rows: all.map(r => [
       r.label,
       r.kind === 'kill' ? 'Hard kill' : 'Watch flag',
-      ...avail.map(p => cellText(r, p, p === today, stressOf(p))),
+      ...avail.map(p => cellText(r, p, stressOf(p))),
       thresholdCell(r, avail),
     ]),
   }
 
   const notes: ReactNode[] = []
-  const market = plotted.filter(r => r.mode === 'dots' && MARKET_REF[r.id])
+  // Only rows really scaled to the figure; without it a row falls back to its margins.
+  const market = plotted.filter(r => r.mode === 'dots' && r.byMarket && MARKET_REF[r.id])
   if (market.length) {
     notes.push(
       <div key="mk">

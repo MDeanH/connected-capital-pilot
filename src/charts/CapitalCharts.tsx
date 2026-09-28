@@ -1,12 +1,15 @@
 // CapitalCharts — the Financials and Market charts of the Underwriting view,
 // rebuilt on ChartKit: uses & sources of capital, the deal's modeled loan rate
 // against today's market rates, and the development timeline. Every mark is a
-// number from the documents or the macro snapshot; a missing input is said in
-// words, never drawn as a zero. Series colors are identity (CK.cat) or
-// emphasis (CK.accent / CK.context) — status colors appear only on the
-// financing verdict word, where they mean in-line / check.
+// number from the documents or the macro snapshot, or derived from them and
+// said to be; a missing input is said in words, never drawn as a zero. Series
+// colors are identity (CK.cat) or emphasis (CK.accent / CK.context) — status
+// colors appear only on the financing verdict word, where they mean in-line /
+// check.
 import { useCallback, useRef, useState, type ReactNode } from 'react'
 import { CK, ChartCard, Plot, niceTicks, scaleLinear, useTooltip, type LegendItem, type TableSpec, type TipLine } from './ChartKit'
+import { Term } from '../GlossaryTip'
+import { fmtMoneyShort, fmtPct1 } from '../format'
 import type { DealFields } from '../deal-types'
 import type { CheckResult, MarketContext } from '../../netlify/functions/lib/gate1/types'
 
@@ -15,7 +18,6 @@ const GAP = 2 // surface gap between touching fills
 const NARROW = 480 // below this plot width, row labels move above their bars
 
 const has = (n: number | null | undefined): n is number => typeof n === 'number' && Number.isFinite(n)
-const pct1 = (x: number) => `${(x * 100).toFixed(1)}%`
 /** Unsigned percentage points from whole basis points: 50 → "0.5", 58 → "0.58", 125 → "1.25". */
 const ptsAbs = (bps: number) => (Math.abs(bps) / 100).toFixed(2).replace(/0$/, '')
 const mo = (n: number) => (Number.isInteger(n) ? `${n}` : n.toFixed(1))
@@ -36,13 +38,6 @@ function pctTickFormat(ticks: number[]): (t: number) => string {
 function gridBands(narrow: boolean, n: number, top: number, rowH: number): Array<[number, number]> {
   if (!narrow) return [[top, top + n * rowH]]
   return Array.from({ length: n }, (_, i): [number, number] => [top + i * rowH + 18, top + (i + 1) * rowH])
-}
-
-function money(n: number): string {
-  const a = Math.abs(n)
-  if (a >= 1e6) return `$${(n / 1e6).toFixed(2)}M`
-  if (a >= 1e3) return `$${Math.round(n / 1e3).toLocaleString('en-US')}K`
-  return `$${Math.round(n).toLocaleString('en-US')}`
 }
 
 /**
@@ -85,7 +80,7 @@ function Empty({ children }: { children: ReactNode }) {
 
 // ============================================================ USES & SOURCES
 
-interface Part { key: string; label: string; value: number | null; color: string; absent?: string }
+interface Part { key: string; label: string; value: number | null; color: string; absent?: string; extra?: TipLine }
 
 // Form: one horizontal 100% stacked bar per card, not a donut — length reads
 // more exactly than angle, the method deprioritises donuts, and the value
@@ -104,6 +99,7 @@ function PartToWhole({ title, subtitle, head, whole, parts, empty, notes, totalL
   knownTotal: number | null
 }) {
   const tip = useTooltip()
+  const segRefs = useRef<Record<string, SVGGElement | null>>({})
   const [measure, width] = useWidth(360)
   const W = Math.max(200, width)
   const shown = parts.filter((p): p is Part & { value: number } => has(p.value) && p.value > 0)
@@ -115,15 +111,15 @@ function PartToWhole({ title, subtitle, head, whole, parts, empty, notes, totalL
     ? {
       columns: [head, 'Amount', 'Share'],
       rows: [
-        ...parts.map(p => [p.label, has(p.value) ? money(p.value) : absent(p), has(p.value) ? pct1(p.value / total) : '—']),
-        [totalLabel, money(total), '100%'],
+        ...parts.map(p => [p.label, has(p.value) ? fmtMoneyShort(p.value) : absent(p), has(p.value) ? fmtPct1(p.value / total) : '—']),
+        [totalLabel, fmtMoneyShort(total), '100%'],
       ],
     }
     : {
       columns: [head, 'Amount'],
       rows: [
-        ...parts.map(p => [p.label, has(p.value) ? money(p.value) : absent(p)]),
-        ...(has(knownTotal) ? [[totalLabel, money(knownTotal)]] : []),
+        ...parts.map(p => [p.label, has(p.value) ? fmtMoneyShort(p.value) : absent(p)]),
+        ...(has(knownTotal) ? [[totalLabel, fmtMoneyShort(knownTotal)]] : []),
       ],
     }
 
@@ -144,8 +140,9 @@ function PartToWhole({ title, subtitle, head, whole, parts, empty, notes, totalL
     return seg
   })
   const linesOf = (s: (typeof segs)[number]): TipLine[] => [
-    { value: money(s.value), label: s.label, color: s.color },
-    { value: pct1(s.share), label: `of ${whole}` },
+    { value: fmtMoneyShort(s.value), label: s.label, color: s.color },
+    { value: fmtPct1(s.share), label: `of ${whole}` },
+    ...(s.extra ? [s.extra] : []),
   ]
 
   return (
@@ -156,21 +153,25 @@ function PartToWhole({ title, subtitle, head, whole, parts, empty, notes, totalL
           <Plot tip={tip}>
             <div ref={measure}>
               <svg viewBox={`0 0 ${W} ${H}`} role="group"
-                aria-label={`${title}: ${segs.map(s => `${s.label} ${pct1(s.share)}`).join(', ')}`}>
+                aria-label={`${title}: ${segs.map(s => `${s.label} ${fmtPct1(s.share)}`).join(', ')}`}>
                 {segs.map(s => (
-                  <g key={s.key} className="ck-hover" {...tip.bind(linesOf(s))}>
+                  <g key={s.key} className="ck-hover" ref={el => { segRefs.current[s.key] = el }} {...tip.bind(linesOf(s))}>
                     <rect className="ck-hit" x={s.x} y={0} width={s.w + (s.last ? 0 : GAP)} height={H} />
                     {s.last
                       ? <path className="ck-mark" d={barPath(s.x, s.x + s.w, PAD, BAR)} fill={s.color} />
                       : <rect className="ck-mark" x={s.x} y={PAD} width={s.w} height={BAR} fill={s.color} />}
                   </g>
                 ))}
-                {/* Slivers get a 24px pointer target on top; keyboard focus already reaches them. */}
+                {/* Slivers get a 24px pointer target on top; keyboard focus already reaches them.
+                    A tap shows a tip only through focus, and this target isn't focusable, so its
+                    click focuses the segment (click comes after the tap's pointerleave, which
+                    would otherwise clear the tip straight away). */}
                 {segs.filter(s => s.w < 24).map(s => {
                   const b = tip.bind(linesOf(s))
                   const x = Math.min(Math.max(0, s.x + s.w / 2 - 12), W - 24)
                   return <rect key={`${s.key}-hit`} className="ck-hit" x={x} y={0} width={24} height={H}
-                    onPointerMove={b.onPointerMove} onPointerLeave={b.onPointerLeave} aria-hidden="true" />
+                    onPointerMove={b.onPointerMove} onPointerLeave={b.onPointerLeave} aria-hidden="true"
+                    onClick={() => segRefs.current[s.key]?.focus({ preventScroll: true })} />
                 })}
               </svg>
             </div>
@@ -183,16 +184,19 @@ function PartToWhole({ title, subtitle, head, whole, parts, empty, notes, totalL
                   <div className="capc-row" key={p.key}>
                     <span className="capc-sw" style={{ background: s.color }} aria-hidden="true" />
                     <span className="capc-lab">{s.label}</span>
-                    <span className="capc-pct">{pct1(s.share)}</span>
-                    <span className="capc-val">{money(s.value)}</span>
+                    <span className="capc-pct">{fmtPct1(s.share)}</span>
+                    <span className="capc-val">{fmtMoneyShort(s.value)}</span>
                   </div>
                 )
               }
-              return has(p.value) ? null : (
+              // A known $0 part has no bar but is still listed, as the table lists it.
+              return (
                 <div className="capc-row" key={p.key}>
                   <span className="capc-sw capc-sw-none" aria-hidden="true" />
                   <span className="capc-lab">{p.label}</span>
-                  <span className="capc-miss">{absent(p)}</span>
+                  {has(p.value)
+                    ? <><span className="capc-pct">{fmtPct1(p.value / total)}</span><span className="capc-val">{fmtMoneyShort(p.value)}</span></>
+                    : <span className="capc-miss">{absent(p)}</span>}
                 </div>
               )
             })}
@@ -200,7 +204,7 @@ function PartToWhole({ title, subtitle, head, whole, parts, empty, notes, totalL
               <span aria-hidden="true" />
               <span className="capc-lab">{totalLabel}</span>
               <span className="capc-pct" />
-              <span className="capc-val">{money(total)}</span>
+              <span className="capc-val">{fmtMoneyShort(total)}</span>
             </div>
           </div>
         </>
@@ -219,7 +223,11 @@ export function UsesSourcesCharts({ fields }: { fields: DealFields }) {
   const other = has(cost) ? cost - land - hard : 0
   const loan = fields.construction_loan ?? 0
   const equity = fields.total_equity ?? (has(cost) && has(fields.construction_loan) ? cost - fields.construction_loan : null)
-  const sponsorEq = has(equity) && has(fields.sponsor_coinvest_pct) ? equity * fields.sponsor_coinvest_pct : 0
+  // Co-invest is a share of equity, so only 0–100% can split it; anything else
+  // (a unit slip reads 1.8 as 180%) is reported, and the equity left whole.
+  const cip = fields.sponsor_coinvest_pct
+  const split = has(cip) && cip >= 0 && cip <= 1
+  const sponsorEq = has(equity) && split ? equity * cip : 0
   const lpEq = has(equity) ? equity - sponsorEq : 0
   const sources = loan + (equity ?? 0)
   const gap = has(cost) && sources > 0 ? sources - cost : 0
@@ -233,11 +241,14 @@ export function UsesSourcesCharts({ fields }: { fields: DealFields }) {
   const unitemised = noLand && noHard ? 'Land and hard costs' : noLand ? 'Land cost' : noHard ? 'Hard costs' : null
   const restLabel = unitemised ? 'Rest of total cost' : 'Soft costs & other'
   const over = noLand ? 'Hard costs' : noHard ? 'Land cost' : 'Land and hard costs'
+  // A negative part can't be a share, and leaving it out would change the whole.
+  const negUse = land < 0 ? `Land cost reads ${fmtMoneyShort(land)}` : hard < 0 ? `Hard costs read ${fmtMoneyShort(hard)}` : null
   const usesEmpty = !has(cost) ? `Total project cost ${MISSING} — no split of uses to draw.`
-    : cost <= 0 ? `Total project cost reads ${money(cost)} — no split of uses to draw.`
-      : other < 0 ? `${over} exceed the ${money(cost)} total project cost by ${money(-other)} — the budget doesn’t add up, so no split is drawn.`
-        : noLand && noHard ? `Land and hard costs ${MISSING} — no split of uses to draw.`
-          : null
+    : cost <= 0 ? `Total project cost reads ${fmtMoneyShort(cost)} — no split of uses to draw.`
+      : negUse ? `${negUse} — no split of uses to draw.`
+        : other < 0 ? `${over} exceed the ${fmtMoneyShort(cost)} total project cost by ${fmtMoneyShort(-other)} — the budget doesn’t add up, so no split is drawn.`
+          : noLand && noHard ? `Land and hard costs ${MISSING} — no split of uses to draw.`
+            : null
   const uses: Part[] = [
     { key: 'land', label: 'Land', value: noLand ? null : land, color: CK.cat[0] },
     { key: 'hard', label: 'Hard costs', value: noHard ? null : hard, color: CK.cat[1] },
@@ -249,35 +260,55 @@ export function UsesSourcesCharts({ fields }: { fields: DealFields }) {
   const usesNotes: string[] = []
   if (!usesEmpty && unitemised) usesNotes.push(`${unitemised} ${MISSING} — counted in “${restLabel}”.`)
   if (contingencyUsd !== null) {
-    usesNotes.push(`Contingency ${pct1(fields.hard_cost_contingency_pct!)} of hard costs ≈ ${money(contingencyUsd)}.`
+    usesNotes.push(`Contingency ${fmtPct1(fields.hard_cost_contingency_pct!)} of hard costs ≈ ${fmtMoneyShort(contingencyUsd)}.`
       + (usesEmpty || unitemised ? '' : ' “Soft costs & other” is total cost less land and hard costs.'))
   }
 
   // Sources. Total sources are only known when both the loan and the equity
   // are; with either missing there is no whole to take shares of.
   const hasLoan = has(fields.construction_loan)
-  const split = has(fields.sponsor_coinvest_pct)
+  const derivedEq = fields.total_equity == null
+  const cipOff = has(cip) && !split ? fmtPct1(cip) : null // the out-of-range co-invest %, as read
   const srcEmpty = !hasLoan && !has(equity) ? `Construction loan and equity ${MISSING} — no sources to draw.`
     : !hasLoan ? `Construction loan ${MISSING} — total sources unknown, so no split is drawn.`
       : !has(equity) ? `Equity ${MISSING}, and there is no total project cost to derive it from — no split of sources to draw.`
-        : equity < 0 ? (fields.total_equity == null && has(cost)
-          ? `The ${money(loan)} loan exceeds the ${money(cost)} total project cost, so derived equity is negative — no split drawn.`
-          : `Equity reads ${money(equity)} — no split of sources to draw.`)
-          : sources > 0 ? null : 'Loan and equity are both $0 — no sources to draw.'
-  const srcParts: Part[] = [
-    { key: 'loan', label: 'Construction loan', value: hasLoan ? loan : null, color: CK.cat[0] },
-    { key: 'lp', label: split ? 'LP equity' : 'Equity (LP / sponsor split unknown)', value: has(equity) ? Math.max(lpEq, 0) : null, color: CK.cat[1] },
-    {
-      key: 'sponsor', label: 'Sponsor co-invest', value: has(equity) && split ? sponsorEq : null, color: CK.cat[2],
-      absent: has(equity) && !split ? `co-invest % ${MISSING}` : undefined,
-    },
-  ]
+        : loan < 0 ? `Construction loan reads ${fmtMoneyShort(loan)} — no split of sources to draw.`
+          : equity < 0 ? (derivedEq && has(cost)
+            ? `The ${fmtMoneyShort(loan)} loan exceeds the ${fmtMoneyShort(cost)} total project cost, so derived equity is negative — no split drawn.`
+            : `Equity reads ${fmtMoneyShort(equity)} — no split of sources to draw.`)
+            : sources > 0 ? null : 'Loan and equity are both $0 — no sources to draw.'
+  // The LP / sponsor dollars are equity × co-invest %, not document figures.
+  const derivedSplit: TipLine = { value: 'derived', label: 'equity × co-invest %' }
+  const loanPart: Part = { key: 'loan', label: 'Construction loan', value: hasLoan ? loan : null, color: CK.cat[0] }
+  // Negative equity can't be split: list the equity itself, and no LP or sponsor figure.
+  const notSplit = 'not split — equity is negative'
+  const srcParts: Part[] = has(equity) && equity < 0
+    ? [
+      loanPart,
+      { key: 'equity', label: derivedEq ? 'Equity (derived: total cost less loan)' : 'Equity', value: equity, color: CK.cat[1] },
+      { key: 'lp', label: 'LP equity', value: null, color: CK.cat[1], absent: notSplit },
+      { key: 'sponsor', label: 'Sponsor co-invest', value: null, color: CK.cat[2], absent: notSplit },
+    ]
+    : [
+      loanPart,
+      {
+        key: 'lp', label: split ? 'LP equity' : 'Equity (LP / sponsor split unknown)', value: has(equity) ? lpEq : null, color: CK.cat[1],
+        extra: split ? derivedSplit : undefined,
+      },
+      {
+        key: 'sponsor', label: 'Sponsor co-invest', value: has(equity) && split ? sponsorEq : null, color: CK.cat[2],
+        absent: has(equity) && !split ? (cipOff ? `reads ${cipOff} — outside 0–100%` : `co-invest % ${MISSING}`) : undefined,
+        extra: derivedSplit,
+      },
+    ]
   const srcNotes: string[] = []
   if (!srcEmpty) {
-    if (!split) srcNotes.push(`Sponsor co-invest % ${MISSING} — equity isn’t split between LP and sponsor.`)
+    if (cipOff) srcNotes.push(`Sponsor co-invest reads ${cipOff} of equity — outside 0–100%, so equity isn’t split between LP and sponsor.`)
+    else if (!split) srcNotes.push(`Sponsor co-invest % ${MISSING} — equity isn’t split between LP and sponsor.`)
+    else srcNotes.push(`LP / sponsor split = equity × the documents’ ${fmtPct1(cip)} sponsor co-invest — derived, not a document dollar figure.`)
     if (Math.abs(gap) > 1 && has(cost) && Math.abs(gap) / cost > 0.005) {
-      srcNotes.push(`Sources ${money(sources)} vs uses ${money(cost)} — a ${money(Math.abs(gap))} ${gap > 0 ? 'surplus' : 'gap'} to ask the sponsor about.`)
-    } else if (fields.total_equity == null) {
+      srcNotes.push(`Sources ${fmtMoneyShort(sources)} vs uses ${fmtMoneyShort(cost)} — a ${fmtMoneyShort(Math.abs(gap))} ${gap > 0 ? 'surplus' : 'gap'} to ask the sponsor about.`)
+    } else if (derivedEq) {
       srcNotes.push('Equity derived as total cost less the loan.')
     }
   }
@@ -322,6 +353,9 @@ export function FinancingChart({ fields, market, financingSpreadTypicalBps }: {
   const tip = useTooltip()
   const [measure, width] = useWidth(560)
   const W = Math.max(240, width)
+  // Only the last word sits in the Term, held on one line with its (i), so a
+  // phone-width wrap never strands the icon on a line of its own.
+  const title = <>Loan rate vs today’s <span className="capc-nobr"><Term k="financing">market</Term></span></>
 
   const fred = (x: number | null | undefined) => (has(x) ? x / 100 : null) // FRED series arrive as percent points
   const sofr = fred(market?.sofr)
@@ -335,10 +369,10 @@ export function FinancingChart({ fields, market, financingSpreadTypicalBps }: {
   if (fields.construction_loan === 0) fin = { tone: 'na', text: 'All-equity — no financing exposure' }
   else if (modeled !== null && prevailing !== null && dBps !== null) {
     fin = dBps < -50
-      ? { tone: 'flag', text: `Optimistic — modeled ${pct1(modeled)} is ${ptsAbs(dBps)} pts under today’s ≈${pct1(prevailing)}` }
+      ? { tone: 'flag', text: `Optimistic — modeled ${fmtPct1(modeled)} is ${ptsAbs(dBps)} pts under today’s ≈${fmtPct1(prevailing)}` }
       : dBps <= 50
-        ? { tone: 'pass', text: `In line with today’s ≈${pct1(prevailing)} (SOFR + ${spreadBps} bps)` }
-        : { tone: 'na', text: `Conservative — modeled ${ptsAbs(dBps)} pts above today’s ≈${pct1(prevailing)}` }
+        ? { tone: 'pass', text: `In line with today’s ≈${fmtPct1(prevailing)} (SOFR + ${spreadBps} bps)` }
+        : { tone: 'na', text: `Conservative — modeled ${ptsAbs(dBps)} pts above today’s ≈${fmtPct1(prevailing)}` }
   }
   const vsPrevailing = dBps !== null ? `${dBps >= 0 ? '+' : '−'}${ptsAbs(dBps)} pts` : null
   const subtitle: ReactNode = fin
@@ -363,8 +397,8 @@ export function FinancingChart({ fields, market, financingSpreadTypicalBps }: {
       key: 'prevailing', label: `Prevailing (SOFR + ${spreadBps ?? '—'} bps)`, value: prevailing, emph: false,
       absent: sofr === null ? 'SOFR unavailable' : 'typical spread unavailable',
       source: spreadBps !== null ? `SOFR + ${spreadBps} bps typical financing spread` : 'SOFR + typical financing spread',
-      extra: sofr !== null && spreadBps !== null ? { value: `${pct1(sofr)} + ${spreadBps} bps`, label: 'SOFR + typical spread' } : undefined,
-      compare: sofr !== null && spreadBps !== null ? `SOFR ${pct1(sofr)} + ${spreadBps} bps` : undefined,
+      extra: sofr !== null && spreadBps !== null ? { value: `${fmtPct1(sofr)} + ${spreadBps} bps`, label: 'SOFR + typical spread' } : undefined,
+      compare: sofr !== null && spreadBps !== null ? `SOFR ${fmtPct1(sofr)} + ${spreadBps} bps` : undefined,
     },
     fredRow('sofr', 'SOFR', market?.sofr, asof?.sofr),
     fredRow('t10', '10-yr Treasury', market?.treasury10y, asof?.treasury10y),
@@ -373,7 +407,7 @@ export function FinancingChart({ fields, market, financingSpreadTypicalBps }: {
 
   const table: TableSpec = {
     columns: ['Rate', 'Value', 'Compared with', 'Source'],
-    rows: rows.map(r => [r.label, r.value !== null ? pct1(r.value) : r.absent, r.compare ?? '—', r.source]),
+    rows: rows.map(r => [r.label, r.value !== null ? fmtPct1(r.value) : r.absent, r.compare ?? '—', r.source]),
   }
   const note = market?.asof
     ? `Market rates from FRED, as of ${market.asof}. Prevailing = SOFR + the rulebook’s typical financing spread.`
@@ -382,7 +416,7 @@ export function FinancingChart({ fields, market, financingSpreadTypicalBps }: {
   const vals = rows.map(r => r.value).filter(has)
   if (!vals.length) {
     return (
-      <ChartCard title="Loan rate vs today’s market" subtitle={subtitle} table={table} note={note}>
+      <ChartCard title={title} subtitle={subtitle} table={table} note={note}>
         <Empty>No rates to draw — the loan rate is {MISSING} and no market rates are available.</Empty>
       </ChartCard>
     )
@@ -403,7 +437,7 @@ export function FinancingChart({ fields, market, financingSpreadTypicalBps }: {
   const grid = gridBands(narrow, rows.length, top, rowH)
 
   return (
-    <ChartCard title="Loan rate vs today’s market" subtitle={subtitle} table={table} note={note}>
+    <ChartCard title={title} subtitle={subtitle} table={table} note={note}>
       <Plot tip={tip}>
         <div ref={measure}>
           <svg viewBox={`0 0 ${W} ${H}`} role="group" aria-label="Deal’s modeled loan rate against prevailing market rates">
@@ -434,14 +468,14 @@ export function FinancingChart({ fields, market, financingSpreadTypicalBps }: {
               }
               const v = r.value
               const color = r.emph ? CK.accent : CK.context
-              const lines: TipLine[] = [{ value: pct1(v), label: r.label, color }, ...(r.extra ? [r.extra] : [])]
+              const lines: TipLine[] = [{ value: fmtPct1(v), label: r.label, color }, ...(r.extra ? [r.extra] : [])]
               return (
                 <g key={r.key} className="ck-hover" {...tip.bind(lines)}>
                   <rect className="ck-hit" x={0} y={yTop} width={W} height={rowH} />
                   {label}
                   <path className="ck-mark" d={barPath(x(0), x(v), by, BAR)} fill={color} />
                   <text className="ck-value" x={x(v) + (v >= 0 ? 6 : -6)} y={cy} dy="0.35em" textAnchor={v >= 0 ? 'start' : 'end'}>
-                    {pct1(v)}
+                    {fmtPct1(v)}
                   </text>
                 </g>
               )
@@ -680,4 +714,5 @@ const CSS = `
 .capc-word{display:inline-flex;align-items:center;gap:.35rem;font-size:9.5px;font-weight:700;letter-spacing:.08em;color:${CK.ink};
   border:1px solid ${CK.grid};border-radius:4px;padding:1px 6px;margin-right:.45rem;vertical-align:1px}
 .capc-word i{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.capc-nobr{white-space:nowrap}
 `
