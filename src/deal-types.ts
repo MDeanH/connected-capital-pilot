@@ -11,6 +11,7 @@ export type {
   Posture,
   CheckDef,
   ResolvedThreshold,
+  PostureScenario,
 } from '../netlify/functions/lib/gate1/types'
 
 import type {
@@ -20,6 +21,7 @@ import type {
   GateVerdict,
   JudgmentAdjustment,
   Posture,
+  PostureScenario,
 } from '../netlify/functions/lib/gate1/types'
 
 /**
@@ -36,6 +38,8 @@ export interface Gate1Response {
   configVersion: number
   macroSnapshotId: string | null
   checksMeta: CheckDef[]
+  /** Same deal scored under each posture (display only; absent on older function builds). */
+  scenarios?: Record<Posture, PostureScenario>
   persisted?: boolean
   warning?: string
   decisionId?: string

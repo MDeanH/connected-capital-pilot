@@ -151,6 +151,23 @@ export interface GateResult {
   }
 }
 
+/** One posture's outcome in the side-by-side scenario view (computeGate1.scenarios). */
+export interface PostureScenario {
+  posture: Posture
+  verdict: GateVerdict
+  kills: string[]
+  flagPoints: number
+  checks: Array<{
+    id: string
+    status: CheckStatus
+    /** Signed margin in the check's own units (+ = safe side), as in CheckResult. */
+    margin: number | null
+    fragile?: boolean
+    /** Effective threshold under this posture (null for thresholdless checks). */
+    threshold: number | null
+  }>
+}
+
 export interface MacroSignalReading {
   id: string
   label: string

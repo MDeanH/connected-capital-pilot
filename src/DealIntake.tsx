@@ -5,19 +5,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import IntakeUpload from './IntakeUpload'
 import IntakeReview from './IntakeReview'
 import DealSnapshot from './DealSnapshot'
-import GateResults from './GateResults'
-import FinancialSummary from './FinancialSummary'
-import KpiScorecard from './KpiScorecard'
+import Underwriting from './Underwriting'
 import JudgmentPanel from './JudgmentPanel'
-import ConsistencyPanel from './ConsistencyPanel'
-import MarketComparison from './MarketComparison'
 import MacroDashboard, { MacroStrip } from './MacroDashboard'
 import ThresholdConfig from './ThresholdConfig'
 import Backtest from './Backtest'
 import EvidencePanel from './EvidencePanel'
 import DealHistory from './DealHistory'
-import MarketPathCard from './MarketPathCard'
-import McProbabilityCard from './McProbabilityCard'
 import LocationIntelCard from './LocationIntelCard'
 import { buildCrossChecks } from './marketCrossChecks'
 import { useMarketContext } from './useMarketContext'
@@ -823,13 +817,10 @@ export default function DealIntake() {
               <DealSnapshot fields={coerced} response={lastResponse} />
               {lastResponse && (
                 <>
-                  <GateResults response={lastResponse} onAdjust={handleAdjust} />
-                  {extraction && <ConsistencyPanel discrepancies={extraction.discrepancies ?? []} />}
-                  <FinancialSummary fields={coerced} />
-                  {/* Benchmark panels are version-locked to the verdict: while
-                      the previewed rulebook version and the cached active
-                      config disagree, the comparisons are hidden (never shown
-                      stale) and this line says why. */}
+                  {/* Benchmark comparisons are version-locked to the verdict:
+                      while the previewed rulebook version and the cached active
+                      config disagree, they are withheld (never shown stale) and
+                      this line says why. */}
                   {benchmarkVersionDrift && (
                     benchmarkSync === 'refetching' ? (
                       <div className="di-updating" role="status">the rulebook changed — refreshing benchmarks…</div>
@@ -841,17 +832,19 @@ export default function DealIntake() {
                       </div>
                     )
                   )}
-                  <KpiScorecard fields={coerced} response={lastResponse} benchmarks={displayBenchmarks ?? undefined} />
-                  <MarketComparison fields={coerced} market={macro?.market ?? null} benchmarks={displayBenchmarks} />
-                  <MarketPathCard location={typeof coerced.location === 'string' ? coerced.location : null} />
-                  {/* Monte Carlo probabilities from /api/score — keyed off the
-                      deal's location (resolved server-side, national fallback
-                      labeled) and the ACTIVE rulebook's par IRR, same source
-                      as the Backtest par. Degrades to a note on API failure. */}
-                  <McProbabilityCard
-                    location={typeof coerced.location === 'string' ? coerced.location : null}
+                  {/* Underwriting view (client's prototype-v1 layout): Summary with
+                      green/yellow/red outcomes side by side and per-check cushion,
+                      Financials, Market (incl. the Monte Carlo + market-path cards,
+                      now under an explained "market risk context" fold), Sponsor,
+                      Issues. */}
+                  <Underwriting
+                    fields={coerced}
+                    response={lastResponse}
+                    extraction={extraction}
+                    macro={macro}
+                    benchmarks={displayBenchmarks}
                     parIrr={activeParIrr}
-                    dealName={typeof coerced.deal_name === 'string' && coerced.deal_name.trim() ? coerced.deal_name.trim() : undefined}
+                    onAdjust={handleAdjust}
                   />
                   <div ref={judgmentRef}>
                     <JudgmentPanel
