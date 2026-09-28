@@ -1,11 +1,10 @@
-// Identity + role enforcement — the inner auth layer behind the shared-password
-// edge gate. Conditional activation: when Supabase is not configured (the
-// public demo site) there is no identity and no enforcement — the require*
-// gates return { identity: null } and callers proceed exactly as before.
+// Identity + role enforcement. Conditional activation: unless AUTH_ENABLED=1
+// with Supabase configured (see authConfigured) there is no identity and no
+// enforcement — the require* gates return { identity: null } and callers
+// proceed exactly as before.
 //
-// The Authorization header is shared with the edge gate: the gate acts only on
-// "Basic ..." credentials while the SPA sends "Bearer <supabase jwt>", so
-// anything that is not a Bearer token is silently ignored here, never an error.
+// Only "Bearer <supabase jwt>" Authorization values are acted on; anything
+// else is silently ignored here, never an error.
 import { serviceClient } from './supabase.ts'
 
 export interface Identity {
@@ -19,8 +18,18 @@ export type AuthGate =
   | { identity: Identity | null; response?: never }
   | { identity?: never; response: Response }
 
+/**
+ * Login is OPT-IN: the whole identity layer (sign-in, account wall, admin-only
+ * actions) is active only when AUTH_ENABLED=1 AND Supabase is configured.
+ * Without AUTH_ENABLED the app runs login-free — every gate waves through as
+ * { identity: null } and the SPA shows all controls (the 'auth-off' mode) —
+ * while persistence still uses Supabase through serviceClient(), which keys
+ * off its own env vars, not this switch. Turned off for the client prototype
+ * (2026-09-28, Michael: "remove all login requirements").
+ */
 export function authConfigured(): boolean {
-  return Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY)
+  return process.env.AUTH_ENABLED === '1'
+    && Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY)
 }
 
 const json = (status: number, obj: unknown) =>

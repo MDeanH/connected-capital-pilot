@@ -9,7 +9,7 @@
 // way users are created (plus the BOOTSTRAP_ADMIN_EMAIL first admin).
 
 import type { Config, Context } from '@netlify/functions'
-import { requireAdmin } from './lib/auth.ts'
+import { authConfigured, requireAdmin } from './lib/auth.ts'
 import { serviceClient } from './lib/supabase.ts'
 
 const json = (status: number, obj: unknown) =>
@@ -23,8 +23,10 @@ const EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const MIN_PASSWORD_LENGTH = 10
 
 export default async (req: Request, context: Context): Promise<Response> => {
-  // EVERY method is admin-only. With auth unconfigured (public demo) the gate
-  // waves through and the db check answers 503 — same as every persistence API.
+  // EVERY method is admin-only, and only exists while login is enabled.
+  // Login-free mode: there are no accounts to manage, and the open admin gate
+  // must not turn this into an anonymous read/write of the profiles table.
+  if (!authConfigured()) return json(404, { error: 'Accounts are disabled on this deployment' })
   const gate = await requireAdmin(req)
   if (gate.response) return gate.response
   const db = serviceClient()
