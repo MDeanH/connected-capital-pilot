@@ -7,7 +7,7 @@
 import defaultConfigJson from './default-config.json'
 import { evaluateGate1 } from './engine.ts'
 import { resolveThresholds } from './thresholds.ts'
-import type { DealFields, Gate1Config, JudgmentAdjustment, Posture } from './types.ts'
+import type { DealFields, Gate1Config, GateResult, JudgmentAdjustment, Posture, PostureScenario } from './types.ts'
 
 export const DEFAULT_CONFIG: Gate1Config = defaultConfigJson as unknown as Gate1Config
 
@@ -39,6 +39,15 @@ export function computeGate1(
     ? evaluateGate1(fields, resolveThresholds(config, fields.asset_class, posture), config)
     : result
 
+  // The same deal, same rulebook, same judgment adjustments, scored under each
+  // macro posture — the side-by-side "what if the market turns" view. Display
+  // only: the verdict of record is `result` (the scenario for `posture` IS it).
+  const scenarios = {} as Record<Posture, PostureScenario>
+  for (const p of POSTURES) {
+    const r = p === posture ? result : evaluateGate1(fields, resolveThresholds(config, fields.asset_class, p, adjustments), config)
+    scenarios[p] = toScenario(p, r)
+  }
+
   return {
     result,
     baseline: { verdict: baseline.verdict, kills: baseline.kills, flagPoints: baseline.flagPoints },
@@ -49,5 +58,24 @@ export function computeGate1(
     configVersion,
     macroSnapshotId,
     checksMeta: config.checks,
+    scenarios,
+  }
+}
+
+const POSTURES: Posture[] = ['green', 'yellow', 'red']
+
+function toScenario(posture: Posture, r: GateResult): PostureScenario {
+  return {
+    posture,
+    verdict: r.verdict,
+    kills: r.kills,
+    flagPoints: r.flagPoints,
+    checks: r.checks.map(c => ({
+      id: c.id,
+      status: c.status,
+      margin: c.margin,
+      fragile: c.fragile,
+      threshold: c.threshold?.effective ?? null,
+    })),
   }
 }
