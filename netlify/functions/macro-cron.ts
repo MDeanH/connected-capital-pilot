@@ -22,17 +22,16 @@ export default async (req: Request): Promise<Response> => {
   //    shared CRON_TRIGGER_SECRET in x-cron-key. This is the path that actually
   //    fires in production: the Netlify platform scheduler has never invoked
   //    this function on the API-deployed sites (see lib/cron-auth.ts for the
-  //    evidence). The edge gate (gate.ts) admits a keyed POST to this path;
-  //    cronKeyAuthenticated() is the function-side re-verification of the same
-  //    secret — defense in depth, constant-time, fail-closed.
+  //    evidence). cronKeyAuthenticated() verifies the shared secret —
+  //    constant-time, fail-closed.
   //
   // 2. The Netlify platform scheduler, kept as a bonus should it ever fire: a
   //    v2 scheduled call carries a JSON body with a `next_run` ISO-8601 string
   //    (the documented `const { next_run } = await req.json()` pattern) and is
-  //    invoked internally, without traversing the edge. next_run is a
-  //    caller-forgeable body field, NOT authentication — any external caller
-  //    shaped like this is still stopped at the edge, which 403s every
-  //    un-keyed external request to this path.
+  //    invoked internally. next_run is a caller-forgeable body field, NOT
+  //    authentication — but Netlify's function router refuses all external
+  //    HTTP to a function that declares a schedule (empty-bodied 403), so an
+  //    external caller shaped like this never reaches the handler anyway.
   //
   // Why this run must not be openly triggerable: it persists the week's macro
   // posture, and the same-week duplicate guard below means the FIRST run of a

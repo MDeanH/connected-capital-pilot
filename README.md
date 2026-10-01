@@ -47,7 +47,7 @@ npm run dev      # vite — all /api/* served via dev bridges (live FRED, no per
 npm run build    # gated by three golden suites: parity(16) · gate1(23) · macro(23)
 ```
 
-Deploys from the `pilot` branch (Netlify, HTTP Basic Auth). Env vars and
+Deploys from the `pilot` branch (Netlify, no password gate). Env vars and
 operational notes: `HANDOFF.md` (confidential). Supabase schema:
 `supabase/migrations/`, config seed: `supabase/seed.sql`.
 

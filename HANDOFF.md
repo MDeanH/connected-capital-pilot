@@ -1,9 +1,10 @@
 # Team handoff — Connected Capital pilot
 
 This repo IS the pilot: the client build, split out of the parent platform
-repo so the team works on exactly this and nothing else. A deploy serves
-public or password-gated depending on `PILOT_PASSWORD` (see Access at the
-bottom); nothing private is in the build itself. Pushing `main`
+repo so the team works on exactly this and nothing else. Deploys serve with
+NO pilot password gate (removed 2026-09-09 for the live client demo — see
+Access at the bottom); the in-app account login (`REQUIRE_ACCOUNTS`) is the
+access control. Nothing private is in the build itself. Pushing `main`
 auto-deploys, so treat merges to `main` as releases — do day-to-day work on
 feature branches and open PRs.
 
@@ -50,25 +51,22 @@ history); the verified MC engine + parity suite remain as server machinery.
 
 **Env vars to go fully live (Netlify site settings):**
 
-Decide public vs private FIRST — the edge gate
-(`netlify/edge-functions/gate.ts`) fails closed around these keys:
+There is no pilot password gate any more (removed for the live client demo;
+history in git: `netlify/edge-functions/gate.ts`, keyed on `PILOT_PASSWORD`
+— now inert, deletable from site env along with `GATE_SIGNING_SECRET`).
+Access control is the in-app account login: with `REQUIRE_ACCOUNTS=1` and
+Supabase configured, every data surface (deals / macro / decisions / paid
+extraction) demands a valid, non-disabled account server-side
+(`netlify/functions/lib/auth.ts`).
 
-- **Private pilot:** set `PILOT_PASSWORD` before adding either key below.
-  Without it, `SUPABASE_SERVICE_ROLE_KEY` on the site 503s every `/api/*`
-  path, and `ANTHROPIC_API_KEY` 503s the extraction paths (`/api/extract`,
-  `/api/extract-run`, `/api/extractions/*`).
-- **Public demo** (the public client site): no Supabase keys, no password —
-  just `ANTHROPIC_API_KEY` + `PUBLIC_EXTRACTION=allow` (exact value), the
-  explicit opt-in that lets extraction run on an open site.
-
-Then the keys themselves:
+The keys themselves:
 - `ANTHROPIC_API_KEY` — live AI extraction (OM PDF + pro forma XLSX →
   ~30 cited fields + cross-document discrepancies, claude-opus-4-8 structured
   outputs). Until set, the "recorded sample" path demos the identical flow.
 - `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` — persistence: deals,
   extractions, versioned threshold configs, weekly macro snapshots, and the
   append-only `gate_decisions` replay ledger. Server-only; the SPA never
-  talks to Supabase. Requires `PILOT_PASSWORD` (above). Without them
+  talks to Supabase. Pair with `REQUIRE_ACCOUNTS=1` (above). Without them
   everything computes and says honestly "NOT recorded". Schema:
   `supabase/migrations/0001_init.sql`; seed (config v1): `supabase/seed.sql`.
 
@@ -119,18 +117,18 @@ deals in.
 
 ## Access
 
-The access gate is back — reinstated as an env-gated login page
-(`netlify/edge-functions/gate.ts`, runs on every path). It is inert until
-`PILOT_PASSWORD` is set:
+The pilot password edge gate is REMOVED (2026-09-09, for the live client
+demo): `/` and `/app` serve with no password challenge on every deploy,
+regardless of env vars. `PILOT_PASSWORD` and `GATE_SIGNING_SECRET` on a
+site are now inert — safe to delete. If a pre-app gate is ever needed
+again, its history is in git (`netlify/edge-functions/gate.ts`).
 
-- **Without `PILOT_PASSWORD`:** pages serve ungated (the public client site
-  stays fully open), but privileged env fails closed — see the 503 rules
-  under "Env vars to go fully live" above.
-- **With `PILOT_PASSWORD`:** every path except the landing page (`/` and
-  `/how-it-works.html`) requires login. Sessions are 30-day HttpOnly
-  cookies keyed to the password itself, so changing the password signs
-  everyone out. Basic Auth is still accepted as a header
-  (curl/automation).
+What remains — deliberately untouched — is the in-app account login: with
+`REQUIRE_ACCOUNTS=1` + Supabase, the SPA asks for a real account sign-in
+and every API data surface re-verifies the account server-side
+(`netlify/functions/lib/auth.ts`). The scheduled-function trigger path
+keeps its own shared-secret check (`lib/cron-auth.ts`), and Netlify's
+router refuses external HTTP to scheduled functions regardless.
 
 Don't add real client figures or pipeline deals to the repo or the UI while
-a site serves them ungated.
+a site serves them without accounts switched on.

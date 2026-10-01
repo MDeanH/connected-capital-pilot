@@ -13,11 +13,12 @@
 // fire, macro-cron's same-week duplicate guard and the reaper's idempotent
 // sweep make a double-run harmless.
 //
-// Contract: the edge gate (gate.ts) admits an external request to a scheduled
-// function's path ONLY when it is a POST presenting the correct x-cron-key;
-// this module is the function-side re-verification of the same secret
-// (defense in depth — the edge remains the primary block). Fail-closed: no
-// secret configured, or no header presented, is NOT authenticated.
+// Contract: this module is the authentication for the external trigger path —
+// a request is admitted ONLY when it presents the correct x-cron-key. (The
+// pilot-password edge gate that used to pre-filter these paths was removed
+// when the site went public; this function-side check now stands alone.)
+// Fail-closed: no secret configured, or no header presented, is NOT
+// authenticated.
 
 import { timingSafeEqual } from 'node:crypto'
 
