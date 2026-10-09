@@ -70,12 +70,15 @@ function toScenario(posture: Posture, r: GateResult): PostureScenario {
     verdict: r.verdict,
     kills: r.kills,
     flagPoints: r.flagPoints,
+    ...(r.stress ? { stress: r.stress } : {}),
     checks: r.checks.map(c => ({
       id: c.id,
       status: c.status,
+      value: c.value,
       margin: c.margin,
       fragile: c.fragile,
       threshold: c.threshold?.effective ?? null,
+      flagPoints: c.flagPoints,
     })),
   }
 }

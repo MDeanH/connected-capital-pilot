@@ -31,6 +31,34 @@ export function fmtNumber(n: number): string {
 }
 
 /**
+ * Compact dollars for tiles and charts: $83K · $6.29M · $1.25B · −$500K.
+ * Tier boundaries sit where rounding would otherwise print "$1000K" or
+ * "$1000.00M"; the minus sign leads the $ (a true minus, not a hyphen).
+ */
+export function fmtMoneyShort(n: number): string {
+  const sign = n < 0 ? '−' : ''
+  const a = Math.abs(n)
+  if (a >= 999_995_000) return `${sign}$${(a / 1e9).toFixed(2)}B`
+  if (a >= 999_500) return `${sign}$${(a / 1e6).toFixed(2)}M`
+  if (a >= 1e3) return `${sign}$${Math.round(a / 1e3)}K`
+  return `${sign}$${Math.round(a).toLocaleString('en-US')}`
+}
+
+/** Fraction in, one-decimal percent out, with a true minus: −0.08 → "−8.0%". */
+export function fmtPct1(x: number): string {
+  return `${(x * 100).toFixed(1)}%`.replace(/^-/, '−')
+}
+
+/**
+ * Signed percentage points from a fraction delta: 0.047 → "+4.7 pts".
+ * The sign comes from the raw delta, so a miss never reads "+" even when it
+ * rounds to 0.0; one formatter for every place this delta is shown.
+ */
+export function fmtSignedPts(x: number): string {
+  return `${x < 0 ? '−' : '+'}${(Math.round(Math.abs(x) * 1000) / 10).toFixed(1)} pts`
+}
+
+/**
  * Format a value for display by its field kind. Returns null when there is
  * nothing sensible to show (text/bool kinds, or a non-numeric value) so the
  * caller can render no echo at all rather than a fake one.

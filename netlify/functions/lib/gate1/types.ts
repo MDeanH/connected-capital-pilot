@@ -157,14 +157,28 @@ export interface PostureScenario {
   verdict: GateVerdict
   kills: string[]
   flagPoints: number
+  /**
+   * The mini-stress result under this posture's severities. Absent when the
+   * rulebook has no mini_stress check; present with a null multiple when the
+   * check couldn't run (missing inputs, non-positive equity or exit cap).
+   */
+  stress?: GateResult['stress']
   checks: Array<{
     id: string
     status: CheckStatus
+    /** The deal's computed value (posture-invariant except mini_stress: stressed EM). */
+    value: number | null
     /** Signed margin in the check's own units (+ = safe side), as in CheckResult. */
     margin: number | null
     fragile?: boolean
     /** Effective threshold under this posture (null for thresholdless checks). */
     threshold: number | null
+    /**
+     * The check's flag points under this posture, as in CheckResult (a severe
+     * rent premium doubles them). Optional: absent in responses from builds
+     * before it was added.
+     */
+    flagPoints?: number
   }>
 }
 
