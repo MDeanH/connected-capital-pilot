@@ -10,7 +10,6 @@ import JudgmentPanel from './JudgmentPanel'
 import MacroDashboard, { MacroStrip } from './MacroDashboard'
 import ThresholdConfig from './ThresholdConfig'
 import Backtest from './Backtest'
-import EvidencePanel from './EvidencePanel'
 import DealHistory from './DealHistory'
 import LocationIntelCard from './LocationIntelCard'
 import { buildCrossChecks } from './marketCrossChecks'
@@ -31,8 +30,8 @@ import type {
   Posture,
 } from './deal-types'
 
-type Step = 'intake' | 'review' | 'results' | 'thresholds' | 'macro' | 'backtest' | 'evidence' | 'deals' | 'users'
-const STEP_IDS: Step[] = ['intake', 'review', 'results', 'thresholds', 'macro', 'backtest', 'evidence', 'deals', 'users']
+type Step = 'intake' | 'review' | 'results' | 'thresholds' | 'macro' | 'backtest' | 'deals' | 'users'
+const STEP_IDS: Step[] = ['intake', 'review', 'results', 'thresholds', 'macro', 'backtest', 'deals', 'users']
 
 // Working-state storage keys live in auth.ts (one definition — signOut clears
 // them there); local aliases keep the call sites readable.
@@ -163,6 +162,7 @@ function loadSaved(owner: string | null): SavedIntake | null {
     return {
       fields: p.fields && typeof p.fields === 'object' ? p.fields : {},
       adjustments: Array.isArray(p.adjustments) ? p.adjustments : [],
+      // Retired steps return to Intake without discarding the working deal.
       step: STEP_IDS.includes(p.step) ? p.step : 'intake',
       extraction: p.extraction && typeof p.extraction === 'object' ? p.extraction : null,
       dealId: typeof p.dealId === 'string' ? p.dealId : null,
@@ -680,11 +680,10 @@ export default function DealIntake() {
   const stepLabel: Record<Step, string> = {
     intake: '① INTAKE',
     review: '② REVIEW',
-    results: '③ RESULTS',
+    results: '③ SCREENING RESULTS',
     thresholds: 'THRESHOLDS',
     macro: 'MACRO',
     backtest: 'BACKTEST',
-    evidence: 'EVIDENCE',
     deals: 'DEALS',
     users: 'USERS',
   }
@@ -692,8 +691,8 @@ export default function DealIntake() {
   // The USERS chip appears only for a signed-in admin — never in auth-off
   // mode, where there are no accounts to manage.
   const toolSteps: Step[] = isAdmin === true
-    ? ['thresholds', 'macro', 'backtest', 'evidence', 'deals', 'users']
-    : ['thresholds', 'macro', 'backtest', 'evidence', 'deals']
+    ? ['thresholds', 'macro', 'backtest', 'deals', 'users']
+    : ['thresholds', 'macro', 'backtest', 'deals']
 
   // Sign-in wall — on a REQUIRE_ACCOUNTS deployment (server-declared via
   // /api/auth/status) a signed-out visitor gets the sign-in card and nothing
@@ -893,7 +892,7 @@ export default function DealIntake() {
         </div>
       )}
 
-      {/* THRESHOLDS — Patel's control panel: every knob editable, nothing hardcoded */}
+      {/* THRESHOLDS — rulebook configuration and review */}
       {step === 'thresholds' && (
         <ThresholdConfig
           active={activeConfig}
@@ -918,9 +917,6 @@ export default function DealIntake() {
 
       {/* BACKTEST — run past deals through the current rulebook */}
       {step === 'backtest' && <Backtest parIrr={activeParIrr} />}
-
-      {/* EVIDENCE — the predictability evidence map behind the engine's design */}
-      {step === 'evidence' && <EvidencePanel />}
 
       {/* DEALS — the append-only history of recorded decisions */}
       {step === 'deals' && <DealHistory isAdmin={isAdmin} />}

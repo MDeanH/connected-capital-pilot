@@ -160,9 +160,9 @@ footer .wrap{display:flex;flex-direction:column;align-items:center;gap:14px;text
   <section class="hero wrap" aria-labelledby="hero-h">
     <div class="eyebrow">How it works &#183; institutional pilot</div>
     <h1 id="hero-h">From the sponsor's documents to a defensible verdict</h1>
-    <p class="lede">Upload an offering memorandum and a pro forma. The platform reads both, shows its receipts,
-    runs the deal through a hard-kill rulebook under live macro conditions, and records a decision you can
-    replay and defend — with a human in control at every step.</p>
+    <p class="lede">Upload an offering memorandum and a pro forma. Review the extracted fields and citations,
+    preview the screening results, then review the thresholds. A decision is saved only when you choose
+    Record Decision and the app confirms it was recorded.</p>
     <p style="text-align:center;margin:26px 0 6px"><a class="cta-btn" href="/app">Try it with the sample deal &#8594;</a><span class="cta-sub">One click loads a recorded extraction of a real example deal &middot; no upload needed</span></p>
     <div class="stats" role="list">
       <div class="stat reveal" role="listitem"><div class="stat-num" data-n="18">18</div><div class="stat-lbl">screening checks — 10 hard kills + 8 watch flags</div></div>
@@ -282,18 +282,17 @@ footer .wrap{display:flex;flex-direction:column;align-items:center;gap:14px;text
               </g>
 
               <!-- APP GROUP -->
-              <g class="node" tabindex="0" role="img" aria-label="The app: eight screens — Intake, Review, Results (with the Judgment panel for overrides), Thresholds, Macro, Backtest, Evidence and Deals. The pro forma parses locally; deal drafts stay in your browser." data-name="The app — your browser" data-tip="The product: Intake &#8594; Review &#8594; Results (with the Judgment panel for overrides), plus the Thresholds editor, the weekly Macro dashboard, Backtest, the Evidence research verdicts and the Deals decision history. The pro forma parses locally and deal drafts stay in your browser.">
+              <g class="node" tabindex="0" role="img" aria-label="The app: Intake, Review, Screening Results, then threshold configuration and review through Thresholds. Macro, Backtest and Deals support the workflow. Screening previews are not saved decisions." data-name="The app — your browser" data-tip="Intake &#8594; Review &#8594; Screening Results &#8594; Threshold Configuration / Review. Use Thresholds to review the rulebook or try draft changes, then return to Screening Results. Record Decision saves only when recording succeeds. Macro, Backtest and Deals support the workflow.">
                 <rect x="880" y="60" width="220" height="352" rx="16" fill="#fbfdfc" stroke="#dcebe7"/>
-                <text class="nsub" x="896" y="84" style="letter-spacing:.1em">INTAKE &#8594; REVIEW &#8594; RESULTS</text>
+                <text class="nsub" x="896" y="84" style="letter-spacing:.1em">DEAL SCREENING WORKFLOW</text>
                 <rect x="894" y="98" width="192" height="30" rx="9" fill="#e4f5ee" stroke="#bcdcce"/>
                 <text class="chiptxt" x="906" y="117" style="fill:#3f7d69;font-weight:600">Intake — drop the documents</text>
                 <rect x="894" y="136" width="192" height="30" rx="9" fill="#fff" stroke="#dcebe7"/><text class="chiptxt" x="906" y="155">Review — verify the receipts</text>
-                <rect x="894" y="174" width="192" height="30" rx="9" fill="#fff" stroke="#dcebe7"/><text class="chiptxt" x="906" y="193">Results — verdict + judgment</text>
+                <rect x="894" y="174" width="192" height="30" rx="9" fill="#fff" stroke="#dcebe7"/><text class="chiptxt" x="906" y="193">Screening Results — preview</text>
                 <rect x="894" y="212" width="192" height="30" rx="9" fill="#fff" stroke="#dcebe7"/><text class="chiptxt" x="906" y="231">Thresholds — edit the rulebook</text>
                 <rect x="894" y="250" width="192" height="30" rx="9" fill="#fff" stroke="#dcebe7"/><text class="chiptxt" x="906" y="269">Macro — the weekly posture</text>
                 <rect x="894" y="288" width="192" height="30" rx="9" fill="#fff" stroke="#dcebe7"/><text class="chiptxt" x="906" y="307">Backtest — score the rulebook</text>
-                <rect x="894" y="326" width="192" height="30" rx="9" fill="#fff" stroke="#dcebe7"/><text class="chiptxt" x="906" y="345">Evidence — research verdicts</text>
-                <rect x="894" y="364" width="192" height="30" rx="9" fill="#fff" stroke="#dcebe7"/><text class="chiptxt" x="906" y="383">Deals — decision history</text>
+                <rect x="894" y="326" width="192" height="30" rx="9" fill="#fff" stroke="#dcebe7"/><text class="chiptxt" x="906" y="345">Deals — decision history</text>
               </g>
             </svg>
             <div class="tip" id="tip" hidden aria-hidden="true"></div>
@@ -302,7 +301,7 @@ footer .wrap{display:flex;flex-direction:column;align-items:center;gap:14px;text
         <div class="diagram-legend">
           <span><i style="background:var(--accent)"></i>deal data flow</span>
           <span><i style="background:var(--local)"></i>pro forma parsed in your browser — the workbook never leaves</span>
-          <span>The OM goes to extraction as a PDF or as text; decisions record with their config version and macro posture.</span>
+          <span>The OM goes to extraction as a PDF or as text. Successfully recorded decisions include their config version and macro posture; previews are not saved decisions.</span>
         </div>
       </div>
     </div>
@@ -313,7 +312,10 @@ footer .wrap{display:flex;flex-direction:column;align-items:center;gap:14px;text
     <div class="wrap">
       <div class="sect-head reveal">
         <h2 id="journey-h">The flow, step by step</h2>
-        <p>One deal, one sitting, no blank forms.</p>
+        <p><strong>Intake &#8594; Review &#8594; Screening Results &#8594; Threshold Configuration / Review.</strong>
+        Upload documents, verify the extracted fields, then choose Confirm &amp; Score to preview the screening.
+        Open Thresholds to review the rulebook or try draft changes, then return to Screening Results.
+        Use Record Decision and check for a recorded confirmation to save a decision.</p>
       </div>
       <div class="steps">
         <div class="step reveal">
@@ -411,10 +413,10 @@ footer .wrap{display:flex;flex-direction:column;align-items:center;gap:14px;text
             <span class="step-num">Step 7</span>
           </div>
           <div>
-            <h3>Judgment, on the record</h3>
-            <p>See something the model can't? Adjust any threshold for this deal — with a
-            <strong>required written reason</strong>. The rulebook's original verdict is kept alongside yours,
-            so every override is visible, reasoned, and reversible. Manual control is never silent.</p>
+            <h3>Judgment, with a reason</h3>
+            <p>Preview a threshold adjustment for this deal with a <strong>required written reason</strong>.
+            Compare the adjusted verdict with the rulebook's original verdict. To save the adjustment,
+            choose Record Decision and check that recording succeeded.</p>
           </div>
         </div>
         <div class="step reveal d3">
@@ -436,10 +438,10 @@ footer .wrap{display:flex;flex-direction:column;align-items:center;gap:14px;text
             <span class="step-num">Step 9</span>
           </div>
           <div>
-            <h3>Your rulebook, not ours</h3>
-            <p>Every threshold, band, weight and stress parameter is <strong>editable configuration</strong> —
-            there isn't a single hard-coded number in the engine. Changes are saved as new versions;
-            past decisions always know which version judged them.</p>
+            <h3>Threshold Configuration / Review</h3>
+            <p>Open <strong>Thresholds</strong> to review the rulebook or try changes in a local draft.
+            Return to Screening Results to see their effect. Drafts are preview-only; saving a new
+            rulebook version requires permission and a version note. It does not record a decision.</p>
           </div>
         </div>
         <div class="step reveal">
@@ -477,10 +479,10 @@ footer .wrap{display:flex;flex-direction:column;align-items:center;gap:14px;text
           <h3>Missing data never passes</h3>
           <p>Extraction returns nothing rather than guessing, and an unanswered field forces human review —
           <span class="k">silence can't slip through the gate</span>.</p>
-          <h3>Judgment is welcome — and recorded</h3>
-          <p>Overrides require a written reason, and the rulebook's <span class="k">original verdict is kept
-          alongside yours</span>. Any past decision replays exactly: same inputs, same config version, same
-          macro posture, same answer.</p>
+          <h3>Judgment is welcome — with a reason</h3>
+          <p>Overrides require a written reason, and the rulebook's <span class="k">original verdict stays
+          visible alongside yours</span>. A preview is not a saved decision. Successfully recorded
+          decisions retain their inputs, config version, macro posture and adjustments for replay.</p>
         </div>
         <div class="bar-card reveal d1" id="bar-card">
           <h3>Macro moves the bar</h3>
@@ -514,9 +516,9 @@ footer .wrap{display:flex;flex-direction:column;align-items:center;gap:14px;text
         <div class="note reveal d1"><h3>Zero hardcoded thresholds</h3>
           <p>Every tunable lives in versioned config, editable on the Thresholds screen. If a threshold were
           a literal in the codebase, it would be a bug.</p></div>
-        <div class="note reveal d2"><h3>Every decision replayable</h3>
-          <p>Recorded with its inputs, config version, macro posture and adjustments — any past verdict can
-          be reproduced exactly.</p></div>
+        <div class="note reveal d2"><h3>Recorded decisions are replayable</h3>
+          <p>Successfully recorded decisions retain their inputs, config version, macro posture and
+          adjustments for replay. Screening previews alone are not saved decisions.</p></div>
         <div class="note reveal"><h3>Missing data never passes</h3>
           <p>Extraction returns nothing rather than guessing, and an unanswered field forces human review —
           silence can't slip through.</p></div>
@@ -527,32 +529,6 @@ footer .wrap{display:flex;flex-direction:column;align-items:center;gap:14px;text
         <div class="note reveal d2"><h3>A red test suite blocks the deploy</h3>
           <p>Engine quality is enforced at build time by three golden suites — 62 checks covering the gate
           logic, the macro layer and engine parity. If any check fails, the site cannot ship.</p></div>
-      </div>
-    </div>
-  </section>
-
-  <!-- EVIDENCE -->
-  <section aria-labelledby="evidence-h">
-    <div class="wrap">
-      <div class="sect-head reveal">
-        <h2 id="evidence-h">Grounded in the evidence</h2>
-        <p>Before asking you to trust an AI's probabilities, we checked whether this kind of prediction is even possible.</p>
-      </div>
-      <div class="note reveal" style="max-width:760px">
-        <p style="font-size:14px">Before this engine asks for anyone's trust, we graded the question behind
-        it: is this kind of prediction even possible? We collected a ledger of <strong>198 published
-        studies</strong> and graded <strong>49 claim families</strong> against it &#8212; 48 kinds of
-        prediction claims judged by the same rules (did it work only in hindsight, does it survive
-        real-world costs, has anyone reproduced it?), plus one methodology protocol. The engine leans on
-        the claim types with the strongest support &#8212; volatility forecasting (the best-supported
-        result in the literature) and a modestly supported income/value signal &#8212; plus one
-        market-path prior that is disclosed as research-grade: it moves a score by at most &#177;2%/yr,
-        and only while it keeps passing its own pre-registered backtest. It deliberately avoids what the
-        evidence doesn't support: timing the overall market has never been established, and AI
-        stock-picking failed the tests it got. And <strong>zero</strong> of the 49 families earns the top
-        grade &#8212; &#8220;established effective&#8221; &#8212; without a live track record, which is
-        why the app reports probabilities with uncertainty instead of promised returns. Browse the verdicts under the
-        <strong>Evidence</strong> tab in the app.</p>
       </div>
     </div>
   </section>

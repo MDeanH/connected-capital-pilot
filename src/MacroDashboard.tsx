@@ -1,4 +1,4 @@
-// Macro dashboard — Patel's weekly macro snapshot. Refreshable, 5-year signal
+// Macro dashboard — weekly macro snapshot. Refreshable, 5-year signal
 // trends, and the four-quadrant inflation/deflation × expansion/recession read.
 // Pure presentation: everything renders from the MacroSnapshot the server
 // computed; no thresholds or bands are re-derived here. Missing data renders
@@ -462,7 +462,7 @@ export default function MacroDashboard({ snapshot, loading, error, onOverride, o
           {snapshot.source === 'manual' && (
             <div className="md-manual-banner" role="status">
               <span className="md-manual-dot" aria-hidden="true" />
-              Manual override active{snapshot.note ? ` — ${snapshot.note}` : ''}
+              Manual macro override active{snapshot.note ? ` — ${snapshot.note}` : ''}
             </div>
           )}
 
@@ -557,7 +557,7 @@ export default function MacroDashboard({ snapshot, loading, error, onOverride, o
               keeps it visible for everyone, exactly as before */}
           {isAdmin !== false && (
           <div className="card md-card">
-            <div className="md-section-title">Patel override</div>
+            <div className="md-section-title">Manual macro override</div>
             {manualIds.length > 0 && (
               <div className="md-ov-signals">
                 <div className="md-ov-signals-title">Analyst-entered signals</div>

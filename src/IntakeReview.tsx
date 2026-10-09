@@ -125,8 +125,9 @@ export default function IntakeReview({ fields, onChange, missingKeys, meta, prov
       <div className="ir-head">
         <h2>Review what was extracted</h2>
         <p className="ir-sub">
-          Confirm or correct each value — the citations show where it came from. Fields the
-          documents don't answer are flagged for you. Nothing is scored until you confirm.
+          Confirm or correct each value using its citation; missing answers stay flagged.
+          Choose Confirm &amp; Score to preview Screening Results, then open Thresholds to
+          review the rulebook. Nothing is recorded until Record Decision succeeds.
         </p>
         {meta && (
           <p className="ir-summary">

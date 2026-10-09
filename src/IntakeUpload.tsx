@@ -395,9 +395,10 @@ export default function IntakeUpload({ onExtracted }: Props) {
       <Kicker>CONNECTED CAPITAL — DEAL INTAKE</Kicker>
       <h1>Drop in the deal documents</h1>
       <p className="iu-lede">
-        Upload the sponsor's offering memorandum and pro forma. Every screening field is
-        extracted with a confidence score and a citation back to the document — you verify,
-        the rulebook decides.
+        Upload the sponsor's offering memorandum and pro forma. In Review, verify the
+        extracted fields and citations, then choose Confirm &amp; Score to preview Screening
+        Results. Open Thresholds to review the rulebook or try draft changes. A preview
+        is not a saved decision.
       </p>
       <div className="iu-drops">
         {zone(

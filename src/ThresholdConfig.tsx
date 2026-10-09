@@ -296,8 +296,10 @@ export default function ThresholdConfig({ active, draft, onDraftChange, onSave, 
       )}
 
       <div className="card tc-notice">
-        Green/Yellow/Red <Term k="posture">posture</Term> shifts these values automatically — you are
-        editing the underlying bands.
+        Review the rulebook behind Screening Results, or edit a local draft and return
+        there to preview its effect. Green/Yellow/Red <Term k="posture">posture</Term> shifts
+        the underlying bands automatically. Draft changes do not save a rulebook version
+        or record a decision.
       </div>
 
       <h3 className="tc-section">Gate thresholds</h3>

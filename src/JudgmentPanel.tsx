@@ -113,8 +113,8 @@ export default function JudgmentPanel({ adjustments, onChange, availableKeys, pr
       </div>
 
       <p className="jp-help">
-        Adjustments apply to this deal only, are always logged, and the rulebook's
-        baseline verdict is kept alongside yours.
+        Adjustments preview this deal only; the baseline verdict stays visible.
+        Use Record Decision and check for a recorded confirmation to save them.
       </p>
     </div>
   )
