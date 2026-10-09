@@ -7,7 +7,10 @@ import metros from './metros.json';
 import marketEdge from './market-edge.json';
 import marketPath from './market-path.json';
 
-const MACRO = { mortgage30y: 6.48, caseShillerYoy: 0.67, asof: '2026-03-31' };
+// Parent-line /api/score machinery: these macro figures are a pinned snapshot
+// (asof 2026-03-31), NOT a live feed. The `note` field ships in every response
+// so no consumer can mistake them for current data.
+const MACRO = { mortgage30y: 6.48, caseShillerYoy: 0.67, asof: '2026-03-31', note: 'fixed reference vintage — not live' };
 type Baseline = { label: string; ppy: number; returns: number[] };
 // ~895 real Zillow metro return histories + the named national baselines (Case-Shiller etc.).
 const BASELINES: Record<string, Baseline> = {
@@ -15,6 +18,29 @@ const BASELINES: Record<string, Baseline> = {
   ...(baselines as unknown as Record<string, Baseline>),
 };
 const DEFAULT_BASELINE = 'Miami, FL' in BASELINES ? 'Miami, FL' : 're_value_add';
+// Fallback for deal-location resolution (below): the broadest real baseline
+// shipped — callers must label it as the national distribution, never as the
+// deal's own market.
+const NATIONAL_BASELINE = 'United States' in BASELINES ? 'United States' : DEFAULT_BASELINE;
+
+// Deal-flow location resolution: exact normalized "City, ST" match only (the
+// MarketPathCard philosophy — a fuzzy guess could score a deal against another
+// market's distribution). No match -> the national baseline, exact:false.
+// Matches METRO history keys only, never the legacy baselines.json composites:
+// their bare-word keys ('phoenix', 'austin', 're_value_add') would exact-match
+// a state-less city string and silently swap the series' units and provenance
+// (monthly composites with a synthetic income overlay / Case-Shiller) under
+// copy that describes quarterly Zillow metro history. Explicit `baseline` keys
+// keep reaching the composites unchanged.
+export function resolveBaseline(location: string): { key: string; exact: boolean } {
+  const norm = location.trim().toLowerCase().replace(/\s+/g, ' ');
+  if (norm) {
+    for (const k of Object.keys(metros)) {
+      if (norm === k.toLowerCase()) return { key: k, exact: true };
+    }
+  }
+  return { key: NATIONAL_BASELINE, exact: false };
+}
 
 const num = (x: any, d: number) => { const v = Number(x); return Number.isFinite(v) ? v : d; };
 const clamp = (x: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, x));
@@ -24,8 +50,15 @@ export const BASELINE_OPTIONS = Object.entries(BASELINES).map(([key, v]) => ({ k
 export const DDQ_FIELDS = SCORECARD.map((f) => ({ key: f.key, question: f.question, options: f.options.map((o) => ({ key: o.key, label: o.label })) }));
 
 export function computeScore(body: any) {
-  const bl = (typeof body.baseline === 'string' && Object.hasOwn(BASELINES, body.baseline))
-    ? BASELINES[body.baseline] : BASELINES[DEFAULT_BASELINE];
+  // An explicit valid baseline key wins; otherwise a deal `location` string
+  // resolves server-side (exact match or national fallback — the response's
+  // resolvedLocation block reports which) so the 14MB metro table never has
+  // to ship to the browser.
+  const requestedKey = (typeof body.baseline === 'string' && Object.hasOwn(BASELINES, body.baseline))
+    ? body.baseline : null;
+  const resolved = requestedKey === null && typeof body.location === 'string'
+    ? resolveBaseline(body.location) : null;
+  const bl = BASELINES[requestedKey ?? resolved?.key ?? DEFAULT_BASELINE];
   // All numeric inputs are clamped to sane ranges: they drive Monte Carlo loop
   // sizes, so an unbounded value (e.g. holding=500000) is a CPU-exhaustion lever.
   const target = clamp(num(body.target, 0.2), 0, 1);
@@ -42,7 +75,14 @@ export function computeScore(body: any) {
   // and arrive here as explicit, auditable parameters. Defaults are a no-op, and the
   // caps sit well inside the DDQ layer's own bounds (±10%/yr, 0.6–2.5×).
   const extBiasMu = clamp(num(body.extBiasMu, 0), -0.03, 0.03);
-  const extSigmaMult = clamp(num(body.extSigmaMult, 1), 0.7, 1.6);
+  // A JSON null slips through num(): Number(null) is 0 and finite, so a null
+  // extSigmaMult coerced to 0 and clamped to the 0.7 floor — a 30% volatility
+  // UNDERSTATEMENT for an input the caller never set. Nullish means "not
+  // provided": map it to exactly 1 (the documented no-op) before clamping;
+  // non-finite garbage still falls to num()'s default of 1. extBiasMu is safe
+  // as-is — its null-coercion lands on 0, which IS its no-op default. And
+  // neutralDdq is compared with `=== true`, so null never changes its path.
+  const extSigmaMult = clamp(body.extSigmaMult == null ? 1 : num(body.extSigmaMult, 1), 0.7, 1.6);
 
   // neutralDdq=true switches the engine's own questionnaire layer off entirely
   // (true zeros, NOT DEFAULT_ANSWERS — those describe a typical value-add deal,
@@ -109,6 +149,11 @@ export function computeScore(body: any) {
           backtest: mpInfo.backtest,
         }
       : null,
+    // Present only when the caller sent a location instead of a baseline key:
+    // what was asked for, what it resolved to, and whether it was an exact
+    // match (exact:false = national fallback — label it, never pass it off
+    // as the deal's own market).
+    resolvedLocation: resolved ? { requested: body.location, key: resolved.key, exact: resolved.exact } : null,
     honest, naive: { pLoss: naive.pLoss, varLoss: naive.varLoss },
     macro: MACRO,
   };

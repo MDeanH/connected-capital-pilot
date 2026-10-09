@@ -1,3 +1,4 @@
+import { EXTRACT_FIELDS } from './fields'
 import type {
   CheckDef,
   CheckResult,
@@ -10,6 +11,24 @@ import type {
 } from './types'
 
 /**
+ * Undefined → null for every registry field: a workbook that OMITS a column
+ * must evaluate as MISSING (→ REVIEW), not as a failing boolean or a NaN
+ * seeping through derivations. Non-finite numbers normalize to null too.
+ * String fields stay as-is — no check null-gates them.
+ */
+export function normalizeDealFields(fields: DealFields): DealFields {
+  const out: DealFields = { ...fields }
+  for (const def of EXTRACT_FIELDS) {
+    if (def.kind === 'string') continue
+    const v = out[def.key]
+    if (v === undefined || (typeof v === 'number' && !Number.isFinite(v))) {
+      ;(out as Record<keyof DealFields, unknown>)[def.key] = null
+    }
+  }
+  return out
+}
+
+/**
  * Gate 1: 10 hard kills + 8 watch flags. Pure — no I/O, no Date, no literals:
  * every threshold comes from `resolved` (config × posture × judgment adjustments).
  *
@@ -18,10 +37,11 @@ import type {
  * above = FAIL.
  */
 export function evaluateGate1(
-  fields: DealFields,
+  rawFields: DealFields,
   resolved: Record<string, ResolvedThreshold>,
   config: Gate1Config,
 ): GateResult {
+  const fields = normalizeDealFields(rawFields)
   const d = derive(fields)
   const fragilePct = resolved['fragile_margin_pct']?.effective ?? 0.1
 
@@ -128,6 +148,111 @@ export function stressedEquityMultiple(
 
 type Derived = ReturnType<typeof derive>
 
+/**
+ * Canonical registry of every check id runCheck can execute — exactly one
+ * entry per `case` in the switch below, in the same order. KEEP IN SYNC:
+ * adding or removing a `case` in runCheck MUST add/remove its id here (a
+ * plain switch offers nothing to derive this list from mechanically). A
+ * config check whose id is not in this list falls through to runCheck's
+ * default branch → status 'missing' → every deal verdict becomes REVIEW,
+ * so gate1-config.ts rejects such configs against this list at save time.
+ */
+export const EXECUTABLE_CHECK_IDS = [
+  'sponsor_integrity',
+  'site_entitled',
+  'single_exit_refi',
+  'ltc_max',
+  'dev_spread_min',
+  'contingency_min',
+  'coinvest_min',
+  'track_record',
+  'gmp_required',
+  'mini_stress',
+  'yoc_vs_benchmark',
+  'exit_cap_vs_market',
+  'interest_reserve',
+  'land_basis',
+  'rents_vs_comps',
+  'absorption',
+  'profit_margin',
+  'completion_guarantee',
+] as const
+
+/**
+ * Canonical map of check id → the threshold keys its runCheck case actually
+ * consumes (its `t('...')` calls in the switch below). KEEP IN SYNC: changing
+ * which keys a `case` reads MUST update its entry here — a plain switch
+ * offers nothing to derive this from mechanically. The Record type over
+ * EXECUTABLE_CHECK_IDS makes tsc fail if the two registries ever disagree on
+ * the id set; the VALUES are what the comment discipline protects.
+ *
+ * Why it exists: runCheck reads its thresholds by these FIXED keys, not from
+ * a check's declared thresholdKeys — the declared list only drives the
+ * config validator's row-presence rule and the displayed threshold
+ * (thresholdKeys[0]). A declaration that diverges from the case (e.g.
+ * ltc_max with thresholdKeys: []) would let a config without the rows the
+ * engine actually reads validate, turning the check 'missing' for every
+ * deal — a kill silently downgraded to REVIEW globally. gate1-config.ts
+ * therefore requires each check's declared thresholdKeys to equal this set.
+ */
+export const CHECK_THRESHOLD_KEYS: Record<(typeof EXECUTABLE_CHECK_IDS)[number], readonly string[]> = {
+  sponsor_integrity: [],
+  site_entitled: [],
+  single_exit_refi: [],
+  ltc_max: ['ltc_max'],
+  dev_spread_min: ['dev_spread_min_bps'],
+  contingency_min: ['contingency_min'],
+  coinvest_min: ['coinvest_min'],
+  track_record: ['track_record_min'],
+  gmp_required: ['gmp_cost_threshold_usd'],
+  mini_stress: ['stress_em_floor', 'stress_hard_cost_bump', 'stress_exit_cap_bump_bps', 'stress_selling_costs'],
+  yoc_vs_benchmark: ['yoc_min'],
+  exit_cap_vs_market: [],
+  interest_reserve: ['interest_reserve_buffer_months'],
+  land_basis: ['land_basis_max'],
+  rents_vs_comps: ['rent_premium_flag', 'rent_premium_severe'],
+  absorption: [],
+  profit_margin: ['profit_margin_min'],
+  completion_guarantee: ['guarantor_net_worth_min_pct'],
+}
+
+/**
+ * Canonical kill/flag KIND per check id — the pilot spec's 10 hard kills +
+ * 8 watch flags, pinned as data. KEEP IN SYNC with the spec and the shipped
+ * default-config.json (which configures exactly these kinds) — a plain
+ * switch offers nothing to derive this from mechanically. The Record type
+ * over EXECUTABLE_CHECK_IDS makes tsc fail if this registry and the id
+ * registry ever disagree on the id set; the VALUES are what the comment
+ * discipline protects.
+ *
+ * Why it exists: the engine executes either kind generically — runCheck
+ * derives failStatus from def.kind and evaluateGate1 rolls only
+ * kind === 'kill' failures up to an unconditional FAIL — so a config that
+ * re-kinds e.g. sponsor_integrity as 'flag' would validate and activate,
+ * silently downgrading a hard kill to a few flag points. gate1-config.ts
+ * therefore requires every configured check's kind to equal this registry's.
+ */
+export const CHECK_KINDS: Record<(typeof EXECUTABLE_CHECK_IDS)[number], CheckDef['kind']> = {
+  sponsor_integrity: 'kill',
+  site_entitled: 'kill',
+  single_exit_refi: 'kill',
+  ltc_max: 'kill',
+  dev_spread_min: 'kill',
+  contingency_min: 'kill',
+  coinvest_min: 'kill',
+  track_record: 'kill',
+  gmp_required: 'kill',
+  mini_stress: 'kill',
+  yoc_vs_benchmark: 'flag',
+  exit_cap_vs_market: 'flag',
+  interest_reserve: 'flag',
+  land_basis: 'flag',
+  rents_vs_comps: 'flag',
+  absorption: 'flag',
+  profit_margin: 'flag',
+  completion_guarantee: 'flag',
+}
+
 function runCheck(
   def: CheckDef,
   f: DealFields,
@@ -159,6 +284,9 @@ function runCheck(
     comparator: '<=' | '>=',
     fmt: (n: number) => string,
   ): CheckResult => {
+    // A non-finite value is a derivation over degenerate inputs (e.g. 0/0) —
+    // report missing, never let a NaN comparison read as a silent failure.
+    if (value !== null && !Number.isFinite(value)) value = null
     if (value === null || threshold === null)
       return { ...base, threshold, comparator, status: 'missing', value, valueDisplay: 'missing', margin: null }
     const margin = comparator === '<=' ? threshold.effective - value : value - threshold.effective

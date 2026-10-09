@@ -3,6 +3,7 @@
 // kept alongside the adjusted one, so manual control is never silent.
 import { useEffect, useState } from 'react'
 import { Term } from './GlossaryTip'
+import { fmtThreshold } from './format'
 import type { JudgmentAdjustment } from './deal-types'
 
 export interface AvailableKey {
@@ -18,9 +19,6 @@ interface Props {
   availableKeys: AvailableKey[]
   prefill?: { key: string; value: number } | null
 }
-
-const fmtNum = (n: number) =>
-  Math.abs(n) >= 1000 ? n.toLocaleString() : String(Number(n.toFixed(4)))
 
 export default function JudgmentPanel({ adjustments, onChange, availableKeys, prefill }: Props) {
   const [selKey, setSelKey] = useState('')
@@ -65,7 +63,7 @@ export default function JudgmentPanel({ adjustments, onChange, availableKeys, pr
             <div className="jp-item-main">
               <span className="jp-key">{meta?.label ?? a.key}</span>
               <span className="jp-delta">
-                {meta ? <>{fmtNum(meta.effective)} → </> : '→ '}<b>{fmtNum(a.value)}</b>
+                {meta ? <>{fmtThreshold(a.key, meta.effective)} → </> : '→ '}<b>{fmtThreshold(a.key, a.value)}</b>
               </span>
               <div className="jp-reason">“{a.reason}”</div>
             </div>
@@ -81,20 +79,26 @@ export default function JudgmentPanel({ adjustments, onChange, availableKeys, pr
             <option value="">Select a threshold…</option>
             {availableKeys.map(k => (
               <option key={k.key} value={k.key}>
-                {k.label} ({k.key}) — base {fmtNum(k.effective)}
+                {k.label} ({k.key}) — base {fmtThreshold(k.key, k.effective)}
               </option>
             ))}
           </select>
         </label>
         <label>
           New value
+          {/* Raw engine units (pct = fraction: 0.06 means 6%) — the placeholder
+              shows the raw base, and the live hint below shows what a typed
+              value means, so a 100x unit mistake is visible before APPLY. */}
           <input
             type="number"
             step="any"
             value={value}
-            placeholder={selKey && byKey.get(selKey) ? fmtNum(byKey.get(selKey)!.effective) : ''}
+            placeholder={selKey && byKey.get(selKey) ? String(byKey.get(selKey)!.effective) : ''}
             onChange={e => setValue(e.target.value)}
           />
+          {selKey && value.trim() !== '' && Number.isFinite(Number(value)) && (
+            <span className="jp-value-hint">= {fmtThreshold(selKey, Number(value))}</span>
+          )}
         </label>
         <label className="jp-reason-input">
           Reason (required)
@@ -128,6 +132,7 @@ const CSS = `
 button.jp-revert{font-size:10.5px;letter-spacing:.06em;padding:.3rem .7rem;flex:0 0 auto}
 .jp-form{display:grid;grid-template-columns:2fr 1fr 2fr auto;gap:1rem;align-items:end;margin-top:1.25rem}
 .jp-form label{display:block;font-size:.75rem;font-weight:600;color:#5c6b67}
+.jp-value-hint{display:block;margin-top:.25rem;font-size:.75rem;font-weight:400;color:#7a8a85;font-variant-numeric:tabular-nums}
 .jp-form select,.jp-form input{display:block;width:100%;margin-top:4px;font-size:.85rem;padding:.45rem .55rem}
 .jp-help{font-size:.75rem;color:#5c6b67;margin:1rem 0 0;line-height:1.6}
 @media(max-width:900px){.jp-form{grid-template-columns:1fr 1fr}.jp-reason-input{grid-column:1/-1}}

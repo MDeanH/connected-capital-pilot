@@ -9,7 +9,8 @@
     "gate1": "tsx netlify/functions/lib/gate1/golden.ts",
     "gate1:macro": "tsx netlify/functions/lib/gate1/golden-macro.ts",
     "gate:evidence": "tsx scripts/check-evidence-sync.ts",
-    "build": "npm run parity && npm run gate1 && npm run gate1:macro && npm run gate:evidence && tsc -b && vite build",
+    "build": "npm run parity && npm run gate1 && npm run gate1:macro && npm run gate:evidence && tsc -b && tsc -p tsconfig.functions.json && vite build",
+    "typecheck:functions": "tsc -p tsconfig.functions.json",
     "preview": "vite preview",
     "deploy": "bash scripts/deploy-netlify.sh"
   },
@@ -18,6 +19,7 @@
     "@netlify/blobs": "^10.7.9",
     "@supabase/supabase-js": "^2.110.2",
     "lucide-react": "^0.400.0",
+    "mammoth": "^1.12.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"

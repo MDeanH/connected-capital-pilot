@@ -4,31 +4,145 @@
 
 import type { Config } from '@netlify/functions'
 import { fetchSeriesMap } from './lib/gate1/fred.ts'
-import { buildMarketContext, computeMacroSnapshot, MARKET_SERIES } from './lib/gate1/macro.ts'
+import { buildMarketContext, computeMacroSnapshot, MARKET_SERIES, utcWeekStart } from './lib/gate1/macro.ts'
 import { DEFAULT_CONFIG } from './lib/gate1/preview.ts'
 import type { Gate1Config, MacroSnapshot } from './lib/gate1/types.ts'
+import { cronKeyAuthenticated } from './lib/cron-auth.ts'
 import { serviceClient } from './lib/supabase.ts'
 
-export default async (): Promise<Response> => {
+// Two missed weekly cron runs. Keep in sync with MAX_SNAPSHOT_AGE_DAYS in
+// macro.ts (/latest + override) and gate1.ts — each function file mirrors the
+// constant locally; none exports it.
+const MAX_SNAPSHOT_AGE_DAYS = 14
+
+export default async (req: Request): Promise<Response> => {
+  // Two legitimate invokers, checked in order:
+  //
+  // 1. The EXTERNAL scheduler (Supabase pg_cron → net.http_post) presenting the
+  //    shared CRON_TRIGGER_SECRET in x-cron-key. This is the path that actually
+  //    fires in production: the Netlify platform scheduler has never invoked
+  //    this function on the API-deployed sites (see lib/cron-auth.ts for the
+  //    evidence). The edge gate (gate.ts) admits a keyed POST to this path;
+  //    cronKeyAuthenticated() is the function-side re-verification of the same
+  //    secret — defense in depth, constant-time, fail-closed.
+  //
+  // 2. The Netlify platform scheduler, kept as a bonus should it ever fire: a
+  //    v2 scheduled call carries a JSON body with a `next_run` ISO-8601 string
+  //    (the documented `const { next_run } = await req.json()` pattern) and is
+  //    invoked internally, without traversing the edge. next_run is a
+  //    caller-forgeable body field, NOT authentication — any external caller
+  //    shaped like this is still stopped at the edge, which 403s every
+  //    un-keyed external request to this path.
+  //
+  // Why this run must not be openly triggerable: it persists the week's macro
+  // posture, and the same-week duplicate guard below means the FIRST run of a
+  // week wins — an early manual hit by any pilot-cookie holder (an analyst,
+  // when REQUIRE_ACCOUNTS is on) would stamp that week's posture and make the
+  // legitimate scheduled run skip as a duplicate. That guard is also what
+  // makes the dual-scheduler arrangement safe: whichever scheduler fires
+  // second in a week is a clean no-op skip.
+  let scheduled = cronKeyAuthenticated(req)
+  if (!scheduled) {
+    try {
+      const body = await req.json()
+      scheduled = body != null && typeof body.next_run === 'string' && body.next_run.length > 0
+    } catch {
+      // No body, or one that is not JSON — not a scheduled-shaped invocation.
+      scheduled = false
+    }
+  }
+  if (!scheduled) {
+    return new Response('Forbidden: macro-cron runs only on a schedule', { status: 403 })
+  }
+
   const db = serviceClient()
 
+  // The date this run's snapshot would carry (computeMacroSnapshot stamps it
+  // verbatim): the UTC week start, never the run date, so a manual retry later
+  // in the same week stamps — and the duplicate guard below compares — the
+  // same week as Monday's scheduled run. Computed once so the guard and the
+  // compute agree.
+  const weekOf = utcWeekStart(new Date())
+
   let cfg: Gate1Config = DEFAULT_CONFIG
+  // null = empty threshold_configs table (still on the deploy-baked default).
+  let cfgVersion: number | null = null
   let previous: MacroSnapshot | null = null
   if (db) {
-    const { data: cfgRow } = await db
+    const { data: cfgRow, error: cfgError } = await db
       .from('threshold_configs')
-      .select('config')
+      .select('version, config')
       .order('version', { ascending: false })
       .limit(1)
       .maybeSingle()
-    if (cfgRow) cfg = cfgRow.config as Gate1Config
-    const { data: prevRow } = await db
+    if (cfgError) {
+      // Same rule as the snapshot lookup below: a failed read must not pass
+      // for "no saved config" — computing under stale default thresholds is
+      // worse than skipping the week.
+      console.error(`macro-cron: config lookup failed — ${cfgError.message}`)
+      return new Response(`config lookup failed: ${cfgError.message}`, { status: 500 })
+    }
+    if (cfgRow) {
+      cfg = cfgRow.config as Gate1Config
+      cfgVersion = cfgRow.version as number
+    }
+    // Hysteresis predecessor: the newest AUTOMATIC snapshot only. A manual
+    // override is a stated judgment, not measured evidence — seeding hysteresis
+    // from it would extend a forced regime a full extra hysteresis cycle (a
+    // forced green would hold against next Monday's honest red candidate).
+    // Expiry semantics: manual rows stay in history and keep prevailing via
+    // /latest (newest row wins) only until this run inserts a newer auto row —
+    // that insert is exactly when an override expires. Manual rows never seed
+    // automatic hysteresis, degraded fallback, or the pending_wins streak.
+    const { data: prevRow, error: prevError } = await db
       .from('macro_snapshots')
       .select('*')
+      .eq('source', 'auto')
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle()
-    if (prevRow) previous = (prevRow.snapshot ?? prevRow) as MacroSnapshot
+    if (prevError) {
+      // A failed lookup must not pass for "no history": computing without the
+      // previous snapshot bypasses hysteresis and can persist an immediate
+      // regime flip. Skip the week instead — that is recoverable.
+      console.error(`macro-cron: previous-snapshot lookup failed — ${prevError.message}`)
+      return new Response(`previous-snapshot lookup failed: ${prevError.message}`, { status: 500 })
+    }
+    // Freshness bound — the same MAX_SNAPSHOT_AGE_DAYS rule macro.ts applies
+    // on /latest and the override path (isFreshStored). Resuming after a
+    // >14-day outage must not carry the obsolete regime through hysteresis and
+    // the degraded fallback into a FRESH row that would then prevail
+    // fund-wide, when /latest and the override path already refuse the same
+    // stale predecessor. A broken weekly chain restarts from current evidence:
+    // previous = null. Fails closed like isFreshStored — an unparsable
+    // created_at reads stale. The same-week duplicate guard below is
+    // unaffected: it checks prevRow directly, and a stale row can never be
+    // same-week anyway (its created_at is >14 days old — more than a full
+    // week before this run's week stamp).
+    if (prevRow) {
+      const recordedAt = Date.parse(prevRow.created_at ?? prevRow.week_of ?? '')
+      const fresh =
+        Number.isFinite(recordedAt) && Date.now() - recordedAt <= MAX_SNAPSHOT_AGE_DAYS * 86_400_000
+      if (fresh) {
+        previous = (prevRow.snapshot ?? prevRow) as MacroSnapshot
+      } else {
+        console.log(
+          `macro-cron: newest auto snapshot (week of ${prevRow.week_of}) is older than ${MAX_SNAPSHOT_AGE_DAYS} days — restarting hysteresis from current evidence`,
+        )
+      }
+    }
+    // Duplicate-run guard: a second auto run in the same week would insert a
+    // second snapshot and read the first as "previous", double-advancing
+    // pending_wins — a two-week hysteresis could flip on one week's evidence.
+    // The stored week_of is normalized too: rows written before week-start
+    // stamping carry raw run dates, and a Tuesday retry must still recognize
+    // Monday's row as this week's snapshot. The lookup above is auto-only, so
+    // a manual override can neither block the weekly run nor mask an auto row
+    // recorded earlier this week.
+    if (prevRow && utcWeekStart(prevRow.week_of ?? '') === weekOf) {
+      console.log(`macro-cron: already recorded for week ${weekOf} — skipping duplicate run`)
+      return new Response(`already recorded for week ${weekOf}`, { status: 200 })
+    }
   }
 
   const ids: Record<string, string> = { ...MARKET_SERIES }
@@ -37,7 +151,7 @@ export default async (): Promise<Response> => {
 
   const snapshot = computeMacroSnapshot({
     config: cfg,
-    weekOf: new Date().toISOString().slice(0, 10),
+    weekOf,
     series,
     previous,
   })
@@ -56,9 +170,16 @@ export default async (): Promise<Response> => {
   const { error } = await db.from('macro_snapshots').insert({
     week_of: full.week_of,
     source: full.source,
+    // signals is NOT NULL in the schema — see macro.ts; same fix here.
+    signals: full.signals,
     regime: full.regime,
+    pending_regime: full.pending_regime ?? null,
     degraded: full.degraded,
     postures: full.postures,
+    hurdle: full.hurdle ?? null,
+    // null only when threshold_configs is empty: the FK needs an existing row,
+    // and gate1's decide self-heals v0 — the cron must not invent rows.
+    config_version: cfgVersion,
     note: full.note ?? null,
     snapshot: full,
   })

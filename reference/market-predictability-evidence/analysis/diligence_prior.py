@@ -16,7 +16,12 @@ decay ratio is not predictable at all (R^2 ~ 0). What survives is a LEVEL and
 a RANK, nothing sharper.
 
 Coefficients are locked from the forward-validated fit; see real-data-findings.md.
-Re-fit with `python3 diligence_prior.py --refit <path-to-mktdata-dir>`.
+The re-fit itself is NOT wired into this script: it requires the full Open Source
+Asset Pricing panel (monthly long-short returns 1926-2024, joined to publication
+years), which does not ship here. `python3 diligence_prior.py --refit <mktdata-dir>`
+therefore prints the pointer to that procedure and exits; it does not recompute the
+locked coefficients. Run with no arguments (or a numeric in-sample return) to report
+the prior:  `python3 diligence_prior.py 8.0`.
 """
 
 import math
@@ -90,6 +95,24 @@ def report(is_ann):
     print("US, gross of costs; costs push all of the above DOWN.")
 
 
+def main(argv):
+    if "--refit" in argv:
+        i = argv.index("--refit")
+        mktdata = argv[i + 1] if i + 1 < len(argv) else None
+        if mktdata is None or mktdata.startswith("-"):
+            sys.exit("error: --refit requires a path to the mktdata directory, "
+                     "e.g. `diligence_prior.py --refit ./mktdata`")
+        sys.exit(
+            "error: automated re-fit is not implemented in this script. The "
+            f"coefficients (K={K_RECOMMENDED}, RESID_SD={RESID_SD}) are locked "
+            "from the forward-validated Open Source Asset Pricing fit and cannot "
+            "be regenerated here — that requires the full OSAP return panel "
+            f"(not shipped) at '{mktdata}'. See real-data-findings.md for the "
+            "procedure to reproduce them. Run without --refit to report the prior."
+        )
+    nums = [a for a in argv if not a.startswith("-")]
+    report(float(nums[0]) if nums else 8.0)
+
+
 if __name__ == "__main__":
-    args = [a for a in sys.argv[1:] if not a.startswith("-")]
-    report(float(args[0]) if args else 8.0)
+    main(sys.argv[1:])

@@ -239,6 +239,8 @@ export async function workbookToCsvText(data: ArrayBuffer): Promise<{ sheets: Ar
 export interface BacktestRow {
   fields: Record<string, string | number | boolean | null>
   realized_irr: number | null
+  /** Net to the LP after fees/promote, hand-verified — null means unverified, not zero. */
+  verified_net_lp_return: number | null
   realized_equity_multiple: number | null
   outcome_notes: string | null
 }
@@ -276,6 +278,7 @@ export const BACKTEST_COLUMNS: Array<{ key: string; label: string }> = [
   { key: 'projected_irr', label: 'Projected IRR at underwriting (%)' },
   { key: 'projected_equity_multiple', label: 'Projected equity multiple at underwriting' },
   { key: 'realized_irr', label: 'REALIZED IRR (%)' },
+  { key: 'verified_net_lp_return', label: 'VERIFIED NET-TO-LP RETURN (%) — net to the LP after fees/promote; fill only when verified, blank = unverified' },
   { key: 'realized_equity_multiple', label: 'REALIZED equity multiple' },
   { key: 'outcome_notes', label: 'Outcome notes' },
 ]
@@ -283,13 +286,39 @@ export const BACKTEST_COLUMNS: Array<{ key: string; label: string }> = [
 const PCT_KEYS = new Set([
   'sponsor_coinvest_pct', 'hard_cost_contingency_pct', 'loan_interest_rate',
   'exit_cap_rate', 'market_cap_rate_today', 'projected_irr', 'realized_irr',
+  'verified_net_lp_return',
 ])
 const BOOL_KEYS = new Set([
   'sponsor_integrity_clear', 'site_fully_entitled', 'exit_dependent_single_refi',
   'has_gmp_or_bonded_gc', 'has_completion_guarantee',
 ])
+const TEXT_KEYS = new Set([
+  'deal_name', 'asset_class', 'location', 'sponsor_name', 'outcome_notes',
+])
 
-function coerceBacktestCell(key: string, v: unknown): string | number | boolean | null {
+// True when the sheet cell itself carries a percent number format: either the
+// format string ("0%", "0.00%") in cell.z, or the rendered text ("5%") in
+// cell.w. Excel stores such cells as fractions — typing 5% stores raw 0.05 —
+// so the raw value must NOT be divided by 100 again.
+function cellIsPercentFormatted(cell: { z?: unknown; w?: unknown } | undefined): boolean {
+  if (!cell) return false
+  if (typeof cell.z === 'string' && cell.z.includes('%')) return true
+  if (typeof cell.w === 'string' && cell.w.trim().endsWith('%')) return true
+  return false
+}
+
+// Percent-units rule table for PCT_KEYS columns (headers all say "(%)"):
+//   1. Numeric cell that is %-FORMATTED in Excel (format or rendered text has
+//      '%'): the raw stored value is ALREADY a fraction (typing "5%" stores
+//      0.05) → use it as-is. Dividing again understated cap rates and IRRs
+//      100x with only a warning.
+//   2. Plain unformatted number: percent units, as the header says (5 → 5%,
+//      -8 → −8%, 1 → 1%) → divide by 100. Unconditional for this case — a
+//      magnitude heuristic made 1 mean 100% and -1 mean −100%, silently
+//      flipping Gate 1 verdicts. parseBacktestWorkbook warns on sub-1%
+//      results here (the ambiguous case) in case someone typed a fraction.
+//   3. Text like "5%": the sign is stripped, leaving percent units → /100.
+function coerceBacktestCell(key: string, v: unknown, pctFormatted = false): string | number | boolean | null {
   if (v === undefined || v === null || v === '') return null
   if (BOOL_KEYS.has(key)) {
     const s = String(v).trim().toLowerCase()
@@ -300,11 +329,17 @@ function coerceBacktestCell(key: string, v: unknown): string | number | boolean 
   if (typeof v === 'boolean') return v
   const n = Number(String(v).replace(/[$,%\s]/g, ''))
   if (Number.isFinite(n)) {
-    // Percent columns accept either 5 (meaning 5%) or 0.05 — normalize to decimal.
-    if (PCT_KEYS.has(key)) return n > 1 ? n / 100 : n
+    if (PCT_KEYS.has(key)) {
+      // Rule 1: %-formatted numeric cell is already a fraction.
+      if (pctFormatted && typeof v === 'number') return n
+      // Rules 2 and 3: plain number or "5%" text is in percent units.
+      return n / 100
+    }
     return n
   }
-  return String(v)
+  // Text survives only in text columns. A numeric column with "pending"/"n/a"
+  // must become null (= unknown), never a string that reads as a known outcome.
+  return TEXT_KEYS.has(key) ? String(v) : null
 }
 
 /**
@@ -314,10 +349,15 @@ function coerceBacktestCell(key: string, v: unknown): string | number | boolean 
  */
 export async function parseBacktestWorkbook(data: ArrayBuffer): Promise<{ rows: BacktestRow[]; warnings: string[] }> {
   const XLSX = await loadXlsx()
-  const wb = XLSX.read(data, { type: 'array' })
+  // cellNF keeps each cell's number-format string (.z) so percent-formatted
+  // cells can be told apart from plain numbers — see the rule table above.
+  const wb = XLSX.read(data, { type: 'array', cellNF: true })
   const ws = wb.Sheets[wb.SheetNames[0]]
   if (!ws) throw new Error('The workbook has no sheets')
   const aoa: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null })
+  // aoa row/col 0 corresponds to the top-left of the sheet's used range, which
+  // need not be A1 — offset by the range start when mapping back to cells.
+  const range = XLSX.utils.decode_range(ws['!ref'] ?? 'A1')
   if (aoa.length < 2) throw new Error('No deal rows found (need a header row plus at least one deal)')
 
   // Find the header row containing machine keys (template row 2), else assume row 1 holds keys.
@@ -327,18 +367,36 @@ export async function parseBacktestWorkbook(data: ArrayBuffer): Promise<{ rows: 
   const headers = aoa[headerIdx].map(h => String(h ?? '').trim())
 
   const warnings: string[] = []
+  let subPercentSeen = false
   const rows: BacktestRow[] = []
-  for (const raw of aoa.slice(headerIdx + 1)) {
+  for (let rowIdx = headerIdx + 1; rowIdx < aoa.length; rowIdx++) {
+    const raw = aoa[rowIdx]
     if (raw.every(c => c === null || c === '')) continue
     const rec: Record<string, string | number | boolean | null> = {}
     headers.forEach((h, i) => {
-      if (knownKeys.has(h)) rec[h] = coerceBacktestCell(h, raw[i])
+      if (knownKeys.has(h)) {
+        // For percent columns, inspect the underlying cell's own format: a
+        // %-formatted cell already stores a fraction and must not be divided.
+        let pctFormatted = false
+        if (PCT_KEYS.has(h) && typeof raw[i] === 'number') {
+          const addr = XLSX.utils.encode_cell({ r: range.s.r + rowIdx, c: range.s.c + i })
+          pctFormatted = cellIsPercentFormatted(ws[addr] as { z?: unknown; w?: unknown } | undefined)
+        }
+        rec[h] = coerceBacktestCell(h, raw[i], pctFormatted)
+        // Unformatted percent cells are percent units per the header; a
+        // nonzero entry below 1 (now < 0.01 as a fraction) likely meant a
+        // fraction — warn. A %-formatted cell is unambiguous: no warning.
+        if (!pctFormatted && PCT_KEYS.has(h) && typeof rec[h] === 'number' && rec[h] !== 0 && Math.abs(rec[h] as number) < 0.01) {
+          subPercentSeen = true
+        }
+      }
     })
     if (!rec.deal_name) continue
-    const { realized_irr = null, realized_equity_multiple = null, outcome_notes = null, ...fields } = rec
+    const { realized_irr = null, verified_net_lp_return = null, realized_equity_multiple = null, outcome_notes = null, ...fields } = rec
     rows.push({
       fields,
       realized_irr: realized_irr as number | null,
+      verified_net_lp_return: verified_net_lp_return as number | null,
       realized_equity_multiple: realized_equity_multiple as number | null,
       outcome_notes: outcome_notes === null ? null : String(outcome_notes),
     })
@@ -347,6 +405,9 @@ export async function parseBacktestWorkbook(data: ArrayBuffer): Promise<{ rows: 
   if (rows.length > 100) {
     warnings.push(`Capped at 100 deals (${rows.length} provided)`)
     rows.length = 100
+  }
+  if (subPercentSeen) {
+    warnings.push('Plain numbers in percent columns are read in percent units (the header says %) — enter 5 for 5%, or format the cell as a percentage. Some unformatted values below 1 were read as under 1%; double-check them if you meant fractions.')
   }
   return { rows, warnings }
 }
@@ -367,12 +428,12 @@ export async function downloadBacktestTemplate() {
     construction_duration_months: 11, lease_up_months_assumed: 20, submarket_leaseup_months: 18,
     exit_dependent_single_refi: 'no', has_gmp_or_bonded_gc: 'yes', has_completion_guarantee: 'yes',
     guarantor_net_worth: 2000000, projected_irr: 16, projected_equity_multiple: 2.1,
-    realized_irr: 18.5, realized_equity_multiple: 2.3, outcome_notes: 'Sold year 6, above plan',
+    realized_irr: 18.5, verified_net_lp_return: 14.9, realized_equity_multiple: 2.3, outcome_notes: 'Sold year 6, above plan',
   }
   const example2: Record<string, unknown> = {
     ...example1, deal_name: 'EXAMPLE — Bayside Flats (delete me)', asset_class: 'multifamily',
     site_fully_entitled: 'no', hard_cost_contingency_pct: 3.5, sponsor_coinvest_pct: 2,
-    projected_irr: 21, realized_irr: 4.2, realized_equity_multiple: 1.1,
+    projected_irr: 21, realized_irr: 4.2, verified_net_lp_return: null, realized_equity_multiple: 1.1,
     outcome_notes: 'Rezoning delays + overruns — barely returned capital',
   }
   const ws = XLSX.utils.aoa_to_sheet([labels, keys, keys.map(k => example1[k] ?? ''), keys.map(k => example2[k] ?? '')])

@@ -48,6 +48,12 @@ export interface ExtractedField {
   value: string | number | boolean | null
   confidence: number
   source: { doc: 'om' | 'proforma' | null; page: number | null; quote: string | null }
+  /**
+   * Set client-side when the analyst's review value no longer matches `value` —
+   * the confidence/citation above describe the ORIGINAL extraction, not the
+   * correction. Never produced by the extractor itself.
+   */
+  edited?: boolean
 }
 
 export interface Discrepancy {
@@ -63,6 +69,22 @@ export interface ExtractionResult {
   discrepancies: Discrepancy[]
   model?: string
   recorded?: boolean
+  /**
+   * Audit-persistence outcome, set by the background worker on the served
+   * 'done' record: 'stored' = the extraction row (model, citations,
+   * discrepancies) landed in Supabase; 'failed' = that insert failed, so the
+   * extracted values are usable but UNAUDITED and a decision recorded now won't
+   * link to a stored extraction. Absent on db-null deploys (the field is
+   * omitted) and on the recorded sample. Never produced by the extractor.
+   */
+  provenance?: 'stored' | 'failed'
+  /**
+   * Client-generated extraction id (crypto.randomUUID()), attached client-side
+   * when the result is handed to the app so the decide call can link the
+   * persisted extractions row to a deal. Never produced by the extractor and
+   * absent on the recorded sample.
+   */
+  extractionId?: string
 }
 
 /**
@@ -171,13 +193,14 @@ export function coerceExtraction(raw: {
 
 export function buildInstruction(): string {
   const lines = EXTRACT_FIELDS.map(f => `- ${f.key} (${f.kind}): ${f.label}${f.hint ? ` — ${f.hint}` : ''}`)
-  return `You are a real-estate due-diligence analyst. Extract the fields below from the attached deal documents (an offering memorandum PDF and/or pro forma spreadsheet CSVs).
+  return `You are a real-estate due-diligence analyst. Extract the fields below from the attached deal documents (an offering memorandum — a PDF, or plain text extracted from a Word/text file — and/or pro forma spreadsheet CSVs).
 
 Rules:
 - Return EXACTLY ONE fields entry per key listed below — all of them, in order.
 - NEVER guess. If a field is not stated in the documents, set value to the EMPTY STRING and confidence to 0.
 - Every value is plain text: percentages as decimal strings (5% → "0.05"), dollar amounts as plain number strings ("10921964"), months as plain numbers, yes/no as "true"/"false".
-- For every non-empty field give confidence (0–1), the source document ('om' or 'proforma', 'none' when empty), the PDF page number (0 for spreadsheet or none), and a short verbatim quote (≤200 chars) supporting the value.
+- For every non-empty field give confidence (0–1), the source document ('om' or 'proforma', 'none' when empty), the PDF page number (0 for spreadsheet, extracted-text OM, or none), and a short verbatim quote (≤200 chars) supporting the value.
+- An OM supplied as extracted text has no page numbers: still cite doc 'om', set page to 0, and rely on the verbatim quote — exactly as for pro forma sheets.
 - CRITICAL: compare the OM against the pro forma. List EVERY disagreement on the same economic fact (NOI, unit/pad count, rents, occupancy timeline/stabilization, costs, capital structure, returns) in 'discrepancies' with severity: 'material' when it changes the economics, 'minor' otherwise. Internal contradictions within one document count too (name the doc on both sides).
 
 Fields:

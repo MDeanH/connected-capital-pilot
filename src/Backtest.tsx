@@ -10,7 +10,13 @@ import { ALL_FIELDS } from './deal-types'
 import type { DealFields, GateVerdict, Posture } from './deal-types'
 
 interface Props {
-  /** "Par" — the house IRR benchmark deals are judged against (config-driven). */
+  /**
+   * "Par" — the active config's IRR benchmark AT PAGE LOAD, used only in the
+   * pre-run copy. Grading always uses the benchmark of the rulebook version a
+   * run was actually scored under (resolved per run, see fetchParForVersion) —
+   * a config publish mid-session would otherwise grade NEW verdicts against
+   * this stale figure.
+   */
   parIrr: number
 }
 
@@ -21,13 +27,49 @@ interface RunRow extends BacktestRow {
   missing: number
 }
 
-type Call = 'right_block' | 'right_pass' | 'missed_winner' | 'let_through' | 'no_outcome'
+// A run is stamped with the posture AND the rulebook version it was computed
+// under, and it carries that version's OWN par benchmark: the results header
+// names all three, every call is graded against that stored par, and switching
+// to a different posture CLEARS the run — GREEN verdicts must never sit on
+// screen while RED is selected.
+interface RunState {
+  rows: RunRow[]
+  posture: Posture
+  /** Threshold-config version every row was scored under (0 = deploy-baked default). */
+  configVersion: number
+  /** That version's own '*','*' irr_benchmark — the par every call in THIS run is graded against. */
+  parIrr: number
+}
+
+interface CompareState {
+  counts: Record<Posture, number>
+  configVersion: number | null
+}
+
+// Every /preview and /preview-batch response is stamped with the configVersion
+// it was computed under, but each REQUEST loads the newest active config — so
+// a run or comparison that spans several requests must observe ONE version
+// throughout. A rulebook save landing mid-flight would otherwise silently
+// grade different rulebooks as a single result. The pin captures the first
+// version seen; any later response reporting a different one aborts.
+interface VersionPin { v: number | null }
+
+function pinConfigVersion(pin: VersionPin, got: unknown, scope: 'mid-run' | 'mid-comparison') {
+  if (typeof got !== 'number') return // response without a version stamp — nothing to verify against
+  if (pin.v === null) { pin.v = got; return }
+  if (pin.v !== got) {
+    throw new Error(`The rulebook changed ${scope} (v${pin.v} → v${got}) — partial results were discarded. Run it again.`)
+  }
+}
+
+type Call = 'right_block' | 'right_pass' | 'missed_winner' | 'let_through' | 'indeterminate' | 'no_outcome'
 
 const CALL_META: Record<Call, { label: string; cls: string }> = {
   right_block: { label: 'RIGHT CALL — blocked an underperformer', cls: 'bt-good' },
   right_pass: { label: 'RIGHT CALL — passed a performer', cls: 'bt-good' },
   missed_winner: { label: 'MISSED WINNER — gate blocked, deal performed', cls: 'bt-warn' },
   let_through: { label: 'LET THROUGH — passed, underperformed', cls: 'bt-bad' },
+  indeterminate: { label: 'REVIEW — incomplete inputs, no call to grade', cls: 'bt-muted' },
   no_outcome: { label: 'no outcome data', cls: 'bt-muted' },
 }
 
@@ -58,6 +100,7 @@ function mk(name: string, ac: string, over: Partial<DealFields>, rIrr: number, r
       ...over,
     } as Record<string, string | number | boolean | null>,
     realized_irr: rIrr,
+    verified_net_lp_return: null,
     realized_equity_multiple: rEm,
     outcome_notes: notes,
   }
@@ -69,10 +112,24 @@ function toDealFields(raw: BacktestRow['fields']): DealFields {
   return out as unknown as DealFields
 }
 
-function judgeCall(verdict: GateVerdict, realizedIrr: number | null, par: number): Call {
-  if (realizedIrr === null) return 'no_outcome'
-  const blocked = verdict === 'FAIL' || verdict === 'REVIEW'
-  const performed = realizedIrr >= par
+/**
+ * The outcome figure a deal is judged on: realized gross IRR is primary; the
+ * verified net-to-LP return stands in ONLY when gross is missing. `usedNetLp`
+ * lets the table flag that fallback — a net figure judged against the gross
+ * par benchmark must never be silent.
+ */
+function outcome(r: BacktestRow): { irr: number | null; usedNetLp: boolean } {
+  if (r.realized_irr !== null) return { irr: r.realized_irr, usedNetLp: false }
+  return { irr: r.verified_net_lp_return, usedNetLp: r.verified_net_lp_return !== null }
+}
+
+function judgeCall(verdict: GateVerdict, outcomeIrr: number | null, par: number): Call {
+  // REVIEW = required Gate 1 inputs missing — indeterminate, not a block, so it
+  // can never be graded right or wrong against the outcome.
+  if (verdict === 'REVIEW') return 'indeterminate'
+  if (outcomeIrr === null) return 'no_outcome'
+  const blocked = verdict === 'FAIL'
+  const performed = outcomeIrr >= par
   if (blocked && !performed) return 'right_block'
   if (!blocked && performed) return 'right_pass'
   if (blocked && performed) return 'missed_winner'
@@ -85,15 +142,17 @@ export default function Backtest({ parIrr }: Props) {
   const [rows, setRows] = useState<BacktestRow[]>([])
   const [source, setSource] = useState<string | null>(null)
   const [posture, setPosture] = useState<Posture>('green')
-  const [run, setRun] = useState<RunRow[] | null>(null)
-  const [postureCompare, setPostureCompare] = useState<Record<Posture, number> | null>(null)
+  const [run, setRun] = useState<RunState | null>(null)
+  const [postureCompare, setPostureCompare] = useState<CompareState | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
   const [warnings, setWarnings] = useState<string[]>([])
+  // Raw input text per row index, so a half-typed "14." isn't reformatted mid-keystroke.
+  const [netEdit, setNetEdit] = useState<Record<number, string>>({})
   const fileInput = useRef<HTMLInputElement>(null)
 
   const takeFile = async (file: File) => {
-    setErr(null); setRun(null); setPostureCompare(null)
+    setErr(null); setRun(null); setPostureCompare(null); setNetEdit({})
     setBusy('Parsing workbook in your browser…')
     try {
       const { rows: parsed, warnings: w } = await parseBacktestWorkbook(await file.arrayBuffer())
@@ -103,9 +162,23 @@ export default function Backtest({ parIrr }: Props) {
     } finally { setBusy(null) }
   }
 
-  const evaluate = async (deals: BacktestRow[], p: Posture): Promise<RunRow[]> => {
+  // The one editable results column. Typed as a percent (14.9 → 0.149). Edits
+  // belong to ROWS, not runs: rows and run share indices because evaluate()
+  // preserves order, so they survive a cleared run and ride into the next one.
+  const editNetLp = (i: number, text: string) => {
+    setNetEdit(prev => ({ ...prev, [i]: text }))
+    const n = parseFloat(text)
+    const frac = Number.isFinite(n) ? n / 100 : null
+    const put = <T extends BacktestRow>(xs: T[]): T[] => xs.map((r, j) => (j === i ? { ...r, verified_net_lp_return: frac } : r))
+    setRows(put)
+    setRun(rr => (rr ? { ...rr, rows: put(rr.rows) } : rr))
+  }
+
+  // Fallback for environments without /preview-batch — the vite dev bridge
+  // serves single-row /api/gate1/* only. Small parallel chunks, same preview
+  // endpoint the live intake uses.
+  const evaluateRowByRow = async (deals: BacktestRow[], p: Posture, pin: VersionPin, scope: 'mid-run' | 'mid-comparison'): Promise<RunRow[]> => {
     const out: RunRow[] = []
-    // Small parallel chunks — same preview endpoint the live intake uses.
     const CHUNK = 5
     for (let i = 0; i < deals.length; i += CHUNK) {
       const part = await Promise.all(deals.slice(i, i + CHUNK).map(async d => {
@@ -115,6 +188,7 @@ export default function Backtest({ parIrr }: Props) {
         })
         const data = await r.json()
         if (data.error) throw new Error(`${d.fields.deal_name}: ${data.error}`)
+        pinConfigVersion(pin, data.configVersion, scope)
         return { ...d, verdict: data.result.verdict, kills: data.result.kills, flagPoints: data.result.flagPoints, missing: data.result.missing.length } as RunRow
       }))
       out.push(...part)
@@ -122,13 +196,86 @@ export default function Backtest({ parIrr }: Props) {
     return out
   }
 
+  // One batch request per posture — the gate1 function rate-limits per IP, so
+  // a 60-deal book must never fan out into 60 preview calls. Each batch entry
+  // is shaped like a single /preview response (or a per-row { error }) and
+  // carries the configVersion the request resolved — pinned so multi-request
+  // work never mixes rulebook versions.
+  const evaluate = async (deals: BacktestRow[], p: Posture, pin: VersionPin, scope: 'mid-run' | 'mid-comparison'): Promise<RunRow[]> => {
+    const out: RunRow[] = []
+    const BATCH = 100 // server-side cap on /preview-batch rows
+    for (let i = 0; i < deals.length; i += BATCH) {
+      const part = deals.slice(i, i + BATCH)
+      const r = await fetch('/api/gate1/preview-batch', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rows: part.map(d => toDealFields(d.fields)), posture: p }),
+      })
+      const data = await r.json().catch(() => ({}))
+      if (!Array.isArray(data.results)) {
+        // 400/404/405 without per-row results = no batch endpoint here (the
+        // vite dev bridge) — this client never sends an empty or oversized
+        // batch, so a real one answers 200 or 5xx. Anything else is a real error.
+        if (r.status === 400 || r.status === 404 || r.status === 405) return evaluateRowByRow(deals, p, pin, scope)
+        throw new Error(data.error ?? `Batch preview failed (HTTP ${r.status})`)
+      }
+      // The whole batch was computed under one config — pin the version it reports.
+      const stamped = data.results.find((e: any) => e && typeof e.configVersion === 'number')
+      pinConfigVersion(pin, stamped?.configVersion, scope)
+      part.forEach((d, j) => {
+        const entry = data.results[j]
+        if (!entry || entry.error) throw new Error(`${d.fields.deal_name}: ${entry?.error ?? 'no result returned'}`)
+        out.push({ ...d, verdict: entry.result.verdict, kills: entry.result.kills, flagPoints: entry.result.flagPoints, missing: entry.result.missing.length } as RunRow)
+      })
+    }
+    return out
+  }
+
+  // Par for grading comes from the rulebook version the run was actually
+  // scored under — NOT the parIrr prop, which belongs to whatever config was
+  // active when the page loaded. A rulebook publish mid-session would
+  // otherwise score verdicts under the NEW version while the right-call /
+  // above-below-par grading judged them against the OLD benchmark, and the
+  // stamped version in the header would mislabel the stats. The config ledger
+  // is append-only, so the fetched row is exactly what that version ran with.
+  const fetchParForVersion = async (version: number): Promise<number> => {
+    const r = await fetch(`/api/config/${version}`)
+    const data = await r.json().catch(() => null)
+    if (!r.ok || !data?.config) {
+      throw new Error(data?.error ?? `could not load rulebook v${version} (HTTP ${r.status})`)
+    }
+    const thresholds: Array<{ asset_class: string; posture: string; key: string; value: number }> =
+      Array.isArray(data.config.thresholds) ? data.config.thresholds : []
+    const row = thresholds.find(t => t.key === 'irr_benchmark' && t.asset_class === '*' && t.posture === '*')
+    if (!row || typeof row.value !== 'number' || !Number.isFinite(row.value)) {
+      throw new Error(`rulebook v${version} has no '*','*' irr_benchmark row`)
+    }
+    return row.value
+  }
+
   const runBacktest = async () => {
     if (!rows.length) return
     setBusy(`Running ${rows.length} deals through Gate 1 (${posture} posture)…`)
     setErr(null)
     try {
-      setRun(await evaluate(rows, posture))
-      setPostureCompare(null)
+      const pin: VersionPin = { v: null }
+      const evaluated = await evaluate(rows, posture, pin, 'mid-run')
+      // Verdicts in hand — now resolve the benchmark they must be graded
+      // against: the scored version's own. If that cannot be established, the
+      // run is DISCARDED (any run already on screen too) — showing these
+      // verdicts graded against a possibly different version's par would
+      // mislabel every call and the above/below-par summary.
+      try {
+        if (pin.v === null) throw new Error('the engine did not stamp a rulebook version on the results')
+        const par = await fetchParForVersion(pin.v)
+        setRun({ rows: evaluated, posture, configVersion: pin.v, parIrr: par })
+        setPostureCompare(null)
+      } catch (e) {
+        setRun(null)
+        throw new Error(
+          `Backtest ran, but grading could not proceed (${String((e as Error).message ?? e)}) — ` +
+          'the results were discarded rather than graded against a mismatched benchmark. Run it again.',
+        )
+      }
     } catch (e) {
       setErr(String((e as Error).message ?? e))
     } finally { setBusy(null) }
@@ -137,29 +284,48 @@ export default function Backtest({ parIrr }: Props) {
   const comparePostures = async () => {
     if (!rows.length) return
     setBusy('Re-running the book under all three postures…')
+    setErr(null)
+    // Clear any previous comparison up front: an aborted comparison must leave
+    // NOTHING on screen — stale counts next to an abort error read as results.
+    setPostureCompare(null)
     try {
-      const [g, y, r] = await Promise.all(
-        (['green', 'yellow', 'red'] as Posture[]).map(p => evaluate(rows, p)),
-      )
       const passCount = (rs: RunRow[]) => rs.filter(x => x.verdict === 'PASS' || x.verdict === 'CONDITIONAL').length
-      setPostureCompare({ green: passCount(g), yellow: passCount(y), red: passCount(r) })
+      // Sequential on purpose: one batch request per posture keeps COMPARE at
+      // three calls total instead of three fan-outs racing the rate limit.
+      // All three postures share one pin — if the rulebook is saved between
+      // them, the comparison aborts instead of mixing versions, and the local
+      // `counts` (the partial results) are simply never rendered.
+      const counts = {} as Record<Posture, number>
+      const pin: VersionPin = { v: null }
+      for (const p of ['green', 'yellow', 'red'] as Posture[]) {
+        counts[p] = passCount(await evaluate(rows, p, pin, 'mid-comparison'))
+      }
+      setPostureCompare({ counts, configVersion: pin.v })
     } catch (e) {
       setErr(String((e as Error).message ?? e))
     } finally { setBusy(null) }
   }
 
-  const calls = (run ?? []).map(r => judgeCall(r.verdict, r.realized_irr, parIrr))
+  const runRows = run?.rows ?? []
+  // Grade against the run's OWN stored benchmark — never the page-load prop.
+  const calls = run ? runRows.map(r => judgeCall(r.verdict, outcome(r).irr, run.parIrr)) : []
   const rightCalls = calls.filter(c => c === 'right_block' || c === 'right_pass').length
-  const outcomes = calls.filter(c => c !== 'no_outcome').length
-  const passed = (run ?? []).filter(r => r.verdict === 'PASS' || r.verdict === 'CONDITIONAL')
-  const failed = (run ?? []).filter(r => r.verdict === 'FAIL' || r.verdict === 'REVIEW')
+  // "of Y" denominator: definite verdict AND known outcome — indeterminate
+  // (REVIEW) rows can't be graded, so they never count for or against the gate.
+  const outcomes = calls.filter(c => c !== 'no_outcome' && c !== 'indeterminate').length
+  const passed = runRows.filter(r => r.verdict === 'PASS' || r.verdict === 'CONDITIONAL')
+  const failed = runRows.filter(r => r.verdict === 'FAIL')
+  const reviews = runRows.filter(r => r.verdict === 'REVIEW').length
   const avg = (xs: Array<number | null>) => {
     const v = xs.filter((x): x is number => x !== null)
     return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null
   }
   const avgPassed = avg(passed.map(r => r.realized_irr))
   const avgFailed = avg(failed.map(r => r.realized_irr))
-  const avgAll = avg((run ?? []).map(r => r.realized_irr))
+  const avgAll = avg(runRows.filter(r => r.verdict !== 'REVIEW').map(r => r.realized_irr))
+  const anyNetLp = runRows.some(r => r.verified_net_lp_return !== null)
+  const avgNetPassed = avg(passed.map(r => r.verified_net_lp_return))
+  const avgNetFailed = avg(failed.map(r => r.verified_net_lp_return))
 
   return (
     <div className="bt-root">
@@ -170,14 +336,18 @@ export default function Backtest({ parIrr }: Props) {
         <p className="bt-lede">
           Load past deals with their realized outcomes and see how today's Gate 1 would have called
           each one — on par, above, or below. Par is the house <Term k="irr">IRR</Term> benchmark
-          ({pct(parIrr)}), and every deal runs through the exact engine live intake uses.
+          (currently {pct(parIrr)}; each run grades against the benchmark of the rulebook version it
+          was scored under), and every deal runs through the exact engine live intake uses.
+        </p>
+        <p className="bt-lede-note">
+          Draft thresholds don't apply here — back-tests always run the saved active rulebook.
         </p>
         <div className="bt-actions">
           <button className="secondary" onClick={() => downloadBacktestTemplate()}>DOWNLOAD TEMPLATE</button>
           <button className="secondary" onClick={() => fileInput.current?.click()}>UPLOAD PAST DEALS (XLSX)</button>
           <input ref={fileInput} type="file" accept=".xlsx,.xlsm,.xls" style={{ display: 'none' }}
             onChange={e => { const f = e.target.files?.[0]; if (f) takeFile(f); e.target.value = '' }} />
-          <button className="bt-sample-link" onClick={() => { setRows(SAMPLE_HISTORY); setSource('fictional sample history'); setRun(null); setPostureCompare(null); setWarnings([]) }}>
+          <button className="bt-sample-link" onClick={() => { setRows(SAMPLE_HISTORY); setSource('fictional sample history'); setRun(null); setPostureCompare(null); setWarnings([]); setNetEdit({}) }}>
             Load fictional sample history
           </button>
         </div>
@@ -188,7 +358,8 @@ export default function Backtest({ parIrr }: Props) {
             <span className="bt-posture">
               Posture:
               {(['green', 'yellow', 'red'] as Posture[]).map(p => (
-                <button key={p} className={`bt-chip${posture === p ? ' bt-chip-on' : ''}`} onClick={() => setPosture(p)}>{p.toUpperCase()}</button>
+                <button key={p} className={`bt-chip${posture === p ? ' bt-chip-on' : ''}`} disabled={!!busy}
+                  onClick={() => { setPosture(p); if (run && run.posture !== p) setRun(null) }}>{p.toUpperCase()}</button>
               ))}
             </span>
             <button onClick={runBacktest} disabled={!!busy}>RUN BACKTEST</button>
@@ -201,12 +372,19 @@ export default function Backtest({ parIrr }: Props) {
 
       {postureCompare && (
         <div className="card bt-compare">
-          <h3>Posture sensitivity <Term k="posture" /></h3>
+          <h3>
+            Posture sensitivity <Term k="posture" />
+            {postureCompare.configVersion !== null && (
+              <span className="bt-run-posture bt-rp-cfg" title="Every posture in this comparison was graded under this saved rulebook version">
+                rulebook v{postureCompare.configVersion}
+              </span>
+            )}
+          </h3>
           <p className="bt-muted">Deals that would clear the gate (PASS or CONDITIONAL) out of {rows.length}:</p>
           <div className="bt-compare-row">
             {(['green', 'yellow', 'red'] as Posture[]).map(p => (
               <div key={p} className={`bt-compare-cell bt-${p}`}>
-                <div className="bt-compare-n">{postureCompare[p]}</div>
+                <div className="bt-compare-n">{postureCompare.counts[p]}</div>
                 <div className="bt-compare-l">{p.toUpperCase()}</div>
               </div>
             ))}
@@ -217,14 +395,24 @@ export default function Backtest({ parIrr }: Props) {
       {run && (
         <>
           <div className="card bt-summary">
-            <h3>The verdict on your history</h3>
+            <h3>
+              The verdict on your history
+              <span className={`bt-run-posture bt-rp-${run.posture}`}>run under {run.posture.toUpperCase()} posture</span>
+              <span className="bt-run-posture bt-rp-cfg" title="Every row in this run was scored under this saved rulebook version, and every call is graded against that version's own par benchmark">
+                rulebook v{run.configVersion} · par {pct(run.parIrr)}
+              </span>
+            </h3>
             <div className="bt-stats">
-              <div><b>{run.length}</b> deals · gate passes <b>{passed.length}</b>, blocks <b>{failed.length}</b></div>
+              <div>
+                <b>{run.rows.length}</b> deals · gate passes <b>{passed.length}</b>, blocks <b>{failed.length}</b>
+                {reviews > 0 && <>, review (incomplete inputs) <b>{reviews}</b></>}
+              </div>
               <div>Avg realized IRR — passed: <b>{pct(avgPassed)}</b> vs blocked: <b>{pct(avgFailed)}</b></div>
-              <div>Right calls: <b>{rightCalls} of {outcomes}</b> deals with known outcomes</div>
+              {anyNetLp && <div>Avg verified net-to-LP — passed: <b>{pct(avgNetPassed)}</b> vs blocked: <b>{pct(avgNetFailed)}</b></div>}
+              <div>Right calls: <b>{rightCalls} of {outcomes}</b> deals with a definite verdict and known outcome</div>
               <div>
                 Your book overall: <b>{pct(avgAll)}</b> realized —{' '}
-                <b>{avgAll === null ? '—' : avgAll >= parIrr ? 'ABOVE PAR' : 'BELOW PAR'}</b> vs the {pct(parIrr)} benchmark
+                <b>{avgAll === null ? '—' : avgAll >= run.parIrr ? 'ABOVE PAR' : 'BELOW PAR'}</b> vs the {pct(run.parIrr)} benchmark
               </div>
             </div>
           </div>
@@ -233,12 +421,15 @@ export default function Backtest({ parIrr }: Props) {
               <thead>
                 <tr>
                   <th>Deal</th><th>Verdict</th><th>Kills</th><th>Flags</th>
-                  <th>Projected IRR</th><th>Realized IRR</th><th>Realized EM</th><th>The gate's call</th>
+                  <th>Projected IRR</th><th>Realized IRR</th>
+                  <th title="Net to the LP after fees/promote — fill only when verified; blank = unverified">Verified net LP</th>
+                  <th>Realized EM</th><th>The gate's call</th>
                 </tr>
               </thead>
               <tbody>
-                {run.map((r, i) => {
-                  const call = judgeCall(r.verdict, r.realized_irr, parIrr)
+                {run.rows.map((r, i) => {
+                  const { irr: outcomeIrr, usedNetLp } = outcome(r)
+                  const call = judgeCall(r.verdict, outcomeIrr, run.parIrr)
                   return (
                     <tr key={i}>
                       <td>
@@ -250,8 +441,18 @@ export default function Backtest({ parIrr }: Props) {
                       <td>{r.flagPoints || '—'}</td>
                       <td>{pct((r.fields.projected_irr as number) ?? null)}</td>
                       <td>{pct(r.realized_irr)}</td>
+                      <td className="bt-netlp-cell">
+                        <input type="number" step="0.1" className="bt-netlp-input" placeholder="—"
+                          aria-label={`Verified net-to-LP return (%) — ${String(r.fields.deal_name ?? `row ${i + 1}`)}`}
+                          value={netEdit[i] ?? (r.verified_net_lp_return === null ? '' : String(Number((r.verified_net_lp_return * 100).toFixed(2))))}
+                          onChange={e => editNetLp(i, e.target.value)} />
+                        <span className="bt-netlp-unit">%</span>
+                      </td>
                       <td>{r.realized_equity_multiple === null ? '—' : `${r.realized_equity_multiple.toFixed(2)}x`}</td>
-                      <td><span className={`bt-call ${CALL_META[call].cls}`}>{CALL_META[call].label}</span></td>
+                      <td>
+                        <span className={`bt-call ${CALL_META[call].cls}`}>{CALL_META[call].label}</span>
+                        {usedNetLp && <span className="bt-netlp-chip" title="No realized gross IRR — this call judges the verified net-to-LP figure against the gross par benchmark">net LP</span>}
+                      </td>
                     </tr>
                   )
                 })}
@@ -269,6 +470,7 @@ const CSS = `
 .bt-hero{padding:2.5rem}
 .bt-hero h2{font-family:'Roboto',system-ui,sans-serif;font-weight:300;font-size:1.9rem;margin:.5rem 0 .4rem;letter-spacing:-.01em}
 .bt-lede{color:var(--muted,#5c6b67);font-size:.9rem;max-width:640px;line-height:1.6;margin:0 0 1.5rem}
+.bt-lede-note{color:var(--muted,#5c6b67);font-size:.78rem;max-width:640px;line-height:1.5;margin:-1rem 0 1.5rem}
 .bt-actions{display:flex;gap:.9rem;flex-wrap:wrap;align-items:center}
 .bt-actions button{letter-spacing:.08em;font-size:12px}
 button.bt-sample-link{background:transparent;border:none;color:var(--muted,#5c6b67);text-transform:none;letter-spacing:0;font-size:.8rem;text-decoration:underline;padding:.2rem 0}
@@ -281,6 +483,12 @@ button.bt-chip.bt-chip-on{background:var(--accent-soft,#e4f5ee);border-color:var
 .bt-busy{margin-top:1rem;color:var(--accent,#3f7d69);font-size:.82rem}
 .bt-err{margin-top:1rem;background:#fbecef;color:#c2384a;border:1px solid #f0c8d0;border-radius:10px;padding:.8rem 1rem;font-size:.85rem}
 .bt-compare h3,.bt-summary h3{font-size:12px;letter-spacing:.08em;text-transform:uppercase;margin:0 0 .8rem;font-weight:600}
+.bt-compare h3,.bt-summary h3{display:flex;align-items:center;gap:.7rem;flex-wrap:wrap}
+.bt-run-posture{font-size:10px;letter-spacing:.08em;font-weight:700;padding:2px 9px;border-radius:999px;border:1.5px solid}
+.bt-rp-green{color:#3f7d69;border-color:#3f7d69;background:rgba(63,125,105,.08)}
+.bt-rp-yellow{color:#b8860b;border-color:#b8860b;background:rgba(184,134,11,.08)}
+.bt-rp-red{color:#c2384a;border-color:#c2384a;background:rgba(194,56,74,.08)}
+.bt-rp-cfg{color:var(--muted,#5c6b67);border-color:#9c9c9c;background:rgba(156,156,156,.1);text-transform:uppercase}
 .bt-muted{color:var(--muted,#5c6b67);font-size:.82rem}
 .bt-compare-row{display:flex;gap:1rem}
 .bt-compare-cell{flex:1;text-align:center;border-radius:10px;padding:1rem;border:1px solid var(--border,#dcebe7)}
@@ -302,6 +510,13 @@ button.bt-chip.bt-chip-on{background:var(--accent-soft,#e4f5ee);border-color:var
 .bt-v-conditional{color:#b8860b;border-color:#b8860b;background:rgba(184,134,11,.08)}
 .bt-v-fail{color:#c2384a;border-color:#c2384a;background:rgba(194,56,74,.08)}
 .bt-v-review{color:#5c6b67;border-color:#9c9c9c;background:rgba(156,156,156,.12)}
+.bt-netlp-cell{white-space:nowrap}
+input.bt-netlp-input{width:4.6rem;font-size:.83rem;padding:.25rem .4rem}
+/* keep the global 16px mobile input floor (stops iOS focus zoom) — this
+   selector outranks index.css's bare input rule inside the same media query */
+@media (max-width:700px){input.bt-netlp-input{font-size:16px}}
+.bt-netlp-unit{margin-left:.25rem;color:var(--muted,#5c6b67);font-size:.75rem}
+.bt-netlp-chip{display:inline-block;margin-left:.4rem;padding:1px 7px;font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;font-weight:700;color:#b8860b;border:1px solid #b8860b;background:rgba(184,134,11,.08);border-radius:999px;vertical-align:middle}
 .bt-call{font-size:.72rem;letter-spacing:.02em}
 .bt-call.bt-good{color:#3f7d69}
 .bt-call.bt-warn{color:#b8860b}

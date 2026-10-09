@@ -33,7 +33,7 @@ const GLOSSARY_BY_CHECK: Record<string, string> = {
 }
 
 /** Format a threshold/adjustment value in the check's own units. */
-function fmtVal(id: string, n: number): string {
+export function fmtVal(id: string, n: number): string {
   switch (id) {
     case 'dev_spread_min':
     case 'exit_cap_vs_market':
@@ -53,7 +53,7 @@ function fmtVal(id: string, n: number): string {
 }
 
 /** Format a signed-margin magnitude in the check's own units. */
-function fmtMargin(id: string, m: number): string {
+export function fmtMargin(id: string, m: number): string {
   const a = Math.abs(m)
   switch (id) {
     case 'dev_spread_min':
@@ -92,7 +92,7 @@ function Row({ c, meta, onAdjust }: {
       {meta?.tip && <div style={{ marginTop: 6 }}>{meta.tip}</div>}
       {t && (
         <div style={{ marginTop: 6, opacity: 0.85 }}>
-          {fmtVal(c.id, t.base)} base ({t.source.posture} posture)
+          {fmtVal(c.id, t.base)} base ({t.source.posture === '*' ? 'all postures' : `${t.source.posture} posture`})
           {t.adjustment && <> · judgment: {fmtVal(c.id, t.adjustment.value)} — “{t.adjustment.reason}”</>}
         </div>
       )}

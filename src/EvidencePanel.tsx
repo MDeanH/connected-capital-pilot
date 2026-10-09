@@ -73,16 +73,17 @@ const ENGINE_MAP: Array<{ component: string; family: string; verdict: string; us
     use: 'Direct citation for why appraisal/NAV smoothing must be removed before risk estimates mean anything. The pilot uses transaction-based indices, which sidesteps NAV smoothing.',
   },
   {
+    // Two families, two verdicts — rendered as one badge each (split on ' · ').
     component: 'Yield edge (±0.30%/yr, within-state percentile)',
     family: 'eq-value · rates-carry-roll (analogues)',
-    verdict: 'Promising',
+    verdict: 'Supported pre-live · Promising',
     use: "The app's one return predictor is an income/value-type signal — the family type with the strongest support in the map. Cap and transparency match the map's cost/decay warnings.",
   },
   {
     component: 'No national-market timing',
     family: 'eq-aggregate-valuation-macro',
     verdict: 'Not established',
-    use: "The engine's refusal to time the aggregate market is itself evidence-aligned.",
+    use: "The engine does not time the national market. Its only market-conditional input is the local housing-market prior below — capped, gated, and disclosed.",
   },
   {
     component: 'Document AI (extraction & synthesis, not stock-picking)',
@@ -92,15 +93,15 @@ const ENGINE_MAP: Array<{ component: string; family: string; verdict: string; us
   },
   {
     component: 'Crime-as-context, permits headwind',
-    family: 'protocol (association vs forecast)',
+    family: 'method-eval-integrity',
     verdict: 'Methodology — not rated',
-    use: "The map's IS/POOS vocabulary gives the app's context-not-predictor discipline a citable standard.",
+    use: "The map's evaluation-integrity family — its in-sample-association vs out-of-sample-forecast distinction — gives the app's context-not-predictor discipline a citable standard.",
   },
   {
-    component: 'Conditional market prior (research, not yet live)',
+    component: 'Conditional market prior (live; capped ±2%/yr, gated)',
     family: 'method-tsfm',
     verdict: 'Not established',
-    use: 'Zero-shot TSFMs are rejected as return forecasters on public markets — but passed our pre-registered housing-index acceptance test (see research note below).',
+    use: 'Zero-shot TSFMs are rejected as return forecasters on public markets — this prior passed our pre-registered housing-index acceptance test, so it may tilt year-1 drift by at most ±2%/yr, amortized over the hold, and only while its backtest gate and freshness check pass (see research note below).',
   },
 ]
 
@@ -125,8 +126,7 @@ const CSS = `
 .ev-detail dt { font-weight: 700; font-size: 0.68rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); margin-top: 0.5rem; }
 .ev-detail dd { margin: 0.15rem 0 0; }
 .ev-map td:first-child { font-weight: 600; width: 26%; }
-.ev-links { display: flex; gap: 0.75rem; flex-wrap: wrap; }
-.ev-links a { font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; font-weight: 500; color: var(--accent); text-decoration: none; border: 1px solid var(--border); border-radius: 6px; padding: 6px 12px; }
+.ev-verdicts { display: flex; flex-wrap: wrap; gap: 4px; }
 `
 
 export default function EvidencePanel() {
@@ -158,22 +158,25 @@ export default function EvidencePanel() {
       <div className="card ev-head">
         <h2>Evidence — why believe these probabilities?</h2>
         <div className="ev-muted">
-          A cutoff-dated public-web evidence map of financial-market predictability: every claim family
-          graded against a fixed rubric (in-sample vs pseudo-out-of-sample vs live, costs, replication).
-          The engine&rsquo;s design choices line up with what this evidence supports — and it deliberately
-          avoids the claim types the evidence rates as not established or ineffective. The map&rsquo;s own
-          headline is the honest one: <b>zero</b> families reach &ldquo;established effective&rdquo; without
-          live execution — which is exactly why this product reports probabilities with uncertainty, not
-          promised alpha.
+          Before asking anyone to trust an AI probability engine, we first graded the question
+          &ldquo;is this kind of prediction even possible?&rdquo; We collected a ledger of published
+          studies and graded {FAMILIES.length} claim families against it — {FAMILIES.length - 1} kinds of
+          prediction claims judged by the same rules (did it work only in hindsight, does it survive
+          real-world costs, has anyone reproduced it?), plus one methodology protocol. The engine leans on
+          the claim types with the strongest support — volatility forecasting (the best-supported result)
+          and a modestly supported income/value signal — plus one market-path prior that is disclosed as
+          research-grade: capped at ±2%/yr and applied only while it keeps passing its own pre-registered
+          backtest. It deliberately avoids what the evidence doesn&rsquo;t support: timing the overall
+          market has never been established, and AI stock-picking failed the tests it got. <b>Zero</b> of
+          the {FAMILIES.length} families earns the top grade (&ldquo;established effective&rdquo;) without
+          a live track record, which is why this app reports probabilities with uncertainty instead of
+          promised returns.
         </div>
         <div className="ev-stats">
           <div className="ev-stat"><b>{FAMILIES.length}</b><span>claim families</span></div>
           <div className="ev-stat"><b>{studyCount}</b><span>studies cited (198-study ledger)</span></div>
           <div className="ev-stat"><b>{FAMILIES.filter(f => f.verdict === 'Supported pre-live').length}</b><span>supported pre-live</span></div>
           <div className="ev-stat"><b>2026-07-14</b><span>evidence cutoff (v1.1)</span></div>
-        </div>
-        <div className="ev-links" style={{ marginTop: '0.75rem' }}>
-          <a href="/evidence-network.html" target="_blank" rel="noreferrer">Open interactive evidence map ↗</a>
         </div>
       </div>
 
@@ -188,7 +191,11 @@ export default function EvidencePanel() {
               <tr key={m.component}>
                 <td>{m.component}</td>
                 <td><code style={{ fontSize: '0.78rem' }}>{m.family}</code></td>
-                <td><VerdictBadge verdict={m.verdict} /></td>
+                <td>
+                  <div className="ev-verdicts">
+                    {m.verdict.split(' · ').map(v => <VerdictBadge key={v} verdict={v} />)}
+                  </div>
+                </td>
                 <td>{m.use}</td>
               </tr>
             ))}

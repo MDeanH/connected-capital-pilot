@@ -8,7 +8,7 @@ writes all four artifacts derived from that data:
 
   reference/market-predictability-evidence/evidence-network.html  (the source viz)
   public/evidence-network.html                          (the viz served by the app)
-  sites/evidence-map/index.html                    (the standalone Netlify site)
+  sites/evidence-map/public/index.html             (the standalone Netlify site)
   src/data/evidence-families.json                                 (the EVIDENCE tab)
 
 Writing all four here is the point: the served copy used to be a manual
@@ -40,7 +40,7 @@ FAMILIES_JSON = HERE / "financial-market-predictability-families.json"
 EVIDENCE_CSV = HERE / "financial-market-predictability-evidence.csv"
 HTML_FILE = HERE / "evidence-network.html"
 PUBLIC_HTML = ROOT / "public" / "evidence-network.html"
-STANDALONE_HTML = ROOT / "sites" / "evidence-map" / "index.html"
+STANDALONE_HTML = ROOT / "sites" / "evidence-map" / "public" / "index.html"
 APP_FAMILIES = ROOT / "src" / "data" / "evidence-families.json"
 
 START_MARK = "/*==GRAPH-DATA-START==*/"

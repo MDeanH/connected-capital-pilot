@@ -20,7 +20,7 @@ const FAMILIES = `${EV}financial-market-predictability-families.json`;
 const CSV = `${EV}financial-market-predictability-evidence.csv`;
 const REF_HTML = `${EV}evidence-network.html`;
 const PUBLIC_HTML = 'public/evidence-network.html';
-const STANDALONE_HTML = 'sites/evidence-map/index.html';
+const STANDALONE_HTML = 'sites/evidence-map/public/index.html';
 const APP_FAMILIES = 'src/data/evidence-families.json';
 
 const START = '/*==GRAPH-DATA-START==*/';

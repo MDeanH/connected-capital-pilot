@@ -1,0 +1,5 @@
+# The evidence map is research material synced from a private upstream repo.
+# It is published for direct sharing, not for discovery — keep it out of
+# search indexes.
+User-agent: *
+Disallow: /

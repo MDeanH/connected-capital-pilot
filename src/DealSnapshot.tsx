@@ -13,6 +13,18 @@ function prettyClass(c: string): string {
   return c === 'rv_specialty' ? 'RV / specialty' : c.replace(/_/g, ' ')
 }
 
+// postureSource is machine provenance ('request' | 'macro_snapshot' | 'default'),
+// not a date — never feed it to PostureChip's asOf ("as of …") slot. Say where
+// the posture came from in words instead.
+function postureSourceLabel(s: string): string {
+  switch (s) {
+    case 'macro_snapshot': return 'from the weekly macro snapshot'
+    case 'request': return 'analyst-selected'
+    case 'default': return 'default posture'
+    default: return s
+  }
+}
+
 export default function DealSnapshot({ fields, response }: Props) {
   const adjusted = !!response && response.adjustments.length > 0
   const showBaseline =
@@ -44,7 +56,7 @@ export default function DealSnapshot({ fields, response }: Props) {
           </div>
           <div className="snap-right">
             <div className="snap-klabel"><Term k="posture">Macro posture</Term></div>
-            <PostureChip posture={response.posture} asOf={response.postureSource} />
+            <PostureChip posture={response.posture} source={postureSourceLabel(response.postureSource)} />
             <div className="snap-muted">config v{response.configVersion}</div>
             <div className="snap-chips">
               {response.result.kills.length} kills · {response.result.flagPoints} flag pts · {response.result.missing.length} missing

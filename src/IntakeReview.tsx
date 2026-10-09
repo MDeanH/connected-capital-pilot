@@ -1,9 +1,13 @@
 // Step 2 — verification of what the AI extracted from the deal documents.
 // Every field is editable (the analyst corrects the machine), carries a
-// confidence tag, and cites the document/page/quote it came from.
+// confidence tag, and cites the document/page/quote it came from. A corrected
+// field drops the model's provenance: "analyst-edited" replaces the confidence
+// chip and the citation is suppressed (it supports the original value only).
 // Pure controlled form: state lives in DealIntake, raw values in, raw values out.
+import type { ReactNode } from 'react'
 import { Term } from './GlossaryTip'
 import { ConfidenceTag, SourceCite } from './cc-ui'
+import { fmtByKind } from './format'
 import { FIELD_GROUPS } from './deal-types'
 import type { DealFields, FieldDef, IntakeFormValues } from './deal-types'
 import type { ExtractedField } from '../netlify/functions/lib/gate1/fields'
@@ -14,6 +18,19 @@ interface Props {
   missingKeys: string[]
   /** Per-field extraction metadata (confidence + source citation), when an extraction ran. */
   meta?: Record<string, ExtractedField>
+  /**
+   * Independent market cross-check annotations (marketCrossChecks.tsx), keyed
+   * by field — rendered under the matching field's input. Context beside the
+   * sponsor's claim, never a verdict; absent while market data loads or fails.
+   */
+  crossChecks?: Partial<Record<keyof DealFields, ReactNode>>
+  /**
+   * Audit-persistence outcome of a LIVE extraction. 'failed' means the server
+   * could not save this extraction's audit row (model, citations,
+   * discrepancies) — the values below stay usable, but they are unaudited.
+   * Undefined on db-null deploys and the recorded sample (no warning shown).
+   */
+  provenance?: 'stored' | 'failed'
 }
 
 function confidenceLevel(ex: ExtractedField | undefined): 'high' | 'med' | 'low' | null {
@@ -32,19 +49,34 @@ function displayValue(f: FieldDef, v: string | number | boolean | null | undefin
   return v
 }
 
+/**
+ * Formatted echo of the current form value ("$2,000,000") for kinds a native
+ * number input can't punctuate. Null (unparseable/empty/other kinds) = no echo.
+ */
+function echoValue(f: FieldDef, v: string | number | boolean | null | undefined): string | null {
+  if (f.kind !== 'usd' && f.kind !== 'number' && f.kind !== 'months') return null
+  const raw = typeof v === 'string' ? v.trim() : v === null || v === undefined ? '' : String(v)
+  if (raw === '') return null
+  const pretty = fmtByKind(f.kind, typeof v === 'string' ? Number(v) : v)
+  // No echo when formatting adds nothing over the input's own digits ("3" → "3").
+  return pretty === null || pretty === raw ? null : pretty
+}
+
 function prettyOption(o: string): string {
   return o === 'rv_specialty' ? 'RV / specialty' : o.replace(/_/g, ' ')
 }
 
-function FieldInput({ f, value, onChange }: {
+function FieldInput({ f, value, onChange, describedBy }: {
   f: FieldDef
   value: string
   onChange: (key: keyof DealFields, rawValue: string) => void
+  /** id of this field's cross-check note, so assistive tech reads it with the input. */
+  describedBy?: string
 }) {
   const id = `ir-${f.key}`
   if (f.kind === 'bool') {
     return (
-      <select id={id} value={value} onChange={e => onChange(f.key, e.target.value)}>
+      <select id={id} aria-describedby={describedBy} value={value} onChange={e => onChange(f.key, e.target.value)}>
         <option value="">—</option>
         <option value="yes">Yes</option>
         <option value="no">No</option>
@@ -53,18 +85,19 @@ function FieldInput({ f, value, onChange }: {
   }
   if (f.options) {
     return (
-      <select id={id} value={value} onChange={e => onChange(f.key, e.target.value)}>
+      <select id={id} aria-describedby={describedBy} value={value} onChange={e => onChange(f.key, e.target.value)}>
         <option value="">Select…</option>
         {f.options.map(o => <option key={o} value={o}>{prettyOption(o)}</option>)}
       </select>
     )
   }
   if (f.kind === 'text') {
-    return <input id={id} type="text" value={value} onChange={e => onChange(f.key, e.target.value)} />
+    return <input id={id} aria-describedby={describedBy} type="text" value={value} onChange={e => onChange(f.key, e.target.value)} />
   }
   return (
     <input
       id={id}
+      aria-describedby={describedBy}
       type="number"
       inputMode="decimal"
       step="any"
@@ -74,12 +107,17 @@ function FieldInput({ f, value, onChange }: {
   )
 }
 
-export default function IntakeReview({ fields, onChange, missingKeys, meta }: Props) {
+export default function IntakeReview({ fields, onChange, missingKeys, meta, provenance, crossChecks }: Props) {
   const missing = new Set(missingKeys)
-  const missingLabels = FIELD_GROUPS
-    .flatMap(g => g.fields)
-    .filter(f => missing.has(f.key))
-    .map(f => f.label)
+  const allDefs = FIELD_GROUPS.flatMap(g => g.fields)
+  const missingLabels = allDefs.filter(f => missing.has(f.key)).map(f => f.label)
+
+  // Deal-level extraction quality, computed from the same per-field metadata
+  // the chips show — real counts, never an invented score. Live: corrections
+  // move a field from the confidence tally into analyst-corrected.
+  const answered = meta ? allDefs.filter(f => meta[f.key] && meta[f.key].value !== null) : []
+  const highCount = answered.filter(f => !meta![f.key].edited && meta![f.key].confidence >= 0.8).length
+  const editedCount = meta ? allDefs.filter(f => meta[f.key]?.edited).length : 0
 
   return (
     <div className="ir-root">
@@ -90,7 +128,24 @@ export default function IntakeReview({ fields, onChange, missingKeys, meta }: Pr
           Confirm or correct each value — the citations show where it came from. Fields the
           documents don't answer are flagged for you. Nothing is scored until you confirm.
         </p>
+        {meta && (
+          <p className="ir-summary">
+            The AI answered <b>{answered.length} of {allDefs.length}</b> fields
+            ({highCount} high confidence)
+            {editedCount > 0 && <> · <b>{editedCount}</b> analyst-corrected</>}
+            {missingLabels.length > 0 && <> · <b>{missingLabels.length}</b> unanswered by the documents</>}
+          </p>
+        )}
       </div>
+      {provenance === 'failed' && (
+        <div role="alert" className="card ir-provwarn">
+          <b>Audit record not saved.</b> This extraction ran and the values below are
+          usable for scoring, but its audit row — the model, citations, and cross-document
+          discrepancies — could <b>not</b> be stored. The extracted values are therefore
+          <b> unaudited</b>, and a decision you record now won't link back to a saved
+          extraction. Re-run the extraction if you need a persisted audit trail.
+        </div>
+      )}
       {missingLabels.length > 0 && (
         <div role="status" className="card ir-attention">
           <b>The documents didn't answer ({missingLabels.length}):</b> {missingLabels.join(', ')}
@@ -103,14 +158,17 @@ export default function IntakeReview({ fields, onChange, missingKeys, meta }: Pr
             {g.fields.map(f => {
               const isMissing = missing.has(f.key)
               const ex = meta?.[f.key]
+              const edited = !!ex?.edited
               const level = confidenceLevel(ex)
+              const echo = echoValue(f, fields[f.key])
               return (
                 <div className={`ir-row${isMissing ? ' ir-missing' : ''}`} key={f.key}>
                   <label htmlFor={`ir-${f.key}`} className="ir-label">
                     {f.glossaryKey ? <Term k={f.glossaryKey}>{f.label}</Term> : f.label}
                     {isMissing && <span className="ir-tag"><ConfidenceTag level="missing" /></span>}
-                    {!isMissing && level && <span className="ir-tag"><ConfidenceTag level={level} /></span>}
-                    {ex?.source?.doc && (
+                    {!isMissing && edited && <span className="ir-tag"><span className="ir-edited">analyst-edited</span></span>}
+                    {!isMissing && !edited && level && <span className="ir-tag"><ConfidenceTag level={level} /></span>}
+                    {!edited && ex?.source?.doc && (
                       <span className="ir-cite">
                         <SourceCite
                           doc={ex.source.doc === 'om' ? 'OM' : 'Pro forma'}
@@ -121,9 +179,18 @@ export default function IntakeReview({ fields, onChange, missingKeys, meta }: Pr
                     )}
                   </label>
                   <div className="ir-input">
-                    <FieldInput f={f} value={displayValue(f, fields[f.key])} onChange={onChange} />
+                    <FieldInput
+                      f={f}
+                      value={displayValue(f, fields[f.key])}
+                      onChange={onChange}
+                      describedBy={crossChecks?.[f.key] ? `ir-${f.key}-xcheck` : undefined}
+                    />
                     {f.kind === 'pct' && <span className="ir-suffix">%</span>}
+                    {echo !== null && <span className="ir-suffix">{echo}</span>}
                   </div>
+                  {crossChecks?.[f.key] && (
+                    <div className="ir-xcheck" id={`ir-${f.key}-xcheck`} role="note">{crossChecks[f.key]}</div>
+                  )}
                 </div>
               )
             })}
@@ -139,18 +206,23 @@ const CSS = `
 .ir-head{margin-bottom:1.25rem}
 .ir-head h2{font-family:'Roboto',system-ui,sans-serif;font-weight:300;font-size:1.7rem;margin:0 0 .3rem;letter-spacing:-.01em}
 .ir-sub{color:#5c6b67;font-size:.88rem;line-height:1.6;max-width:640px;margin:0}
+.ir-summary{color:#3f7d69;font-size:.82rem;margin:.6rem 0 0;font-variant-numeric:tabular-nums}
+.ir-xcheck{flex:1 1 100%;margin-top:.1rem;padding:.4rem .6rem .4rem .75rem;border-left:2px solid #3f7d69;background:#f4faf8;color:#43524e;font-size:.72rem;line-height:1.5;border-radius:0 8px 8px 0}
+.ir-summary b{font-weight:600}
 .ir-cite{margin-left:.5rem;display:inline-block;vertical-align:middle}
 .ir-attention{background:#fbf3df;border-color:#f0e0b0;color:#5b4a16;font-size:.85rem;padding:1rem 1.25rem;margin-bottom:1.25rem;line-height:1.6}
+.ir-provwarn{background:#fbe9e7;border-color:#e0a8a1;border-left:4px solid #c2384a;color:#7a2320;font-size:.85rem;padding:1rem 1.25rem;margin-bottom:1.25rem;line-height:1.6}
 .ir-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1.5rem;align-items:start}
 .ir-group{padding:1.5rem}
 .ir-group h3{font-size:12px;letter-spacing:.08em;text-transform:uppercase;margin:0 0 .75rem;font-weight:600}
-.ir-row{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:.5rem .5rem;border-radius:8px}
+.ir-row{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:1rem;padding:.5rem .5rem;border-radius:8px}
 .ir-row + .ir-row{margin-top:2px}
 .ir-row.ir-missing{background:rgba(194,56,74,.07)}
 .ir-label{flex:1 1 55%;font-size:.85rem;font-weight:500;min-width:0}
 .ir-tag{margin-left:.5rem;display:inline-block;vertical-align:middle}
+.ir-edited{display:inline-block;font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;padding:1px 7px;border-radius:4px;border:1px solid currentColor;line-height:1.6;color:var(--muted,#5c6b67)}
 .ir-input{flex:1 1 45%;display:flex;align-items:center;gap:.4rem;min-width:0}
 .ir-input input,.ir-input select{width:100%;min-width:0;font-size:.85rem;padding:.4rem .55rem}
-.ir-suffix{font-size:.8rem;color:#5c6b67;flex:0 0 auto}
+.ir-suffix{font-size:.8rem;color:#5c6b67;flex:0 0 auto;white-space:nowrap;font-variant-numeric:tabular-nums}
 @media(max-width:900px){.ir-grid{grid-template-columns:1fr}}
 `

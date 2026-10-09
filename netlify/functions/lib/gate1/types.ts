@@ -151,6 +151,23 @@ export interface GateResult {
   }
 }
 
+/** One posture's outcome in the side-by-side scenario view (computeGate1.scenarios). */
+export interface PostureScenario {
+  posture: Posture
+  verdict: GateVerdict
+  kills: string[]
+  flagPoints: number
+  checks: Array<{
+    id: string
+    status: CheckStatus
+    /** Signed margin in the check's own units (+ = safe side), as in CheckResult. */
+    margin: number | null
+    fragile?: boolean
+    /** Effective threshold under this posture (null for thresholdless checks). */
+    threshold: number | null
+  }>
+}
+
 export interface MacroSignalReading {
   id: string
   label: string
@@ -166,6 +183,8 @@ export interface MacroSignalReading {
 export interface MacroQuadrant {
   inflationYoy: number | null
   growthYoy: number | null
+  /** The quadrantBands the engine classified with (absent on old rows → display defaults). */
+  bands?: { inflationHotYoy: number; growthRecessionYoy: number }
   label:
     | 'inflationary_expansion'
     | 'disinflationary_expansion'
@@ -176,7 +195,13 @@ export interface MacroQuadrant {
 
 /** Prevailing-market context for the comparison panel (S&P + financing rates). */
 export interface MarketContext {
+  /**
+   * OLDEST observation date among the series present ('' when none). Invariant:
+   * no displayed value is older than asof — freshness is never overstated.
+   */
   asof: string
+  /** Per-series observation dates (absent on rows persisted before this field). */
+  asofBySeries?: { sofr?: string; mortgage30y?: string; treasury10y?: string; sp500?: string }
   sofr: number | null
   mortgage30y: number | null
   treasury10y: number | null
@@ -190,6 +215,8 @@ export interface MacroSnapshot {
   signals: MacroSignalReading[]
   regime: Regime
   pending_regime?: Regime | null
+  /** Consecutive snapshots pending_regime has won (absent on old rows → 1). */
+  pending_wins?: number | null
   degraded: boolean
   postures: Record<string, Posture>
   quadrant?: MacroQuadrant

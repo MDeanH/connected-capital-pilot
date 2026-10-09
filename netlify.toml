@@ -53,3 +53,45 @@
   for = "/assets/*"
   [headers.values]
     Cache-Control = "public, max-age=31536000, immutable"
+
+# Security headers for every served response. The sibling
+# sites/evidence-map/netlify.toml locks down a zero-dependency static page; this
+# site is broader on purpose — the React SPA loads Google Fonts, injects inline
+# styles at runtime, spawns a blob-URL web worker (client-side xlsx/document
+# parsing in DealIntake), and calls the Supabase REST/auth host from the browser.
+#
+# Non-CSP headers live ONLY here (single value each — Netlify concatenates
+# same-name rules per RFC 7230, and a doubled X-Frame-Options / HSTS value is
+# treated as malformed by some browsers). They still apply to /app because /app
+# also matches /*.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Strict-Transport-Security = "max-age=31536000; includeSubDomains"
+    # script-src keeps 'unsafe-inline' here so the exempt public pages
+    # (how-it-works.html served at /, and evidence-network.html) can run their
+    # own inline <script> blocks. The built React app carries NO inline script
+    # (all JS is hashed under /assets), so the /app rules below layer a stricter
+    # script-src 'self'; because Netlify concatenates matching CSP rules the
+    # browser enforces the intersection, dropping 'unsafe-inline' for the app.
+    # worker-src blob: is required — DealIntake instantiates a Worker from a
+    # blob URL. connect-src allows https://*.supabase.co — the wildcard is
+    # scoped to Supabase's own apex (every project is <ref>.supabase.co, never
+    # arbitrary hosts) so a deployment that overrides VITE_SUPABASE_URL to its
+    # own Supabase project still reaches Auth without editing this CSP.
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://*.supabase.co; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'"
+
+# SPA routes carry no inline script — tighten script-src to 'self' here. This
+# rule sets ONLY the CSP; /app still inherits the headers above via the /* match.
+[[headers]]
+  for = "/app"
+  [headers.values]
+    Content-Security-Policy = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://*.supabase.co; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'"
+
+[[headers]]
+  for = "/app/*"
+  [headers.values]
+    Content-Security-Policy = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://*.supabase.co; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'"

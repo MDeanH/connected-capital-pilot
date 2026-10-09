@@ -8,13 +8,18 @@ import type { MacroSnapshot, MacroSignalReading, MacroQuadrant, Regime, Posture 
 import { PostureChip, Kicker } from './cc-ui'
 import { Term } from './GlossaryTip'
 import { Info } from './Info'
+import { type AdminFlag } from './auth'
 
 interface Props {
   snapshot: MacroSnapshot | null
   loading: boolean
   error: string | null
-  onOverride: (o: { regime?: Regime; note: string }) => Promise<void>
+  // signalValues entries: number = set this week's reading; null = explicitly
+  // clear the recorded reading (the server honors null as a clear); an absent
+  // id means "carry the recorded reading forward" server-side.
+  onOverride: (o: { regime?: Regime; signalValues?: Record<string, number | null>; note: string }) => Promise<void>
   onRefresh: () => void
+  isAdmin: AdminFlag
 }
 
 const REGIME_PRETTY: Record<Regime, string> = {
@@ -53,12 +58,17 @@ function fmtSignalValue(s: MacroSignalReading): string {
   return s.value.toLocaleString('en-US', { maximumFractionDigits: 2 })
 }
 
-/** Rate/return display: FRED-style levels (4.31) print as-is with %, decimal
- *  shares (0.12) are scaled. */
-function fmtRatePct(v: number | null | undefined): string {
+/** Rate LEVEL display: FRED series (SOFR/DGS10/MORTGAGE30US) are already in
+ *  percentage points, so 4.31 → "4.31%" and 0.50 → "0.50%" — never rescaled. */
+function fmtRateLevelPct(v: number | null | undefined): string {
   if (v == null || !Number.isFinite(v)) return '—'
-  const pct = Math.abs(v) < 1 ? v * 100 : v
-  return `${pct.toFixed(2)}%`
+  return `${v.toFixed(2)}%`
+}
+
+/** Return FRACTION display: S&P returns are decimal shares, so 0.12 → "12.00%". */
+function fmtReturnPct(v: number | null | undefined): string {
+  if (v == null || !Number.isFinite(v)) return '—'
+  return `${(v * 100).toFixed(2)}%`
 }
 
 function fmtSignedPct1(v: number): string {
@@ -112,14 +122,19 @@ function Sparkline({ signal }: { signal: MacroSignalReading }) {
 // Four-quadrant chart (THE feature)
 // ---------------------------------------------------------------------------
 
-// Display crosshair boundaries. These DEFAULTS mirror the engine's
-// default-config macro.quadrantBands (growthRecessionYoy = 0.0 → 0% growth,
-// inflationHotYoy = 0.025 → 2.5% inflation) — keep in sync with
-// netlify/functions/lib/gate1/default-config.json. The quadrant CLASSIFICATION
-// shown (snapshot.quadrant.label) always comes from the server config; these
-// lines are display geometry only.
-const GROWTH_BOUNDARY_PCT = 0.0
-const INFLATION_BOUNDARY_PCT = 2.5
+// Crosshair boundary DEFAULTS, used only for old snapshots that predate
+// quadrant.bands. They mirror the engine's default-config macro.quadrantBands
+// (growthRecessionYoy = 0.0 → 0% growth, inflationHotYoy = 0.025 → 2.5%
+// inflation) — keep in sync with netlify/functions/lib/gate1/default-config.json.
+// When the snapshot carries bands, the crosshairs draw from the bands the
+// server actually classified with.
+const DEFAULT_GROWTH_BOUNDARY_PCT = 0.0
+const DEFAULT_INFLATION_BOUNDARY_PCT = 2.5
+
+/** Boundary label: whole percents without a decimal, else one decimal. */
+function fmtBoundaryPct(v: number): string {
+  return Number.isInteger(v) ? v.toFixed(0) : v.toFixed(1)
+}
 
 function QuadrantChart({ quadrant }: { quadrant: MacroQuadrant | undefined }) {
   // Fixed display window (percent units): growth −4…+6, inflation −1…+8.
@@ -128,8 +143,11 @@ function QuadrantChart({ quadrant }: { quadrant: MacroQuadrant | undefined }) {
   const PL = 54, PR = 448, PT = 14, PB = 250
   const gx = (p: number) => PL + ((p - X0) / (X1 - X0)) * (PR - PL)
   const gy = (p: number) => PB - ((p - Y0) / (Y1 - Y0)) * (PB - PT)
-  const cx = gx(GROWTH_BOUNDARY_PCT)
-  const cy = gy(INFLATION_BOUNDARY_PCT)
+  // Engine bands are fractions (0.025 = 2.5%); this chart works in percent units.
+  const growthBoundaryPct = quadrant?.bands ? quadrant.bands.growthRecessionYoy * 100 : DEFAULT_GROWTH_BOUNDARY_PCT
+  const inflationBoundaryPct = quadrant?.bands ? quadrant.bands.inflationHotYoy * 100 : DEFAULT_INFLATION_BOUNDARY_PCT
+  const cx = gx(Math.max(X0, Math.min(X1, growthBoundaryPct)))
+  const cy = gy(Math.max(Y0, Math.min(Y1, inflationBoundaryPct)))
 
   const hasFix = quadrant != null && quadrant.growthYoy != null && quadrant.inflationYoy != null
   const growthPct = hasFix ? quadrant!.growthYoy! * 100 : null
@@ -165,8 +183,8 @@ function QuadrantChart({ quadrant }: { quadrant: MacroQuadrant | undefined }) {
         {/* crosshair boundaries */}
         <line x1={cx} y1={PT} x2={cx} y2={PB} className="md-quad-cross" />
         <line x1={PL} y1={cy} x2={PR} y2={cy} className="md-quad-cross" />
-        <text className="md-quad-bound" x={cx + 4} y={PB - 4} textAnchor="start">{GROWTH_BOUNDARY_PCT.toFixed(0)}% growth</text>
-        <text className="md-quad-bound" x={PR - 4} y={cy - 4} textAnchor="end">{INFLATION_BOUNDARY_PCT.toFixed(1)}% inflation</text>
+        <text className="md-quad-bound" x={cx + 4} y={PB - 4} textAnchor="start">{fmtBoundaryPct(growthBoundaryPct)}% growth</text>
+        <text className="md-quad-bound" x={PR - 4} y={cy - 4} textAnchor="end">{fmtBoundaryPct(inflationBoundaryPct)}% inflation</text>
 
         {/* axes + ticks */}
         <line x1={PL} y1={PT} x2={PL} y2={PB} className="md-quad-axis" />
@@ -259,7 +277,7 @@ function VoteTally({ signals, regime }: { signals: MacroSignalReading[]; regime:
 // Compact strip (results page)
 // ---------------------------------------------------------------------------
 
-export function MacroStrip({ snapshot }: { snapshot: MacroSnapshot | null }) {
+export function MacroStrip({ snapshot, assetClass }: { snapshot: MacroSnapshot | null; assetClass?: string }) {
   if (!snapshot) {
     return (
       <span className="md-strip">
@@ -268,7 +286,13 @@ export function MacroStrip({ snapshot }: { snapshot: MacroSnapshot | null }) {
       </span>
     )
   }
-  const posture: Posture | undefined = snapshot.postures['*'] ?? Object.values(snapshot.postures)[0]
+  // Posture resolution mirrors scoring (DealIntake's livePosture): the deal's
+  // asset class first, '*' fallback — so with an asset-specific override the
+  // strip can never show a different colour than the gates actually ran under.
+  // Without an assetClass the legacy '*'-first read stands.
+  const posture: Posture | undefined = assetClass
+    ? snapshot.postures[assetClass] ?? snapshot.postures['*']
+    : snapshot.postures['*'] ?? Object.values(snapshot.postures)[0]
   const notPersisted = (snapshot as { persisted?: boolean }).persisted === false
   const qLabel = snapshot.quadrant?.label
   return (
@@ -296,18 +320,79 @@ export function MacroStrip({ snapshot }: { snapshot: MacroSnapshot | null }) {
 // Main dashboard
 // ---------------------------------------------------------------------------
 
-export default function MacroDashboard({ snapshot, loading, error, onOverride, onRefresh }: Props) {
-  const [ovRegime, setOvRegime] = useState<Regime>('soft_landing')
+export default function MacroDashboard({ snapshot, loading, error, onOverride, onRefresh, isAdmin }: Props) {
+  // '' = no forced regime (signals-only override) — the default, so entering a
+  // signal value can never silently force a regime as a side effect.
+  const [ovRegime, setOvRegime] = useState<Regime | ''>('')
+  const [ovSignals, setOvSignals] = useState<Record<string, string>>({})
+  // Signals the analyst has marked "clear the recorded value" (✕ toggle).
+  // Only offered where a recorded reading exists — clearing an empty signal
+  // is meaningless.
+  const [ovClears, setOvClears] = useState<Record<string, boolean>>({})
   const [ovNote, setOvNote] = useState('')
   const [ovBusy, setOvBusy] = useState(false)
   const [ovError, setOvError] = useState<string | null>(null)
+
+  // Configured manual-entry signals (fred: null server-side). The API names
+  // them via manualSignalIds; when the field is absent (older stored payloads,
+  // degraded rulebook read) no inputs render and the form falls back to the
+  // regime-only override exactly as before.
+  const manualIds = (snapshot as { manualSignalIds?: string[] } | null)?.manualSignalIds ?? []
+  const readingById = new Map((snapshot?.signals ?? []).map(s => [s.id, s] as const))
+
+  // Parse typed values; only finite numbers ride. type="number" inputs make a
+  // non-numeric string nearly impossible, but never silently drop one — block
+  // the submit instead.
+  const parsedSignals: Record<string, number> = {}
+  let invalidSignal = false
+  for (const [id, raw] of Object.entries(ovSignals)) {
+    const t = raw.trim()
+    if (!t) continue
+    const n = Number(t)
+    if (Number.isFinite(n)) parsedSignals[id] = n
+    else invalidSignal = true
+  }
+  // Per-signal submission states — mirrors the server's clearing contract
+  // (netlify/functions/macro.ts): for each manual signal id in signalValues,
+  //   value  = set   — a finite number becomes this week's manual reading;
+  //   null   = clear — explicitly wipes the recorded reading back to NO DATA;
+  //   absent = carry — blank-and-untouched leaves the recorded reading to
+  //                    carry forward server-side.
+  // Clears only ride for signals that still show a recorded value (a refresh
+  // can retire a reading after the toggle was set — a stale clear is a no-op
+  // and must not enable a payload-free submit).
+  const signalPayload: Record<string, number | null> = { ...parsedSignals }
+  for (const [id, on] of Object.entries(ovClears)) {
+    if (!on) continue
+    const cur = readingById.get(id)?.value
+    if (cur != null && Number.isFinite(cur)) signalPayload[id] = null
+  }
+  const hasSignalPayload = Object.keys(signalPayload).length > 0
+
+  // Clearing and typing are mutually exclusive per signal: toggling the clear
+  // drops any draft value, and typing (input re-enabled) requires untoggling.
+  function toggleClear(id: string) {
+    setOvClears(c => ({ ...c, [id]: !c[id] }))
+    setOvSignals(v => {
+      if (!(id in v)) return v
+      const next = { ...v }
+      delete next[id]
+      return next
+    })
+  }
 
   async function applyOverride() {
     setOvBusy(true)
     setOvError(null)
     try {
-      await onOverride({ regime: ovRegime, note: ovNote.trim() })
+      await onOverride({
+        ...(ovRegime ? { regime: ovRegime } : {}),
+        ...(hasSignalPayload ? { signalValues: signalPayload } : {}),
+        note: ovNote.trim(),
+      })
       setOvNote('')
+      setOvSignals({})
+      setOvClears({})
     } catch (e) {
       setOvError(e instanceof Error ? e.message : String(e))
     } finally {
@@ -442,43 +527,95 @@ export default function MacroDashboard({ snapshot, loading, error, onOverride, o
               <div className="md-market-grid">
                 <div className="md-stat">
                   <div className="md-stat-label"><Term k="sofr">SOFR</Term></div>
-                  <div className="md-stat-value">{fmtRatePct(snapshot.market.sofr)}</div>
+                  <div className="md-stat-value">{fmtRateLevelPct(snapshot.market.sofr)}</div>
                 </div>
                 <div className="md-stat">
                   <div className="md-stat-label">10Y Treasury</div>
-                  <div className="md-stat-value">{fmtRatePct(snapshot.market.treasury10y)}</div>
+                  <div className="md-stat-value">{fmtRateLevelPct(snapshot.market.treasury10y)}</div>
                 </div>
                 <div className="md-stat">
                   <div className="md-stat-label">30Y Mortgage</div>
-                  <div className="md-stat-value">{fmtRatePct(snapshot.market.mortgage30y)}</div>
+                  <div className="md-stat-value">{fmtRateLevelPct(snapshot.market.mortgage30y)}</div>
                 </div>
                 <div className="md-stat">
                   <div className="md-stat-label">S&amp;P 500 · 1y</div>
-                  <div className="md-stat-value">{fmtRatePct(snapshot.market.sp500.ret1y)}</div>
+                  <div className="md-stat-value">{fmtReturnPct(snapshot.market.sp500.ret1y)}</div>
                 </div>
                 <div className="md-stat">
                   <div className="md-stat-label">S&amp;P 500 · 3y ann.</div>
-                  <div className="md-stat-value">{fmtRatePct(snapshot.market.sp500.ret3y)}</div>
+                  <div className="md-stat-value">{fmtReturnPct(snapshot.market.sp500.ret3y)}</div>
                 </div>
                 <div className="md-stat">
                   <div className="md-stat-label">S&amp;P 500 · 5y ann.</div>
-                  <div className="md-stat-value">{fmtRatePct(snapshot.market.sp500.ret5y)}</div>
+                  <div className="md-stat-value">{fmtReturnPct(snapshot.market.sp500.ret5y)}</div>
                 </div>
               </div>
             </div>
           )}
 
-          {/* 7 — Manual override */}
+          {/* 7 — Manual override — admin-only where auth is on; 'auth-off'
+              keeps it visible for everyone, exactly as before */}
+          {isAdmin !== false && (
           <div className="card md-card">
             <div className="md-section-title">Patel override</div>
+            {manualIds.length > 0 && (
+              <div className="md-ov-signals">
+                <div className="md-ov-signals-title">Analyst-entered signals</div>
+                <div className="md-ov-signals-note">
+                  These signals have no data feed — a value typed here is recorded as this
+                  week's reading and marked manual. It lasts only until the next automatic
+                  snapshot; a field left blank carries its recorded value forward, and ✕
+                  clears the recorded value back to NO DATA. A regime override is not
+                  required to submit values or clears (the reason note is).
+                </div>
+                <div className="md-ov-signal-grid">
+                  {manualIds.map(id => {
+                    const reading = readingById.get(id)
+                    const current = reading?.value
+                    const hasRecorded = current != null && Number.isFinite(current)
+                    const cleared = hasRecorded && !!ovClears[id]
+                    return (
+                      <label className="md-field" key={id}>
+                        <span className="md-field-label">{reading?.label ?? id}</span>
+                        <span className="md-ov-input-row">
+                          <input
+                            type="number"
+                            step="any"
+                            value={cleared ? '' : ovSignals[id] ?? ''}
+                            onChange={e => setOvSignals(v => ({ ...v, [id]: e.target.value }))}
+                            placeholder={cleared ? 'cleared' : hasRecorded ? String(current) : 'no data'}
+                            disabled={ovBusy || cleared}
+                          />
+                          {hasRecorded && (
+                            <button
+                              type="button"
+                              className="md-clear-btn"
+                              aria-pressed={cleared}
+                              aria-label={cleared
+                                ? `Keep the recorded value for ${reading?.label ?? id}`
+                                : `Clear the recorded value for ${reading?.label ?? id}`}
+                              title={cleared ? 'Keep the recorded value' : 'Clear recorded value — submits as NO DATA'}
+                              onClick={() => toggleClear(id)}
+                              disabled={ovBusy}
+                            >✕</button>
+                          )}
+                        </span>
+                        {cleared && <span className="md-clear-note">clears to NO DATA on apply</span>}
+                      </label>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
             <div className="md-override">
               <label className="md-field">
                 <span className="md-field-label">Regime</span>
                 <select
                   value={ovRegime}
-                  onChange={e => setOvRegime(e.target.value as Regime)}
+                  onChange={e => setOvRegime(e.target.value as Regime | '')}
                   disabled={ovBusy}
                 >
+                  <option value="">{manualIds.length > 0 ? 'No forced regime — signals only' : 'No forced regime'}</option>
                   {(Object.keys(REGIME_PRETTY) as Regime[]).map(r => (
                     <option key={r} value={r}>{REGIME_PRETTY[r]}</option>
                   ))}
@@ -497,7 +634,7 @@ export default function MacroDashboard({ snapshot, loading, error, onOverride, o
               <button
                 className="md-apply"
                 onClick={applyOverride}
-                disabled={ovBusy || ovNote.trim() === ''}
+                disabled={ovBusy || ovNote.trim() === '' || invalidSignal || (ovRegime === '' && !hasSignalPayload)}
               >
                 {ovBusy ? 'Applying…' : 'Apply override'}
               </button>
@@ -507,8 +644,9 @@ export default function MacroDashboard({ snapshot, loading, error, onOverride, o
                 <span className="md-error-dot" aria-hidden="true" />Error — {ovError}
               </div>
             )}
-            <div className="md-helper">Overrides are logged and hold until next Monday's automatic snapshot.</div>
+            <div className="md-helper">Overrides are logged and hold until next Monday's automatic snapshot, which recomputes from automatic history alone — a forced regime or entered value never outlives the week.</div>
           </div>
+          )}
         </>
       )}
     </div>
@@ -615,9 +753,22 @@ const CSS = `
 .md-field{display:flex;flex-direction:column;gap:.35rem}
 .md-field-grow{flex:1 1 260px}
 .md-field-label{font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted,#5c6b67);font-weight:600}
-.md-field select,.md-field textarea{border:1px solid var(--border,#dcebe7);border-radius:8px;padding:.5rem .7rem;
+.md-field select,.md-field textarea,.md-field input{border:1px solid var(--border,#dcebe7);border-radius:8px;padding:.5rem .7rem;
   background:var(--surface,#fff);font-size:.88rem;color:inherit}
 .md-field textarea{resize:vertical;min-height:2.6rem;width:100%}
+.md-ov-signals{margin-bottom:1.1rem;padding-bottom:1.1rem;border-bottom:1px dashed var(--border,#dcebe7)}
+.md-ov-signals-title{font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted,#5c6b67);font-weight:600;margin-bottom:.25rem}
+.md-ov-signals-note{font-size:.76rem;color:var(--muted,#5c6b67);margin-bottom:.8rem;max-width:64ch}
+.md-ov-signal-grid{display:flex;flex-wrap:wrap;gap:1rem}
+.md-ov-signal-grid .md-field input{width:10rem}
+.md-ov-input-row{display:flex;align-items:center;gap:.45rem}
+.md-clear-btn{flex-shrink:0;width:1.75rem;height:1.75rem;display:inline-flex;align-items:center;justify-content:center;padding:0;
+  border:1px solid var(--border,#dcebe7);border-radius:8px;background:var(--surface,#fff);color:var(--muted,#5c6b67);
+  font-size:.78rem;line-height:1;cursor:pointer}
+.md-clear-btn:hover:not(:disabled){color:var(--danger,#c2384a);border-color:var(--danger,#c2384a)}
+.md-clear-btn[aria-pressed="true"]{color:#fff;background:var(--danger,#c2384a);border-color:var(--danger,#c2384a)}
+.md-clear-btn:disabled{opacity:.5;cursor:default}
+.md-clear-note{font-size:.7rem;color:var(--danger,#c2384a);font-weight:500}
 .md-apply{flex-shrink:0}
 .md-helper{margin-top:.8rem;font-size:.76rem;color:var(--muted,#5c6b67)}
 .md-ov-error{display:flex;align-items:center;gap:.5rem;margin-top:.7rem;font-size:.82rem;color:var(--danger,#c2384a);font-weight:500}
