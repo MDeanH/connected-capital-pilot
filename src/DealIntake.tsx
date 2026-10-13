@@ -10,6 +10,7 @@ import JudgmentPanel from './JudgmentPanel'
 import MacroDashboard, { MacroStrip } from './MacroDashboard'
 import ThresholdConfig from './ThresholdConfig'
 import Backtest from './Backtest'
+import PerformanceTrends from './PerformanceTrends'
 import DealHistory from './DealHistory'
 import LocationIntelCard from './LocationIntelCard'
 import { buildCrossChecks } from './marketCrossChecks'
@@ -30,8 +31,8 @@ import type {
   Posture,
 } from './deal-types'
 
-type Step = 'intake' | 'review' | 'results' | 'thresholds' | 'macro' | 'backtest' | 'deals' | 'users'
-const STEP_IDS: Step[] = ['intake', 'review', 'results', 'thresholds', 'macro', 'backtest', 'deals', 'users']
+type Step = 'intake' | 'review' | 'results' | 'thresholds' | 'macro' | 'backtest' | 'trends' | 'deals' | 'users'
+const STEP_IDS: Step[] = ['intake', 'review', 'results', 'thresholds', 'macro', 'backtest', 'trends', 'deals', 'users']
 
 // Working-state storage keys live in auth.ts (one definition — signOut clears
 // them there); local aliases keep the call sites readable.
@@ -684,6 +685,7 @@ export default function DealIntake() {
     thresholds: 'THRESHOLDS',
     macro: 'MACRO',
     backtest: 'BACKTEST',
+    trends: 'TRENDS',
     deals: 'DEALS',
     users: 'USERS',
   }
@@ -691,8 +693,8 @@ export default function DealIntake() {
   // The USERS chip appears only for a signed-in admin — never in auth-off
   // mode, where there are no accounts to manage.
   const toolSteps: Step[] = isAdmin === true
-    ? ['thresholds', 'macro', 'backtest', 'deals', 'users']
-    : ['thresholds', 'macro', 'backtest', 'deals']
+    ? ['thresholds', 'macro', 'backtest', 'trends', 'deals', 'users']
+    : ['thresholds', 'macro', 'backtest', 'trends', 'deals']
 
   // Sign-in wall — on a REQUIRE_ACCOUNTS deployment (server-declared via
   // /api/auth/status) a signed-out visitor gets the sign-in card and nothing
@@ -909,6 +911,8 @@ export default function DealIntake() {
           isAdmin={isAdmin}
         />
       )}
+
+      {step === 'trends' && <PerformanceTrends />}
 
       {/* MACRO — the weekly snapshot that moves the bar */}
       {step === 'macro' && (
