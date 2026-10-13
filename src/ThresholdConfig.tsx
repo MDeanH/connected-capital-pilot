@@ -5,10 +5,11 @@
 // the proof. Drafts can also ADD per-asset-class override rows (the engine
 // already resolves most-specific-wins); rows already in the active version are
 // never deletable here — saved versions are append-only history.
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode, Fragment } from 'react'
 import { Term } from './GlossaryTip'
 import { fmtThreshold } from './format'
 import { ASSET_CLASSES } from './deal-types'
+import { resolveThresholds } from '../netlify/functions/lib/gate1/thresholds'
 import { type AdminFlag } from './auth'
 import type { Gate1Config, ThresholdRow } from '../netlify/functions/lib/gate1/types'
 
@@ -303,6 +304,10 @@ export default function ThresholdConfig({ active, draft, onDraftChange, onSave, 
       </div>
 
       <h3 className="tc-section">Gate thresholds</h3>
+      <p className="tc-muted">Green, yellow and red columns show the engine's effective values.
+        Shared values apply to all postures unless a more specific row takes precedence.
+        Edit a shared value once, or add a class override below the metric.
+        This rulebook supports asset classes; separate sub-asset-class thresholds are not configured.</p>
       <div className="card tc-card">
         {[...groups.entries()].map(([key, rows]) => {
           const warn = postureWarning(key, rows)
@@ -324,35 +329,61 @@ export default function ThresholdConfig({ active, draft, onDraftChange, onSave, 
                 {pretty}
                 {pretty !== key && <span className="tc-group-key">{key}</span>}
               </div>
-              {rows.map(({ row, idx }) => {
-                const isNew = isNewRow(row)
-                return (
-                  <div className="tc-row" key={`${row.asset_class}-${row.posture}`}>
-                    <Chip>{row.asset_class === '*' ? 'all classes' : row.asset_class}</Chip>
-                    <Chip tone={row.posture === '*' ? 'neutral' : row.posture === 'green' ? 'green' : 'amber'}>
-                      {row.posture === '*' ? 'all postures' : `${row.posture} posture`}
-                    </Chip>
-                    <NumInput
-                      key={`${inputKey}-th-${key}-${row.asset_class}-${row.posture}`}
-                      value={row.value}
-                      ariaLabel={`${key} for ${row.asset_class} / ${row.posture}`}
-                      onCommit={v => edit(cfg => { cfg.thresholds[idx].value = v })}
-                    />
-                    <ThresholdHint thresholdKey={row.key} value={row.value} />
-                    {isNew && <Chip tone="amber">new</Chip>}
-                    {isNew && (
-                      <button
-                        className="tc-row-remove"
-                        title="Remove this draft row"
-                        aria-label={`Remove ${key} override for ${row.asset_class} / ${row.posture}`}
-                        onClick={() => edit(cfg => { cfg.thresholds.splice(idx, 1) })}
-                      >
-                        ×
-                      </button>
-                    )}
-                  </div>
-                )
-              })}
+              <div className="tc-grid-scroll" tabIndex={0} aria-label={`${pretty} posture grid`}>
+                <table className="tc-grid">
+                  <caption>{pretty} by asset class and posture</caption>
+                  <thead><tr>
+                    <th scope="col">Asset class</th>
+                    {(['green', 'yellow', 'red'] as const).map(p => (
+                      <th scope="col" className={`tc-posture-${p}`} key={p}>{p} posture</th>
+                    ))}
+                  </tr></thead>
+                  <tbody>
+                    {[...new Set(rows.map(({ row }) => row.asset_class))].map(ac => {
+                      const shared = rows.find(({ row }) => row.asset_class === ac && row.posture === '*')
+                      const renderEditor = ({ row, idx }: { row: ThresholdRow; idx: number }) => (
+                        <div className="tc-cell-value">
+                          <NumInput
+                            key={`${inputKey}-th-${key}-${row.asset_class}-${row.posture}`}
+                            value={row.value}
+                            ariaLabel={`${key} for ${row.asset_class} / ${row.posture}`}
+                            onCommit={v => edit(cfg => { cfg.thresholds[idx].value = v })}
+                          />
+                          <ThresholdHint thresholdKey={row.key} value={row.value} />
+                          {isNewRow(row) && <>
+                            <Chip tone="amber">new</Chip>
+                            <button className="tc-row-remove" title="Remove this draft row"
+                              aria-label={`Remove ${key} override for ${row.asset_class} / ${row.posture}`}
+                              onClick={() => edit(cfg => { cfg.thresholds.splice(idx, 1) })}>×</button>
+                          </>}
+                        </div>
+                      )
+                      return (
+                        <Fragment key={ac}>
+                          {shared && <tr>
+                            <th scope="row">{ac === '*' ? 'All classes' : ac}<span className="tc-cell-source">Shared value · all postures</span></th>
+                            <td colSpan={3}>{renderEditor(shared)}</td>
+                          </tr>}
+                          <tr>
+                            <th scope="row">{ac === '*' ? 'All classes' : ac}<span className="tc-cell-source">Effective values</span></th>
+                            {(['green', 'yellow', 'red'] as const).map(posture => {
+                              const resolved = resolveThresholds(working, ac, posture)[key]
+                              const own = rows.find(({ row }) => row.asset_class === ac && row.posture === posture)
+                              const editable = own && resolved?.source.asset_class === ac && resolved.source.posture === posture
+                              return <td key={posture}>
+                                {editable ? renderEditor(own) : resolved ? <>
+                                  <span>{fmtThreshold(key, resolved.effective)}</span>
+                                  <span className="tc-cell-source">Inherited: {resolved.source.asset_class === '*' ? 'all classes' : resolved.source.asset_class} / {resolved.source.posture === '*' ? 'all postures' : resolved.source.posture}</span>
+                                </> : <span className="tc-cell-source">No configured value</span>}
+                              </td>
+                            })}
+                          </tr>
+                        </Fragment>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
               {addableClasses.length > 0 && (
                 <div className="tc-add-row">
                   <select
@@ -437,7 +468,7 @@ export default function ThresholdConfig({ active, draft, onDraftChange, onSave, 
               />
             </label>
             <label className="tc-sig-field">
-              <span>yellow {cmp}</span>
+              <span>yellow {cmp} (after green)</span>
               <NumInput
                 key={`${inputKey}-sy-${sig.id}`}
                 value={sig.yellow}
@@ -445,6 +476,15 @@ export default function ThresholdConfig({ active, draft, onDraftChange, onSave, 
                 onCommit={v => edit(cfg => { const s = cfg.macro.signals?.[i]; if (s) s.yellow = v })}
               />
             </label>
+            <div className="tc-red-rule">
+              <strong>Red rule</strong>
+              <span>After the green and yellow checks, red applies when the value is
+                {' '}{sig.direction === 'high_is_good' ? '<' : '>'} {sig.direction === 'high_is_good' ? Math.min(sig.green, sig.yellow) : Math.max(sig.green, sig.yellow)}.</span>
+              <span className="tc-cell-source">Derived from the ordered green and yellow checks; no separate red cutoff is stored.</span>
+              {((sig.direction === 'high_is_good' && sig.green < sig.yellow) ||
+                (sig.direction === 'high_is_bad' && sig.green > sig.yellow)) &&
+                <span className="tc-warn-text">Bands overlap: green is checked first. Review the ordering.</span>}
+            </div>
           </div>
           )
         })}
@@ -459,6 +499,18 @@ export default function ThresholdConfig({ active, draft, onDraftChange, onSave, 
 }
 
 const CSS = `
+.tc-grid-scroll{max-width:100%;overflow-x:auto}
+.tc-grid{width:100%;border-collapse:collapse;min-width:610px;font-size:.83rem}
+.tc-grid caption{text-align:left;font-size:.75rem;color:var(--muted,#5c6b67);padding:.3rem 0}
+.tc-grid th,.tc-grid td{text-align:left;vertical-align:top;padding:.6rem;border-bottom:1px solid var(--border,#dcebe7);width:25%}
+.tc-grid thead th{text-transform:capitalize}
+.tc-posture-green{color:#3f7d69;background:#e4f5ee}
+.tc-posture-yellow{color:#8a6508;background:#fbf3df}
+.tc-posture-red{color:#a83a3a;background:#fceeee}
+.tc-cell-value{display:flex;gap:.35rem;align-items:center;flex-wrap:wrap}
+.tc-cell-source{display:block;font-size:.72rem;font-weight:400;color:var(--muted,#5c6b67);margin-top:.25rem}
+.tc-red-rule{flex:1 1 230px;font-size:.78rem;padding:.6rem;border-left:3px solid #a83a3a;background:#fceeee}
+.tc-red-rule strong,.tc-red-rule span{display:block}
 .tc-root{max-width:1180px;margin:0 auto}
 .tc-title{font-family:'Roboto',system-ui,sans-serif;font-weight:300;font-size:1.5rem;letter-spacing:-.01em;margin:0}
 .tc-header{display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:1rem}
