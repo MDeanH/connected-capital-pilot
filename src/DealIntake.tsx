@@ -490,7 +490,7 @@ export default function DealIntake() {
   const hasDealName = typeof coerced.deal_name === 'string' && !!coerced.deal_name.trim()
 
   // The live macro posture for this deal's asset class ('*' fallback) — macro
-  // moves the bar automatically; Patel can override it on the Macro page.
+  // moves the bar automatically; a manual macro override is available on the Macro page.
   const livePosture: Posture | undefined = useMemo(() => {
     if (!macro?.postures || !coerced.asset_class) return undefined
     return macro.postures[coerced.asset_class] ?? macro.postures['*']
@@ -753,6 +753,13 @@ export default function DealIntake() {
           </span>
         ))}
       </nav>
+
+      <p className="di-muted">
+        Intake → Review → Screening Results → Threshold Config. Use Thresholds to review
+        the rulebook, then return to Screening Results to preview draft changes.
+        Screening previews are live, unpersisted sandbox runs. A decision is saved only
+        when Record Decision succeeds.
+      </p>
 
       {/* ① INTAKE — document ingest is the only way in */}
       {step === 'intake' && <IntakeUpload onExtracted={handleExtracted} />}
