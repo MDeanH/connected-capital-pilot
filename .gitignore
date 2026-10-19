@@ -82,5 +82,5 @@ data/*.csv
 data/*.zip
 deno.lock
 
-api/gateway.js
+vercel/engine.mjs
 .vercel/

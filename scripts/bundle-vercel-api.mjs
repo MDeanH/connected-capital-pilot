@@ -2,7 +2,8 @@
 // rejects this repo's .ts import specifiers, extensionless relative imports,
 // and JSON imports. esbuild bundles the existing sources into one ESM
 // function. A bracket catch-all file is built but not routed, so the function
-// is api/gateway.js and vercel.json rewrites /api/* onto it.
+// is api/gateway.js and vercel.json rewrites /api/* onto it. A small tracked
+// entry lets Git deployments discover the function before the build runs.
 import { build } from 'esbuild'
 import { rm } from 'node:fs/promises'
 
@@ -12,7 +13,7 @@ await build({
   platform: 'node',
   format: 'esm',
   target: 'node20',
-  outfile: 'api/gateway.js',
+  outfile: 'vercel/engine.mjs',
   packages: 'external',
   logLevel: 'info',
 })
