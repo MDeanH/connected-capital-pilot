@@ -81,3 +81,6 @@ data/*.csv
 # BEA raw zip (population source for ingest_permits.py)
 data/*.zip
 deno.lock
+
+api/gateway.js
+.vercel/

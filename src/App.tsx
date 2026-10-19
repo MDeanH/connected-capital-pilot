@@ -11,24 +11,7 @@ export default function App() {
       <header>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '1rem', flexWrap: 'wrap' }}>
           <div>
-            <h1 style={{ fontSize: '1.6rem' }}>
-              Connected Capital{' '}
-              <span
-                style={{
-                  fontSize: '0.6rem',
-                  fontWeight: 700,
-                  verticalAlign: 'middle',
-                  background: '#e4f5ee',
-                  color: '#3f7d69',
-                  border: '1px solid #bcded3',
-                  borderRadius: 6,
-                  padding: '2px 8px',
-                  letterSpacing: '0.06em',
-                }}
-              >
-                INSTITUTIONAL PILOT
-              </span>
-            </h1>
+            <h1 style={{ fontSize: '1.6rem' }}>CCCPrototype</h1>
             <div style={{ fontSize: '0.72rem', color: 'var(--muted)', letterSpacing: '0.12em', textTransform: 'uppercase', fontWeight: 500 }}>
               Deal diligence — Gate 1 screening · macro-aware thresholds · auditable decisions
             </div>

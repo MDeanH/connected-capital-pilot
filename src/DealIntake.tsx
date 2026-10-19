@@ -10,7 +10,7 @@ import JudgmentPanel from './JudgmentPanel'
 import MacroDashboard, { MacroStrip } from './MacroDashboard'
 import ThresholdConfig from './ThresholdConfig'
 import Backtest from './Backtest'
-import PerformanceTrends from './PerformanceTrends'
+import MacroTrends from './MacroTrends'
 import DealHistory from './DealHistory'
 import LocationIntelCard from './LocationIntelCard'
 import { buildCrossChecks } from './marketCrossChecks'
@@ -542,7 +542,7 @@ export default function DealIntake() {
         if (previewSeqRef.current === seq) setScoring(false)
       }
     }, 400)
-    return () => clearTimeout(t)
+    return () => { clearTimeout(t); previewSeqRef.current++ }
   }, [coerced, adjustments, step, canScore, livePosture, draftConfig, reviewNonce])
 
   const recordDecision = async () => {
@@ -628,6 +628,10 @@ export default function DealIntake() {
   // form's starting state. Extraction never guesses — nulls stay empty and land
   // in the "needs attention" strip for the analyst.
   const handleExtracted = (result: ExtractionResult) => {
+    previewSeqRef.current++ // reject any in-flight response for the previous deal
+    setPreviewStale(true)
+    setScoring(false)
+    setScoreErr(null)
     const values: IntakeFormValues = {}
     for (const f of ALL_FIELDS) {
       const ex = result.fields[f.key]
@@ -654,6 +658,10 @@ export default function DealIntake() {
   // `edited` (IntakeReview then swaps the confidence chip for "analyst-edited"
   // and drops the citation); restoring the original value clears the flag.
   const handleFieldChange = (key: keyof DealFields, rawValue: string) => {
+    previewSeqRef.current++
+    setLastResponse(null)
+    setPreviewStale(true)
+    setDecision(null)
     if (key === 'deal_name') {
       // A different name is a different deal — drop the stored server identity
       // so the next decide opens a fresh deals row instead of accreting onto
@@ -685,7 +693,7 @@ export default function DealIntake() {
     thresholds: 'THRESHOLDS',
     macro: 'MACRO',
     backtest: 'BACKTEST',
-    trends: 'TRENDS',
+    trends: 'MACRO TRENDS',
     deals: 'DEALS',
     users: 'USERS',
   }
@@ -912,7 +920,7 @@ export default function DealIntake() {
         />
       )}
 
-      {step === 'trends' && <PerformanceTrends />}
+      {step === 'trends' && <MacroTrends />}
 
       {/* MACRO — the weekly snapshot that moves the bar */}
       {step === 'macro' && (

@@ -1,8 +1,7 @@
 // Intake = document ingest. The dropzones are the product's front door: the OM
 // and pro forma go in, the AI pulls every field out, the analyst verifies.
-// There is deliberately no blank-form path — the recorded sample (a captured
-// extraction of the client's example documents) exists so the flow can be
-// demoed before ANTHROPIC_API_KEY is configured.
+// The recorded sample and an empty manual review form support the prototype
+// without an extraction API; starting a deal never reuses the sample values.
 import { useEffect, useRef, useState } from 'react'
 import { authFetch, PENDING_EXTRACTION_KEY, supabase, useIdentity } from './auth'
 import { Kicker } from './cc-ui'
@@ -435,6 +434,12 @@ export default function IntakeUpload({ onExtracted }: Props) {
           </span>
         </div>
       )}
+      <div className="iu-actions">
+        <button className="secondary" disabled={!!busy} onClick={() => onExtracted({ fields: {}, discrepancies: [] })}>
+          START A NEW DEAL MANUALLY
+        </button>
+        <span className="iu-resume-note">Start with empty fields; no sample values are copied.</span>
+      </div>
       <div className="iu-sample">
         <button className="iu-sample-btn" onClick={() => onExtracted(SAMPLE_EXTRACTION)}>
           <span className="iu-sample-big">New here? Load the sample deal →</span>

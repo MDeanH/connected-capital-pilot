@@ -1,0 +1,13 @@
+{
+  "source": "Krunal feedback, 2026-10-15; prototype trend parameters only",
+  "lookbackWeeks": 13,
+  "signals": [
+    {"id":"sahm","label":"Sahm Rule","group":"slowdown","weight":2,"yellow":0.20,"red":0.45,"unit":"pp"},
+    {"id":"gdp","label":"Real GDP, 2-quarter average","group":"slowdown","weight":1.5,"yellow":0.02,"red":0.005,"unit":"%"},
+    {"id":"hy","label":"HY OAS","group":"slowdown","weight":1.5,"yellow":400,"red":550,"unit":"bps"},
+    {"id":"unemployment","label":"Unemployment, 6-month change","group":"slowdown","weight":1,"yellow":0.45,"red":0.55,"unit":"pp"},
+    {"id":"claims","label":"Jobless claims, YoY","group":"slowdown","weight":1,"yellow":5,"red":25,"unit":"%"},
+    {"id":"ism","label":"ISM Manufacturing","group":"slowdown","weight":0.5,"yellow":52,"red":48,"unit":"index"},
+    {"id":"pce","label":"Core PCE","group":"inflation","weight":1.5,"yellow":2.5,"red":3.5,"unit":"%"}
+  ]
+}
