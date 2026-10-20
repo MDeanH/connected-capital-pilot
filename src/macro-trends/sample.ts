@@ -35,6 +35,6 @@ export function macroSample(id: SampleScenarioId) {
 export function readingLabel(id: SignalId, value: number | null) {
   if (value === null) return 'Unavailable'
   const def = SIGNALS.find(s => s.id === id)!
-  const digits = id === 'gdp' ? 4 : id === 'hy' ? 0 : 2
+  const digits = id === 'gdp' ? 6 : 4
   return `${Number(value.toFixed(digits))}${def.unit === '%' ? '%' : ` ${def.unit}`}`
 }

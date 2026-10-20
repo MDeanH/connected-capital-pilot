@@ -76,3 +76,22 @@ are restricted. The project scripts and lockfile are unchanged.
 Real browser verification is performed against the separate feedback preview;
 this sandbox's localhost cannot be reached from the connected cloud browser.
 No existing production/preview alias is promoted or replaced.
+
+## Browser acceptance run
+
+The Git feedback preview was exercised in the connected Chrome browser:
+all six macro scenarios produce the expected posture/trend separation;
+the score table contains 14 dated rows; the sample deal retains its FAIL,
+three hard kills and posture comparisons; Summary, Financials, Market,
+Sponsor and Issues render. Starting a new manual deal clears name, cost
+and sample provenance; entering a new multifamily name produces REVIEW
+with missing inputs rather than old RV results. Threshold green/yellow/red
+editors remain 125/175/225 for the existing development-spread rows; changing
+a local green draft to 130 and clearing restores 125. No rulebook was saved.
+These preexisting values are not new approved defaults.
+
+Viewport checks at 1400, 768, 390, 360 and 320 found no page-width overflow
+on macro trends. They exposed a focused tooltip retaining an old pixel
+anchor after resize. ChartKit now dismisses that stale anchor on resize;
+this changes presentation only. Display precision also avoids an ETA of
+13–14 caused solely by floating-point representation of 13 weeks.

@@ -16,7 +16,7 @@
 //
 // The app is light-only (cc-theme defines no dark scheme), so charts are too.
 // Status colors mean pass/watch/fail or a macro posture — never series identity.
-import { useCallback, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import type { Posture } from '../deal-types'
 
 export const CK = {
@@ -110,6 +110,14 @@ export function useTooltip() {
     const fitsAbove = plot.getBoundingClientRect().top + tip.y - th - TIP_GAP >= 0
     el.style.top = `${fitsAbove ? tip.y - th - TIP_GAP : tip.yBelow + TIP_GAP}px`
   }, [tip])
+
+  // A resize can move the focused mark without a new pointer/focus event.
+  // Discard its old pixel anchor rather than leave a tooltip outside the card.
+  useEffect(() => {
+    const dismiss = () => setTip(null)
+    window.addEventListener('resize', dismiss, { passive: true })
+    return () => window.removeEventListener('resize', dismiss)
+  }, [])
 
   const bind = useCallback((lines: TipLine[]) => ({
     tabIndex: 0,

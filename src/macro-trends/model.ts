@@ -132,5 +132,7 @@ export function estimateLabel(weeks: number | null) {
   if (weeks === 0) return 'Boundary reached; weekly evaluation pending'
   if (!Number.isFinite(weeks) || weeks > 1000) return 'More than 1,000 weeks at this pace'
   if (weeks < 1) return 'Less than 1 week'
-  return Number.isInteger(weeks) ? `About ${weeks} weeks` : `About ${Math.floor(weeks)}–${Math.ceil(weeks)} weeks`
+  // Display precision only: avoid showing 13–14 for a computed 13.000000000000002.
+  const shown = Number(weeks.toPrecision(12))
+  return Number.isInteger(shown) ? `About ${shown} weeks` : `About ${Math.floor(shown)}–${Math.ceil(shown)} weeks`
 }

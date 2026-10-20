@@ -127,7 +127,7 @@ test('missing/current history and invalid normalization are explicit', () => {
   assert.equal(groupTrend(.2,null).weeks,null)
 })
 test('display estimates do not invent an uncertainty interval', () => {
-  assert.equal(estimateLabel(2.5),'About 2–3 weeks'); assert.equal(estimateLabel(2),'About 2 weeks')
+  assert.equal(estimateLabel(2.5),'About 2–3 weeks'); assert.equal(estimateLabel(2),'About 2 weeks'); assert.equal(estimateLabel(13.000000000000002),'About 13 weeks')
   assert.ok(estimateLabel(0).includes('weekly evaluation pending'))
 })
 console.log(`RESULT: ${passed} passed, 0 failed`)
